@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#E9EDF1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121820" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Batterie">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="description" content="Monitor del banco batterie LiFePO4: carica, celle, avvisi e storico delle ultime 24 ore.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Banco batterie</title>
+<script>/* tema scelto nelle impostazioni, applicato prima del disegno per evitare il lampo */
+try{var t=JSON.parse(localStorage.getItem("mybattery.settings")||"{}").theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<!--
+  CONTRATTO DATI (prodotto dal firmware ESP32)
+  GET /api/status  ->
+  {
+    "time": 1793460000,              // epoch secondi UTC (RTC della scheda); se l'RTC non è impostato
+                                     // (valore < 1600000000) la pagina usa l'ora del telefono
+    "rssi": -58,                     // segnale WiFi dBm
+    "batteries": [{
+      "addr": 0, "name": "Master", "online": true,
+      "soc": 81.2, "soh": 100,       // %
+      "v": 53.21, "i": 12.4,         // V, A (positiva = carica)
+      "rem_ah": 162.4, "full_ah": 200, "cycles": 34,
+      "cells": [3321, ...16],        // mV
+      "bal": [0,1,0,...16],          // facoltativo: celle in bilanciamento
+      "t_cells": [25.1, ...4], "t_mos": 27.2, "t_env": 24.0,   // °C
+      "alarms": ["CELL_DIFF"], "prot": []                       // codici: vedi MSG nello script
+    }],
+    "limits": {                      // facoltativo: soglie lette con 80H dalla master
+      "bal_start": 3400,             // mV, tensione di avvio bilanciamento (voce 102)
+      "bal_diff": 30,                // mV, differenza di avvio bilanciamento (voce 103)
+      "cell_ov": 3650, "cell_uv": 2500,   // mV, protezione sovra/sottotensione cella (voci 0 e 3)
+      "low_soc": 10                  // %, allarme carica bassa (voce 104)
+    },
+    "history": {                     // ultimo punto = adesso, uno ogni "step" secondi (max 288 = 24 h)
+      "step": 300,
+      "soc": [...],                  // % del banco; null dove mancano dati
+      "p": [...]                     // W del banco, positiva = carica; null dove mancano dati
+    }
+  }
+-->
+<style>
+:root{
+  color-scheme: light;
+  --bg:#E9EDF1; --surface:#F7F9FB; --ink:#18212B; --muted:#5B6773; --line:#D3DAE1;
+  --frame:#26303B; --frame-ink:#C9D1D9;
+  --lith:#17907F; --lith-tint:rgba(23,144,127,.17);
+  --sun:#C98207; --sun-tint:rgba(217,146,11,.16);
+  --cobalt:#2F6FC4; --cobalt-tint:rgba(47,111,196,.14);
+  --alert:#C83A3A; --alert-tint:rgba(200,58,58,.12);
+  --warn:#A86700; --warn-tint:rgba(184,113,0,.16);
+  --stripe:rgba(255,255,255,.35);
+  --num: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542;
+    --frame:#0C1117; --frame-ink:#6B7886;
+    --lith:#2BB8A3; --lith-tint:rgba(43,184,163,.2);
+    --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18);
+    --cobalt:#5B97E6; --cobalt-tint:rgba(91,151,230,.18);
+    --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
+    --warn:#E3A33C; --warn-tint:rgba(227,163,60,.18);
+    --stripe:rgba(255,255,255,.12);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542;
+  --frame:#0C1117; --frame-ink:#6B7886;
+  --lith:#2BB8A3; --lith-tint:rgba(43,184,163,.2);
+  --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18);
+  --cobalt:#5B97E6; --cobalt-tint:rgba(91,151,230,.18);
+  --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
+  --warn:#E3A33C; --warn-tint:rgba(227,163,60,.18);
+  --stripe:rgba(255,255,255,.12);
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-text-size-adjust:100%}
+body{line-height:1.45}
+.app{max-width:480px;margin:0 auto;padding:18px 18px 28px}
+h1,h2{margin:0;font-weight:600}
+h1{font-size:1.05rem;letter-spacing:.01em}
+h2{font-size:1rem;margin:0 0 10px}
+section{margin-top:26px}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+
+/* testata */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.conn{display:inline-flex;align-items:center;gap:7px;font-size:.85rem;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.conn.live .dot{background:var(--lith);box-shadow:0 0 0 0 var(--lith);animation:pulse 2.4s ease-out infinite}
+.conn.stale .dot{background:var(--warn)}
+.conn.demo .dot{background:var(--cobalt)}
+.top-r{display:flex;align-items:center;gap:4px}
+.icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;margin-right:-8px;border:0;border-radius:50%;
+  background:transparent;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
+.icon-btn:hover{background:var(--line);color:var(--ink)}
+.icon-btn:focus-visible{outline:3px solid var(--sun);outline-offset:1px}
+.icon-btn svg{width:21px;height:21px}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--lith-tint)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+/* hero */
+.hero{margin-top:18px}
+.soc{display:flex;align-items:flex-start;line-height:.9}
+.soc .big{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:5.6rem;font-weight:700;letter-spacing:-.03em}
+.soc .pct{font-family:var(--num);font-size:1.9rem;font-weight:600;margin:.55rem 0 0 .2rem;color:var(--muted)}
+.state{margin:10px 0 0;font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:8px}
+.state.chg{color:var(--sun)} .state.dsg{color:var(--cobalt)} .state.idle{color:var(--muted)}
+.eta{margin:2px 0 0;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:18px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.kpis div{padding:10px 0;min-width:0}
+.kpis div:not(:nth-child(3n+1)){padding-left:12px;border-left:1px solid var(--line)}
+.kpis div:nth-child(n+4){border-top:1px solid var(--line)}
+.kpis dt{font-size:.8rem;color:var(--muted)}
+.kpis dd{margin:2px 0 0;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.25rem;font-weight:600;white-space:nowrap}
+.kpis dd.warn{color:var(--warn)}
+
+.notice{margin-top:18px;padding:10px 12px;border-radius:10px;background:var(--cobalt-tint);font-size:.9rem}
+.notice.lost{background:var(--warn-tint)}
+/* dati vecchi: valori attenuati e niente animazioni di flusso */
+.app.stale .hero,.app.stale .rack{opacity:.55;transition:opacity .4s}
+.app.stale .mod .fill{animation:none}
+
+/* armadio rack */
+.rack{background:var(--frame);border-radius:14px;padding:10px;display:grid;gap:7px}
+.mod{position:relative;display:flex;align-items:center;width:100%;min-height:62px;padding:0 10px;
+  border:0;border-radius:7px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;overflow:hidden;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s ease}
+.mod:active{transform:scale(.985)}
+.mod:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.fill{position:absolute;inset:0 auto 0 0;width:var(--soc,0%);background:var(--lith-tint);
+  border-right:2px solid var(--lith);transition:width .8s ease}
+.mod.low .fill{background:var(--warn-tint);border-right-color:var(--warn)}
+.mod.chg .fill,.mod.dsg .fill{background-image:repeating-linear-gradient(-55deg,transparent 0 9px,var(--stripe) 9px 18px);background-size:42px 100%}
+.mod.chg .fill{animation:flow-in 1.6s linear infinite}
+.mod.dsg .fill{animation:flow-out 2.4s linear infinite}
+@keyframes flow-in{from{background-position:0 0}to{background-position:42px 0}}
+@keyframes flow-out{from{background-position:42px 0}to{background-position:0 0}}
+.handle{position:relative;width:5px;height:30px;border-radius:3px;background:var(--line);flex:none}
+.mod-body{position:relative;flex:1;display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;padding:8px 12px}
+.mod-name{font-weight:600}
+.mod-sub{grid-column:1;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:pre}
+.mod-soc{grid-column:2;grid-row:1/span 2;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:700}
+.mod-flag{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px;vertical-align:middle}
+.mod-flag.alarm{background:var(--warn)} .mod-flag.prot{background:var(--alert)}
+.mod.off{background:transparent;outline:1.5px dashed var(--frame-ink);outline-offset:-1.5px;color:var(--frame-ink)}
+.mod.off .fill{display:none}
+.mod.off .mod-sub{color:var(--frame-ink)}
+
+/* avvisi */
+.alerts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.alerts li{padding:10px 12px 10px 14px;border-radius:10px;background:var(--warn-tint);border-left:4px solid var(--warn)}
+.alerts li.prot{background:var(--alert-tint);border-left-color:var(--alert)}
+.alerts b{font-weight:600}
+.alerts span{display:block;font-size:.85rem;color:var(--muted)}
+.ok{margin:0;color:var(--muted)}
+
+/* storico */
+.hist{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
+.hist-read{margin:0 0 8px;min-height:2.9em;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hist-read b{color:var(--ink);font-weight:600}
+.hist-read .in{color:var(--sun)} .hist-read .out{color:var(--cobalt)}
+.legend{margin:8px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
+.legend span{white-space:nowrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 5px 0 0;vertical-align:-1px}
+
+footer{margin-top:30px;padding-top:12px;border-top:1px solid var(--line);font-size:.85rem;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* scheda dettaglio */
+dialog{border:0;padding:0;margin:auto auto 0;width:100%;max-width:480px;max-height:88vh;
+  border-radius:18px 18px 0 0;background:var(--surface);color:var(--ink);box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+dialog::backdrop{background:rgba(10,14,20,.45)}
+dialog[open]{animation:sheet-up .28s ease-out}
+@keyframes sheet-up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.sheet{padding:10px 18px calc(22px + env(safe-area-inset-bottom,0px));overflow:auto;max-height:88vh}
+.grab{width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sheet-head h2{margin:0;font-size:1.2rem}
+.close{border:0;background:var(--bg);color:var(--ink);font:inherit;font-size:.9rem;padding:8px 14px;border-radius:999px;cursor:pointer}
+.close:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin:16px 0 0}
+.stats dt{font-size:.8rem;color:var(--muted)}
+.stats dd{margin:2px 0 0;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.15rem;font-weight:600}
+.cells-wrap{position:relative;padding-right:38px;margin-top:14px}
+.cells{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;height:120px;border-bottom:1px solid var(--line)}
+.col{display:flex;align-items:flex-end;height:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cell{position:relative;width:100%;background:var(--lith);border-radius:3px 3px 1px 1px;min-height:4px;transition:height .5s ease}
+.cell.max{background:var(--sun)} .cell.min{background:var(--cobalt)}
+.cell.bal::before{content:"";position:absolute;top:-9px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--ink)}
+.cell.sel{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}
+.ax{position:absolute;right:0;font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1;transform:translateY(-50%)}
+.ref{position:absolute;left:0;right:38px;border-top:1.5px dashed var(--muted);pointer-events:none}
+.ref span{position:absolute;left:0;bottom:2px;font-size:.66rem;color:var(--muted);background:var(--surface);padding:0 4px 0 0;white-space:nowrap}
+.cell-n{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;font-size:.62rem;color:var(--muted);text-align:center;margin:4px 38px 0 0;font-variant-numeric:tabular-nums}
+.cell-n .sel{color:var(--ink);font-weight:700}
+.cells-sum{margin:10px 0 0;font-size:.9rem;min-height:2.9em}
+.cells-sum.warn{color:var(--warn)}
+.temps{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.temps span{padding:6px 10px;border-radius:8px;background:var(--bg);font-size:.88rem;font-variant-numeric:tabular-nums}
+.sheet h3{font-size:.95rem;margin:22px 0 4px;font-weight:600}
+.sheet .hint{font-weight:400;font-size:.8rem;color:var(--muted)}
+
+/* impostazioni */
+.set h3:first-child{margin-top:18px}
+.set-note{margin:6px 0 0;font-size:.82rem;color:var(--muted)}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;margin:6px 0 0;padding:3px;border:0;border-radius:11px;background:var(--bg)}
+.seg legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.seg label{position:relative;display:block;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.seg input{position:absolute;inset:0;margin:0;opacity:0;cursor:pointer}
+.seg span{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;border-radius:8px;font-size:.9rem;
+  color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;transition:background .15s,color .15s}
+.seg span svg{width:15px;height:15px;flex:none}
+.seg input:checked+span{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.seg input:focus-visible+span{outline:3px solid var(--sun);outline-offset:-1px}
+.names{display:grid;gap:10px;margin-top:8px}
+.names label{display:grid;gap:3px;font-size:.8rem;color:var(--muted)}
+.names input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.names input::placeholder{color:var(--muted);opacity:.6}
+.names input:focus{outline:2px solid var(--lith);outline-offset:-1px;border-color:transparent}
+.set-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:14px;border-top:1px solid var(--line)}
+.link-btn{border:0;background:none;padding:6px 0;font:inherit;font-size:.9rem;color:var(--alert);cursor:pointer}
+.link-btn:focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:4px}
+
+@media (prefers-reduced-motion: reduce){
+  .mod.chg .fill,.mod.dsg .fill,.conn.live .dot{animation:none}
+  .fill,.cell,.mod{transition:none}
+  dialog[open]{animation:none}
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <h1>Banco batterie</h1>
+    <div class="top-r">
+      <span class="conn" id="conn" role="status"><span class="dot"></span><span id="conn-t">Connessione…</span></span>
+      <button class="icon-btn" id="open-set" type="button" aria-label="Impostazioni" title="Impostazioni">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="soc"><span class="big" id="soc">–</span><span class="pct">%</span></div>
+    <p class="state idle" id="state">In attesa dei dati</p>
+    <p class="eta" id="eta"></p>
+    <dl class="kpis">
+      <div><dt>Potenza</dt><dd id="k-p">–</dd></div>
+      <div><dt>Corrente</dt><dd id="k-i">–</dd></div>
+      <div><dt>Tensione</dt><dd id="k-v">–</dd></div>
+      <div><dt>Energia</dt><dd id="k-e">–</dd></div>
+      <div><dt>Squilibrio</dt><dd id="k-d">–</dd></div>
+      <div><dt>Temperatura</dt><dd id="k-t">–</dd></div>
+    </dl>
+  </section>
+
+  <div class="notice" id="notice" role="status" hidden></div>
+
+  <section aria-labelledby="h-rack">
+    <h2 id="h-rack">Le batterie</h2>
+    <div class="rack" id="rack"></div>
+  </section>
+
+  <section aria-labelledby="h-al">
+    <h2 id="h-al">Avvisi</h2>
+    <ul class="alerts" id="alerts"></ul>
+    <p class="ok" id="alerts-ok" hidden>Nessun avviso: tutte le batterie lavorano nei limiti.</p>
+  </section>
+
+  <section aria-labelledby="h-hist">
+    <h2 id="h-hist">Ultime 24 ore</h2>
+    <p class="hist-read" id="hist-read"></p>
+    <svg class="hist" id="hist" viewBox="0 0 340 152" role="img" aria-label="Andamento della carica e della potenza nelle ultime 24 ore"></svg>
+    <p class="legend"><span><i style="background:var(--lith)"></i>Carica del banco</span><span><i style="background:var(--sun)"></i>Potenza in entrata</span><span><i style="background:var(--cobalt)"></i>Potenza in uscita</span></p>
+  </section>
+
+  <footer>
+    <span id="f-upd">Mai aggiornato</span>
+    <span id="f-wifi"></span>
+  </footer>
+</main>
+
+<dialog id="sheet" aria-labelledby="s-title">
+  <div class="sheet">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="s-title">Batteria</h2>
+      <button class="close" id="s-close" type="button">Chiudi</button>
+    </div>
+    <div id="s-body"></div>
+  </div>
+</dialog>
+
+<dialog id="settings" aria-labelledby="set-title">
+  <div class="sheet set">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="set-title">Impostazioni</h2>
+      <button class="close" id="set-close" type="button">Chiudi</button>
+    </div>
+
+    <h3>Tema</h3>
+    <fieldset class="seg" id="set-theme">
+      <legend>Tema</legend>
+      <label><input type="radio" name="theme" value="auto"><span><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1.8a6.2 6.2 0 0 1 0 12.4z" fill="currentColor"/></svg>Automatico</span></label>
+      <label><input type="radio" name="theme" value="light"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/></svg>Chiaro</span></label>
+      <label><input type="radio" name="theme" value="dark"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 10.2A6 6 0 0 1 5.8 2.4a6 6 0 1 0 7.8 7.8z" fill="currentColor"/></svg>Scuro</span></label>
+    </fieldset>
+    <p class="set-note">Automatico segue il tema del telefono.</p>
+
+    <h3>Aggiornamento</h3>
+    <fieldset class="seg" id="set-poll">
+      <legend>Aggiorna i dati ogni</legend>
+      <label><input type="radio" name="poll" value="2"><span>2 s</span></label>
+      <label><input type="radio" name="poll" value="5"><span>5 s</span></label>
+      <label><input type="radio" name="poll" value="10"><span>10 s</span></label>
+      <label><input type="radio" name="poll" value="30"><span>30 s</span></label>
+    </fieldset>
+    <p class="set-note">Ogni quanto la pagina chiede i dati alla scheda. Non cambia la frequenza con cui la scheda interroga il BMS.</p>
+
+    <h3>Riserva per l'autonomia</h3>
+    <fieldset class="seg" id="set-reserve">
+      <legend>Calcola l'autonomia fino a</legend>
+      <label><input type="radio" name="reserve" value="0"><span>0%</span></label>
+      <label><input type="radio" name="reserve" value="10"><span>10%</span></label>
+      <label><input type="radio" name="reserve" value="20"><span>20%</span></label>
+      <label><input type="radio" name="reserve" value="30"><span>30%</span></label>
+    </fieldset>
+    <p class="set-note">L'autonomia mostrata in alto si ferma a questa carica, così ti resta un margine.</p>
+
+    <h3>Nomi delle batterie</h3>
+    <div class="names" id="set-names"></div>
+
+    <div class="set-foot">
+      <span class="set-note" style="margin:0">Versione <span id="ver"></span> · impostazioni salvate solo su questo dispositivo.</span>
+      <button class="link-btn" id="set-reset" type="button">Ripristina</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+const API = "/api/status";
+const DAY = 86400;
+const APP_VERSION = "1.0"; // da cambiare insieme a VERSION in sw.js
+
+/* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
+const MSG = {
+  CELL_OV:   ["Tensione di una cella troppo alta", "Il BMS ha interrotto la carica per proteggere le celle."],
+  CELL_UV:   ["Tensione di una cella troppo bassa", "Il BMS ha interrotto la scarica per proteggere le celle."],
+  PACK_OV:   ["Tensione della batteria troppo alta", "Controlla la tensione di carica impostata sui regolatori."],
+  PACK_UV:   ["Tensione della batteria troppo bassa", "La batteria è quasi scarica: riduci i consumi."],
+  CHG_OC:    ["Corrente di carica eccessiva", "Il BMS sta limitando la carica."],
+  DSG_OC:    ["Corrente di scarica eccessiva", "Il carico supera quanto la batteria può erogare."],
+  SHORT:     ["Cortocircuito rilevato", "Il BMS ha scollegato l'uscita. Controlla i collegamenti."],
+  CHG_OT:    ["Celle troppo calde per caricare", "La carica riprende quando la temperatura scende."],
+  CHG_UT:    ["Celle troppo fredde per caricare", "Sotto 0 °C le LiFePO4 non si caricano."],
+  DSG_OT:    ["Celle troppo calde", "La scarica è sospesa finché non si raffreddano."],
+  DSG_UT:    ["Celle troppo fredde", "La scarica è sospesa finché non si scaldano."],
+  MOS_OT:    ["Elettronica di potenza calda", "Il BMS si sta scaldando: verifica la ventilazione."],
+  CELL_HIGH: ["Una cella si avvicina al limite alto", "Nessun intervento richiesto per ora."],
+  CELL_LOW:  ["Una cella si avvicina al limite basso", "Nessun intervento richiesto per ora."],
+  CELL_DIFF: ["Celle sbilanciate", "La differenza tra le celle è più alta del normale. Il BMS sta bilanciando."],
+  LOW_SOC:   ["Carica bassa", "La batteria è sotto la soglia di carica minima impostata."],
+  TEMP_DIFF: ["Temperature diverse tra le celle", "Controlla che la batteria sia ben ventilata."],
+  FAULT:     ["Guasto del BMS", "Il BMS segnala un guasto interno. Contatta il venditore."]
+};
+const msg = c => MSG[c] || [c, ""];
+
+/* ---------- formattazione ---------- */
+const fin = n => typeof n === "number" && isFinite(n);
+const nf = (n, d=0) => fin(n) ? n.toLocaleString("it-IT",{minimumFractionDigits:d,maximumFractionDigits:d}) : "–";
+const sign = (n, d) => { const r = +n.toFixed(d); return r > 0 ? "+" : r < 0 ? "−" : ""; };
+const signed = (n, d=1) => fin(n) ? sign(n, d) + nf(Math.abs(n), d) : "–";
+const power = w => Math.abs(w) >= 1000 ? nf(Math.abs(w)/1000, 1) + " kW" : nf(Math.abs(w), 0) + " W";
+const spower = w => (Math.abs(w) >= 1000 ? sign(w/1000, 1) : sign(w, 0)) + power(w);
+const volt = mv => nf(mv/1000, 3) + " V";
+const hm = t => new Date(t * 1000).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
+const dur = h => {
+  if (!fin(h) || h <= 0) return "";
+  if (h >= 24 * 30) return "più di un mese";
+  if (h >= 24) {
+    let d = Math.floor(h / 24), H = Math.round(h - d * 24);
+    if (H === 24) { d++; H = 0; }
+    return (d === 1 ? "1 giorno" : d + " giorni") + (H ? " e " + H + " h" : "");
+  }
+  const m = Math.max(5, Math.round(h * 12) * 5), H = Math.floor(m / 60), M = m % 60;
+  return H ? `${H} h${M ? " " + M + " min" : ""}` : `${M} min`;
+};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $ = id => document.getElementById(id);
+const keyOf = (b, i) => String(fin(b.addr) ? b.addr : i);
+const nameOf = (b, i) => S.names[keyOf(b, i)] || b.name || "Batteria " + (i + 1);
+
+/* ---------- impostazioni: restano solo su questo dispositivo ---------- */
+const SKEY = "mybattery.settings";
+const OPT = { theme: ["auto","light","dark"], poll: [2,5,10,30], reserve: [0,10,20,30] };
+const DEF = { theme: "auto", poll: 5, reserve: 0, names: {} };
+let S = loadSettings(), pollTimer = 0;
+function loadSettings(){
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
+  const o = { ...DEF, names: {} };
+  Object.keys(OPT).forEach(k => { if (OPT[k].includes(s[k])) o[k] = s[k]; });
+  if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
+  return o;
+}
+function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
+const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
+metas.forEach(m => m.dataset.c = m.content);
+function applyTheme(){
+  const r = document.documentElement;
+  if (S.theme === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", S.theme);
+  metas.forEach(m => m.content = S.theme === "auto" ? m.dataset.c : S.theme === "dark" ? "#121820" : "#E9EDF1");
+}
+function schedule(){ clearInterval(pollTimer); pollTimer = setInterval(poll, S.poll * 1000); }
+
+/* ---------- stato ---------- */
+let lastOk = 0, everLive = false, data = null, mode = "", busy = false;
+let openIdx = null, selCell = null, scrubI = null, scrubTimer = 0, hist = null;
+
+// Su GitHub Pages la scheda non è raggiungibile (e una pagina HTTPS non può chiamare la scheda in HTTP): solo demo
+const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
+
+async function poll(){
+  if (busy || document.hidden) return;
+  if (DEMO_ONLY) { data = simulate(); render("demo"); return; }
+  busy = true;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(API, {cache:"no-store", signal:ctrl.signal});
+    clearTimeout(t);
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    if (!j || !Array.isArray(j.batteries)) throw new Error("formato");
+    data = j; lastOk = Date.now(); everLive = true;
+    render("live");
+  } catch (e) {
+    if (everLive) render("stale");
+    else { data = simulate(); render("demo"); }
+  } finally { busy = false; }
+}
+
+/* ---------- calcoli sul banco ---------- */
+function bank(bs){
+  const on = bs.filter(b => b.online);
+  const sum = f => on.reduce((s,b) => s + (fin(f(b)) ? f(b) : 0), 0);
+  const rem = sum(b => b.rem_ah), full = sum(b => b.full_ah), i = sum(b => b.i);
+  const v = on.length ? sum(b => b.v) / on.length : 0;
+  const diffs = on.map(b => b.cells && b.cells.length ? Math.max(...b.cells) - Math.min(...b.cells) : NaN).filter(fin);
+  const temps = on.flatMap(b => [...(b.t_cells || []), b.t_mos]).filter(fin);
+  return { soc: full ? rem / full * 100 : NaN, rem, full, i, v, p: v * i, on: on.length,
+    kwh: sum(b => b.rem_ah * b.v) / 1000,
+    dmax: diffs.length ? Math.max(...diffs) : NaN,
+    tmax: temps.length ? Math.max(...temps) : NaN };
+}
+const nowOf = d => d && fin(d.time) && d.time > 1.6e9 ? d.time : Date.now() / 1000;
+
+/* ---------- disegno ---------- */
+function render(m){
+  if (!data) return;
+  mode = m;
+  const bs = data.batteries || [];
+  const lim = data.limits || {};
+  const k = bank(bs);
+
+  // connessione
+  $("conn").className = "conn " + mode;
+  document.querySelector(".app").classList.toggle("stale", mode === "stale");
+  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "demo" ? "Demo" : "Connessione persa";
+  const n = $("notice");
+  if (mode === "demo") { n.hidden = false; n.className = "notice"; n.textContent = DEMO_ONLY
+    ? "Versione di prova: mostra sempre dati simulati. Quella collegata alle batterie si apre dall'indirizzo della scheda, in rete di casa."
+    : "Stai vedendo dati dimostrativi: la pagina non raggiunge ancora la scheda."; }
+  else if (mode === "stale") {
+    const min = Math.round((Date.now() - lastOk) / 60000);
+    n.hidden = false; n.className = "notice lost";
+    const ago = min < 1 ? "" : min < 60 ? ` da ${min} min` : ` da ${dur(min / 60)}`;
+    n.textContent = `La scheda non risponde${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
+  }
+  else n.hidden = true;
+
+  // hero
+  $("soc").textContent = k.on ? nf(k.soc, 0) : "–";
+  const st = $("state"), eta = $("eta");
+  if (!k.on) {
+    st.className = "state idle"; st.textContent = bs.length ? "Nessuna batteria risponde" : "In attesa dei dati"; eta.textContent = "";
+  } else if (k.i > 0.5) {
+    st.className = "state chg"; st.textContent = `In carica, ${power(k.p)} in entrata`;
+    const left = k.full - k.rem;
+    eta.textContent = left > 1 ? "Pieno tra circa " + dur(left / k.i) : "Quasi pieno: il BMS sta completando la carica";
+  } else if (k.i < -0.5) {
+    st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
+    const avail = k.rem - k.full * S.reserve / 100;
+    eta.textContent = avail > 0
+      ? "Autonomia di circa " + dur(avail / -k.i) + " a questo consumo" + (S.reserve ? `, tenendo il ${S.reserve}% di riserva` : "")
+      : `Sei sotto la riserva del ${S.reserve}%: conviene ridurre i consumi`;
+  } else {
+    st.className = "state idle"; st.textContent = "A riposo"; eta.textContent = "";
+  }
+  $("k-p").textContent = k.on ? spower(k.p) : "–";
+  $("k-i").textContent = k.on ? signed(k.i, 1) + " A" : "–";
+  $("k-v").textContent = k.on ? nf(k.v, 1) + " V" : "–";
+  $("k-e").textContent = k.on ? nf(k.kwh, 1) + " kWh" : "–";
+  $("k-d").textContent = fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–";
+  $("k-d").className = k.dmax > 50 ? "warn" : "";
+  $("k-t").textContent = fin(k.tmax) ? "max " + nf(k.tmax, 0) + " °C" : "–";
+  $("k-t").className = k.tmax >= 45 ? "warn" : "";
+
+  // rack
+  const rack = $("rack");
+  if (rack.children.length !== bs.length) {
+    rack.innerHTML = bs.map((b,i) =>
+      `<button class="mod" type="button" data-i="${i}"><span class="fill"></span><span class="handle"></span>
+        <span class="mod-body"><span class="mod-name"></span><span class="mod-sub"></span><span class="mod-soc"></span></span>
+        <span class="handle"></span></button>`).join("");
+  }
+  const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
+  bs.forEach((b,i) => {
+    const el = rack.children[i], nm = nameOf(b, i);
+    const flow = b.i > 0.3 ? "chg" : b.i < -0.3 ? "dsg" : "";
+    el.className = "mod" + (b.online ? "" : " off") + (flow && b.online ? " " + flow : "") + (b.online && b.soc < lowSoc ? " low" : "");
+    el.querySelector(".fill").style.setProperty("--soc", (fin(b.soc) ? b.soc : 0) + "%");
+    const flag = !b.online ? "" : (b.prot && b.prot.length) ? '<i class="mod-flag prot"></i>' : (b.alarms && b.alarms.length) ? '<i class="mod-flag alarm"></i>' : "";
+    el.querySelector(".mod-name").innerHTML = esc(nm) + flag;
+    el.querySelector(".mod-sub").textContent = b.online ? `${nf(b.v,2)} V   ${signed(b.i,1)} A` : "Non risponde";
+    el.querySelector(".mod-soc").textContent = b.online ? nf(b.soc,0) + "%" : "";
+    el.setAttribute("aria-label", b.online
+      ? `${nm}: carica ${nf(b.soc,0)} per cento, ${nf(b.v,2)} volt, ${signed(b.i,1)} ampere. Apri dettagli`
+      : `${nm}: non risponde`);
+  });
+
+  // avvisi: prima le protezioni, poi gli allarmi
+  const items = [];
+  bs.forEach((b,i) => {
+    const who = nameOf(b, i);
+    if (!b.online) { items.push({sev:"alarm", who, t:"Batteria non raggiungibile", d:"Controlla il cavo di comunicazione tra le batterie."}); return; }
+    (b.prot||[]).forEach(c => items.push({sev:"prot", who, t:msg(c)[0], d:msg(c)[1]}));
+    (b.alarms||[]).forEach(c => items.push({sev:"alarm", who, t:msg(c)[0], d:msg(c)[1]}));
+  });
+  items.sort((a,b) => (a.sev === "prot" ? 0 : 1) - (b.sev === "prot" ? 0 : 1));
+  $("alerts").innerHTML = items.map(a => `<li class="${a.sev}"><b>${esc(a.who)}: ${esc(a.t)}</b>${a.d ? `<span>${esc(a.d)}</span>` : ""}</li>`).join("");
+  $("alerts-ok").hidden = items.length > 0;
+
+  drawHistory(data.history, nowOf(data));
+
+  // piè di pagina
+  $("f-upd").textContent = "Aggiornato alle " + new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT");
+  if (fin(data.rssi)) {
+    const q = data.rssi > -60 ? "ottimo" : data.rssi > -70 ? "buono" : data.rssi > -80 ? "debole" : "scarso";
+    $("f-wifi").textContent = `WiFi ${q} (${data.rssi} dBm)`;
+  } else $("f-wifi").textContent = "";
+
+  if (openIdx !== null && $("sheet").open) fillSheet(openIdx);
+}
+
+/* ---------- storico 24 ore ---------- */
+const HW = 340, TOP = 10, SOCH = 80, BASE = 124, AMP = 20;
+const ySoc = s => TOP + (1 - Math.max(0, Math.min(100, s)) / 100) * SOCH;
+
+function drawHistory(h, tNow){
+  const svg = $("hist");
+  const soc = (h && h.soc) || [];
+  if (soc.filter(fin).length < 2) {
+    hist = null;
+    svg.innerHTML = `<text x="170" y="76" text-anchor="middle" fill="var(--muted)" font-size="11">Lo storico compare dopo qualche minuto di funzionamento</text>`;
+    $("hist-read").textContent = "";
+    return;
+  }
+  const step = fin(h.step) && h.step > 0 ? h.step : 300, n = soc.length, p = h.p || [];
+  const x = i => HW - (n - 1 - i) * step / DAY * HW; // l'ultimo punto è "adesso"
+  hist = { soc, p, step, n, tNow, x };
+
+  // carica: una spezzata per ogni tratto senza buchi
+  let lines = "", areas = "", seg = [];
+  const flush = () => {
+    if (seg.length > 1) {
+      const pts = seg.map(([a,b]) => a.toFixed(1) + "," + b.toFixed(1));
+      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="var(--lith)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      areas += `<path d="M${seg[0][0].toFixed(1)},${TOP+SOCH} L${pts.join(" L")} L${seg[seg.length-1][0].toFixed(1)},${TOP+SOCH} Z" fill="var(--lith-tint)"/>`;
+    }
+    seg = [];
+  };
+  soc.forEach((s,i) => { if (!fin(s) || x(i) < 0) flush(); else seg.push([x(i), ySoc(s)]); });
+  flush();
+
+  // potenza: barre sopra (entrata) e sotto (uscita) la linea di base
+  const pv = p.filter(fin).map(Math.abs);
+  const pmax = Math.max(500, ...pv);
+  const bw = Math.max(HW * step / DAY - 0.3, 0.6);
+  let bars = "";
+  p.forEach((w,i) => {
+    if (!fin(w) || x(i) < 0) return;
+    const hgt = Math.abs(w) / pmax * AMP;
+    if (hgt < 0.4) return;
+    bars += `<rect x="${(x(i) - bw/2).toFixed(1)}" y="${(w > 0 ? BASE - hgt : BASE).toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" fill="${w > 0 ? "var(--sun)" : "var(--cobalt)"}"/>`;
+  });
+
+  // griglia orizzontale (carica) e verticale (ogni 6 ore, allineata all'orologio)
+  const grid = [0,50,100].map(v => {
+    const y = ySoc(v);
+    return `<line x1="0" x2="${HW}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>` +
+      `<text x="2" y="${y - 3}" font-size="9" fill="var(--muted)">${v}%</text>`;
+  }).join("");
+  let ticks = "";
+  const d0 = new Date((tNow - DAY) * 1000); d0.setMinutes(0, 0, 0);
+  for (let t = d0.getTime() / 1000; t <= tNow; t += 3600) {
+    const hr = new Date(t * 1000).getHours();
+    if (hr % 6) continue;
+    const xx = HW - (tNow - t) / DAY * HW;
+    if (xx < 12 || xx > HW - 26) continue;
+    ticks += `<line x1="${xx.toFixed(1)}" x2="${xx.toFixed(1)}" y1="${TOP}" y2="${BASE + AMP}" stroke="var(--line)" stroke-dasharray="2 3"/>` +
+      `<text x="${xx.toFixed(1)}" y="150" text-anchor="middle" font-size="9.5" fill="var(--muted)">${String(hr).padStart(2,"0")}:00</text>`;
+  }
+
+  svg.innerHTML = ticks + grid + areas + lines +
+    `<line x1="0" x2="${HW}" y1="${BASE}" y2="${BASE}" stroke="var(--line)"/>` + bars +
+    `<text x="${HW}" y="150" text-anchor="end" font-size="9.5" fill="var(--muted)">ora</text>` +
+    `<g id="cur" visibility="hidden"><line id="cur-l" y1="${TOP - 4}" y2="${BASE + AMP}" stroke="var(--ink)" stroke-width="1"/>` +
+    `<circle id="cur-d" r="4" fill="var(--surface)" stroke="var(--lith)" stroke-width="2.5"/></g>`;
+  updateScrub();
+}
+
+function histSummary(){
+  const { soc, p, step, n, tNow } = hist;
+  let ein = 0, eout = 0, mi = -1;
+  p.forEach(w => { if (fin(w)) { if (w > 0) ein += w; else eout -= w; } });
+  soc.forEach((s,i) => { if (fin(s) && (mi < 0 || s < soc[mi])) mi = i; });
+  const k = step / 3600 / 1000;
+  const when = mi === n - 1 ? "adesso" : "alle " + hm(tNow - (n - 1 - mi) * step);
+  return `Entrati <b class="in">${nf(ein * k, 1)} kWh</b>, usciti <b class="out">${nf(eout * k, 1)} kWh</b>.<br>` +
+    `Carica minima <b>${nf(soc[mi], 0)}%</b> ${when}.`;
+}
+
+function updateScrub(){
+  if (!hist) return;
+  const cur = $("cur"), read = $("hist-read");
+  const i = scrubI;
+  if (i === null || i < 0 || i >= hist.n || !cur) {
+    if (cur) cur.setAttribute("visibility", "hidden");
+    read.innerHTML = histSummary();
+    return;
+  }
+  const s = hist.soc[i], w = hist.p[i], xx = hist.x(i);
+  cur.setAttribute("visibility", "visible");
+  $("cur-l").setAttribute("x1", xx); $("cur-l").setAttribute("x2", xx);
+  const d = $("cur-d");
+  if (fin(s)) { d.setAttribute("cx", xx); d.setAttribute("cy", ySoc(s)); d.style.display = ""; } else d.style.display = "none";
+  const t = hist.tNow - (hist.n - 1 - i) * hist.step;
+  const pw = !fin(w) ? "nessun dato di potenza"
+    : Math.abs(w) < 20 ? "a riposo"
+    : w > 0 ? `<b class="in">${power(w)}</b> in entrata` : `<b class="out">${power(w)}</b> in uscita`;
+  read.innerHTML = `<b>${i === hist.n - 1 ? "Adesso" : "Alle " + hm(t)}</b><br>` +
+    (fin(s) ? `Carica <b>${nf(s, 0)}%</b>, ` : "Nessun dato di carica, ") + pw;
+}
+
+function scrubAt(e){
+  if (!hist) return;
+  const r = $("hist").getBoundingClientRect();
+  const xv = (e.clientX - r.left) / r.width * HW;
+  const back = Math.round((HW - xv) / HW * DAY / hist.step);
+  const first = hist.n - 1 - Math.floor(DAY / hist.step);
+  scrubI = Math.max(0, first, Math.min(hist.n - 1, hist.n - 1 - back));
+  updateScrub();
+}
+const hsvg = $("hist");
+hsvg.addEventListener("pointerdown", e => { clearTimeout(scrubTimer); scrubAt(e); });
+hsvg.addEventListener("pointermove", e => { if (e.pointerType === "mouse" || e.buttons) scrubAt(e); });
+hsvg.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { scrubI = null; updateScrub(); } });
+hsvg.addEventListener("pointerup", e => {
+  if (e.pointerType !== "mouse") { clearTimeout(scrubTimer); scrubTimer = setTimeout(() => { scrubI = null; updateScrub(); }, 3000); }
+});
+hsvg.addEventListener("pointercancel", () => { scrubI = null; updateScrub(); });
+
+/* ---------- scheda di dettaglio ---------- */
+function fillSheet(i){
+  const b = data.batteries[i];
+  if (!b) { closeSheet(); return; }
+  const lim = data.limits || {};
+  $("s-title").textContent = nameOf(b, i);
+  if (!b.online) { $("s-body").innerHTML = `<p>Questa batteria non risponde. Controlla il cavo di comunicazione che la collega alle altre e che sia accesa.</p>`; return; }
+
+  // celle: scala zoomata sull'intervallo reale, così si vedono anche pochi mV di differenza
+  const cells = (b.cells || []).filter(fin);
+  let cellHtml = "<p class=\"ok\">Il BMS non ha inviato le tensioni delle celle.</p>";
+  if (cells.length) {
+    const mx = Math.max(...cells), mn = Math.min(...cells), avg = cells.reduce((a,c) => a + c, 0) / cells.length;
+    const iMx = cells.indexOf(mx), iMn = cells.indexOf(mn), diff = mx - mn;
+    let lo = Math.floor((mn - 20) / 10) * 10, hi = Math.max(Math.ceil((mx + 15) / 10) * 10, lo + 100);
+    const bs = lim.bal_start;
+    const showRef = fin(bs) && bs > lo && bs - mx < 120;
+    if (showRef) hi = Math.max(hi, Math.ceil((bs + 15) / 10) * 10);
+    const H = 120, frac = mv => (mv - lo) / (hi - lo);
+    if (selCell !== null && selCell >= cells.length) selCell = null;
+    const bars = cells.map((mv,j) => {
+      const h = Math.max(3, Math.min(100, frac(mv) * 100));
+      const cls = "cell" + (j === iMx && diff > 0 ? " max" : "") + (j === iMn && diff > 0 ? " min" : "") +
+        (b.bal && b.bal[j] ? " bal" : "") + (j === selCell ? " sel" : "");
+      return `<div class="col" data-j="${j}"><div class="${cls}" style="height:${h.toFixed(1)}%" title="Cella ${j+1}: ${volt(mv)}"></div></div>`;
+    }).join("");
+    const nums = cells.map((_,j) => `<span${j === selCell ? ' class="sel"' : ""}>${j+1}</span>`).join("");
+    const ref = showRef ? `<div class="ref" style="top:${((1 - frac(bs)) * H).toFixed(1)}px"><span>bilanciamento da ${nf(bs/1000, 2)} V</span></div>` : "";
+    const balN = (b.bal || []).filter(Boolean).length;
+    let sum;
+    if (selCell !== null) {
+      const mv = cells[selCell], dv = Math.round(mv - avg);
+      sum = `<b>Cella ${selCell + 1}: ${volt(mv)}</b><br>${dv === 0 ? "In media con le altre" : (dv > 0 ? dv + " mV sopra" : -dv + " mV sotto") + " la media del pacco"}` +
+        (b.bal && b.bal[selCell] ? ", in bilanciamento." : ".");
+    } else {
+      sum = `Più alta ${volt(mx)} (cella ${iMx+1}), più bassa ${volt(mn)} (cella ${iMn+1}).<br>Differenza ${diff} mV` +
+        (balN ? `, ${balN === 1 ? "1 cella" : balN + " celle"} in bilanciamento.` : ".");
+    }
+    cellHtml = `
+      <div class="cells-wrap">
+        <div class="cells" role="img" aria-label="Tensioni delle ${cells.length} celle, da ${volt(mn)} a ${volt(mx)}">${bars}</div>
+        ${ref}
+        <span class="ax" style="top:0">${nf(hi/1000, 2)}</span>
+        <span class="ax" style="top:${H}px">${nf(lo/1000, 2)}</span>
+        <div class="cell-n">${nums}</div>
+      </div>
+      <p class="cells-sum${diff > 50 && selCell === null ? " warn" : ""}">${sum}</p>`;
+  }
+
+  const tc = (b.t_cells || []).filter(fin);
+  const tmin = Math.min(...tc), tmax = Math.max(...tc);
+  const flags = [...(b.prot||[]).map(c=>["prot",c]), ...(b.alarms||[]).map(c=>["alarm",c])];
+  const lims = [
+    fin(lim.bal_start) && `Bilanciamento da ${nf(lim.bal_start/1000, 2)} V`,
+    fin(lim.bal_diff) && `Avvio oltre ${nf(lim.bal_diff)} mV di differenza`,
+    fin(lim.cell_uv) && fin(lim.cell_ov) && `Protezione celle ${nf(lim.cell_uv/1000, 2)}–${nf(lim.cell_ov/1000, 2)} V`,
+    fin(lim.low_soc) && `Allarme sotto il ${nf(lim.low_soc)}%`
+  ].filter(Boolean);
+
+  $("s-body").innerHTML = `
+    <dl class="stats">
+      <div><dt>Carica</dt><dd>${nf(b.soc,0)}%</dd></div>
+      <div><dt>Capacità residua</dt><dd>${nf(b.rem_ah,1)} di ${nf(b.full_ah,0)} Ah</dd></div>
+      <div><dt>Tensione</dt><dd>${nf(b.v,2)} V</dd></div>
+      <div><dt>Corrente</dt><dd>${signed(b.i,1)} A</dd></div>
+      <div><dt>Stato di salute</dt><dd>${nf(b.soh,0)}%</dd></div>
+      <div><dt>Cicli</dt><dd>${nf(b.cycles,0)}</dd></div>
+    </dl>
+    ${flags.length ? `<h3>Avvisi</h3><ul class="alerts">${flags.map(([s,c]) => `<li class="${s}"><b>${esc(msg(c)[0])}</b>${msg(c)[1] ? `<span>${esc(msg(c)[1])}</span>` : ""}</li>`).join("")}</ul>` : ""}
+    <h3>Le ${cells.length || 16} celle${cells.length ? ' <span class="hint">· tocca una cella per leggerla</span>' : ""}</h3>
+    ${cellHtml}
+    <h3>Temperature</h3>
+    <div class="temps">
+      <span>Celle ${tc.length ? (tmin === tmax ? nf(tmin,1) : nf(tmin,1) + "–" + nf(tmax,1)) : "–"} °C</span>
+      <span>Elettronica ${nf(b.t_mos,1)} °C</span>
+      <span>Ambiente ${nf(b.t_env,1)} °C</span>
+    </div>
+    ${lims.length ? `<h3>Soglie del BMS</h3><div class="temps">${lims.map(t => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
+  `;
+}
+function closeSheet(){ const d = $("sheet"); if (d.open) d.close(); }
+$("rack").addEventListener("click", e => {
+  const m = e.target.closest(".mod"); if (!m || !data) return;
+  openIdx = +m.dataset.i; selCell = null; fillSheet(openIdx);
+  const d = $("sheet"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
+  $("sheet").querySelector(".sheet").scrollTop = 0;
+});
+$("s-body").addEventListener("click", e => {
+  const c = e.target.closest(".col"); if (!c || openIdx === null) return;
+  const j = +c.dataset.j;
+  selCell = selCell === j ? null : j;
+  fillSheet(openIdx);
+});
+$("s-close").addEventListener("click", closeSheet);
+$("sheet").addEventListener("click", e => { if (e.target === $("sheet")) closeSheet(); });
+$("sheet").addEventListener("close", () => { openIdx = null; selCell = null; }); // anche con il tasto Esc / gesto indietro
+
+/* ---------- aggiornamento: in pausa quando la pagina non è visibile ---------- */
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+/* ---------- simulatore per la modalità demo ---------- */
+let sim = null;
+function simulate(){
+  const now = Date.now() / 1000;
+  const hour = new Date().getHours() + new Date().getMinutes() / 60;
+  const sunCurve = h => Math.max(0, Math.sin((h - 7) / 11 * Math.PI)); // alba 7, tramonto 18
+  const bankI = h => sunCurve(h) * 95 - 14; // A totali: sole meno consumo casa
+  if (!sim) {
+    const names = ["Master","Batteria 2","Batteria 3","Batteria 4","Batteria 5"];
+    sim = { t: now, bs: names.map((name,k) => {
+      const soc = 58 + k * 1.6;
+      const base = 3300 + soc * 0.4;
+      const cells = Array.from({length:16}, (_,j) => Math.round(base + Math.sin(j * 1.7 + k) * 4));
+      if (k === 2) cells[6] += 46; // una cella un po' alta, per mostrare l'avviso
+      return { addr:k, name, online:true, soc, soh:100, v:0, i:0, rem_ah:soc*2, full_ah:200,
+        cycles: 31 + k, cells, bal: cells.map((_,j)=> (k===2 && j===6) ? 1 : 0),
+        t_cells:[24.6+k*.2,25.0+k*.1,24.8,25.2], t_mos:27.1+k*.3, t_env:23.8, alarms: k===2 ? ["CELL_DIFF"] : [], prot:[] };
+    })};
+    // storico sintetico delle ultime 24 ore, che termina sulla carica attuale
+    const step = 300, nPts = 288, soc = [], p = [];
+    const raw = [];
+    for (let j = 0; j < nPts; j++) {
+      const h = (hour - 24 + j * step / 3600 + 48) % 24;
+      raw.push(bankI(h));
+    }
+    let acc = sim.bs.reduce((a,b)=>a+b.soc,0)/5;
+    for (let j = nPts - 1; j >= 0; j--) { soc[j] = Math.max(5, Math.min(100, acc)); acc -= raw[j] * step / 3600 / 1000 * 100; p[j] = raw[j] * 52.8; }
+    sim.history = { step, soc, p };
+    sim.histT = now;
+  }
+  const dt = Math.min(10, now - sim.t); sim.t = now;
+  const total = bankI(hour) + (Math.random() - .5) * 3;
+  sim.bs.forEach((b,k) => {
+    b.i = total / 5 * (1 + (k - 2) * 0.02) + (Math.random() - .5) * .4;
+    b.rem_ah = Math.max(4, Math.min(b.full_ah, b.rem_ah + b.i * dt / 3600));
+    b.soc = b.rem_ah / b.full_ah * 100;
+    const ocv = 3200 + b.soc * 1.25 + b.i * 0.9;
+    b.cells = b.cells.map((mv,j) => Math.round(mv + (ocv + Math.sin(j*1.7+k)*4 + (k===2&&j===6?46:0) - mv) * .2 + (Math.random()-.5)*2));
+    b.v = b.cells.reduce((a,c)=>a+c,0) / 1000;
+  });
+  // anche lo storico demo avanza, un punto ogni 5 minuti
+  const hs = sim.history;
+  while (now - sim.histT >= hs.step) {
+    const k = bank(sim.bs);
+    hs.soc.push(+k.soc.toFixed(1)); hs.p.push(Math.round(k.p));
+    hs.soc.shift(); hs.p.shift();
+    sim.histT += hs.step;
+  }
+  return { time: Math.round(now), rssi: -61,
+    limits: { bal_start: 3400, bal_diff: 30, cell_ov: 3650, cell_uv: 2500, low_soc: 10 },
+    batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})),
+    history: { step: hs.step, soc: [...hs.soc], p: [...hs.p] } };
+}
+
+/* ---------- pannello impostazioni ---------- */
+function fillSettings(){
+  Object.keys(OPT).forEach(k => { const el = document.querySelector(`#settings input[name="${k}"][value="${S[k]}"]`); if (el) el.checked = true; });
+  const bs = (data && data.batteries) || [];
+  $("set-names").innerHTML = bs.length ? bs.map((b,i) => {
+    const k = keyOf(b, i);
+    return `<label>Indirizzo ${esc(k)}${k === "0" ? " · master" : ""}<input type="text" maxlength="24" data-k="${esc(k)}" value="${esc(S.names[k] || "")}" placeholder="${esc(b.name || "Batteria " + (i + 1))}" autocomplete="off" enterkeyhint="done"></label>`;
+  }).join("") : `<p class="set-note">Compaiono appena la scheda risponde.</p>`;
+}
+$("open-set").addEventListener("click", () => {
+  fillSettings();
+  const d = $("settings"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
+  d.querySelector(".sheet").scrollTop = 0;
+});
+$("set-close").addEventListener("click", () => $("settings").close());
+$("settings").addEventListener("click", e => { if (e.target === $("settings")) $("settings").close(); });
+$("settings").addEventListener("change", e => {
+  const t = e.target; if (t.type !== "radio") return;
+  S[t.name] = t.name === "theme" ? t.value : +t.value;
+  saveSettings();
+  if (t.name === "theme") applyTheme();
+  if (t.name === "poll") { schedule(); poll(); }
+  if (data) render(mode);
+});
+$("set-names").addEventListener("input", e => {
+  const t = e.target; if (!t.dataset.k) return;
+  const v = t.value.trim();
+  if (v) S.names[t.dataset.k] = v; else delete S.names[t.dataset.k];
+  saveSettings(); if (data) render(mode);
+});
+$("set-names").addEventListener("keydown", e => { if (e.key === "Enter") e.target.blur(); });
+$("set-reset").addEventListener("click", () => {
+  S = { ...DEF, names: {} }; saveSettings();
+  applyTheme(); schedule(); fillSettings(); if (data) render(mode);
+});
+
+$("ver").textContent = APP_VERSION;
+
+/* ---------- app installabile: service worker solo in HTTPS (GitHub Pages), non dalla scheda ---------- */
+if ("serviceWorker" in navigator && window.isSecureContext && location.hostname !== "localhost") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+applyTheme();
+poll();
+schedule();
+})();
+</script>
+</body>
+</html>
