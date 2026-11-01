@@ -4,19 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#E9EDF1" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121820" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ECECE8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Batterie">
+<meta name="apple-mobile-web-app-title" content="MyBattery">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="description" content="Monitor del banco batterie LiFePO4: carica, celle, avvisi e storico delle ultime 24 ore.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<title>Banco batterie</title>
-<script>/* tema scelto nelle impostazioni, applicato prima del disegno per evitare il lampo */
-try{var t=JSON.parse(localStorage.getItem("mybattery.settings")||"{}").theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>MyBattery</title>
+<script>/* tema, colori e stile scelti nelle impostazioni, applicati prima del disegno per evitare il lampo */
+try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}"),r=document.documentElement;
+if(o.theme==="light"||o.theme==="dark")r.setAttribute("data-theme",o.theme);
+if(["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0)r.setAttribute("data-palette",o.palette);
+if(o.style==="neon"||o.style==="solare"){r.setAttribute("data-style",o.style);r.setAttribute("data-theme","dark")}}catch(e){}</script>
 <!--
   CONTRATTO DATI (prodotto dal firmware ESP32)
   GET /api/status  ->
@@ -50,14 +53,13 @@ try{var t=JSON.parse(localStorage.getItem("mybattery.settings")||"{}").theme;if(
 <style>
 :root{
   color-scheme: light;
-  --bg:#E9EDF1; --surface:#F7F9FB; --ink:#18212B; --muted:#5B6773; --line:#D3DAE1;
-  --frame:#26303B; --frame-ink:#C9D1D9;
-  --lith:#17907F; --lith-tint:rgba(23,144,127,.17);
-  --sun:#C98207; --sun-tint:rgba(217,146,11,.16);
-  --cobalt:#2F6FC4; --cobalt-tint:rgba(47,111,196,.14);
+  --bg:#ECECE8; --surface:#FAFAF7; --ink:#1F1F1D; --muted:#6A6963; --line:#D8D7D1;
+  --frame:#2B2B29; --frame-ink:#C9C8C2;
+  --lith:#F5B800; --lith-tint:rgba(245,184,0,.22); --fill-tint:rgba(245,184,0,.42);
+  --sun:#9A7000; --sun-tint:rgba(245,184,0,.22);
+  --out:#5E5D58; --out-tint:rgba(94,93,88,.13); --logo-arc:#FFC929;
   --alert:#C83A3A; --alert-tint:rgba(200,58,58,.12);
-  --warn:#A86700; --warn-tint:rgba(184,113,0,.16);
-  --stripe:rgba(255,255,255,.35);
+  --warn:#C2410C; --warn-tint:rgba(194,65,12,.12);
   --num: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
   --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   box-sizing:border-box;
@@ -67,26 +69,24 @@ try{var t=JSON.parse(localStorage.getItem("mybattery.settings")||"{}").theme;if(
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme: dark;
-    --bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542;
-    --frame:#0C1117; --frame-ink:#6B7886;
-    --lith:#2BB8A3; --lith-tint:rgba(43,184,163,.2);
-    --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18);
-    --cobalt:#5B97E6; --cobalt-tint:rgba(91,151,230,.18);
+    --bg:#161615; --surface:#20201E; --ink:#EDEDE8; --muted:#A09F98; --line:#33332F;
+    --frame:#0E0E0D; --frame-ink:#75746E;
+    --lith:#FFC929; --lith-tint:rgba(255,201,41,.18); --fill-tint:rgba(255,201,41,.2);
+    --sun:#FFC929; --sun-tint:rgba(255,201,41,.16);
+    --out:#A3A29B; --out-tint:rgba(163,162,155,.16);
     --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
-    --warn:#E3A33C; --warn-tint:rgba(227,163,60,.18);
-    --stripe:rgba(255,255,255,.12);
+    --warn:#FB923C; --warn-tint:rgba(251,146,60,.16);
   }
 }
 :root[data-theme="dark"]{
   color-scheme: dark;
-  --bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542;
-  --frame:#0C1117; --frame-ink:#6B7886;
-  --lith:#2BB8A3; --lith-tint:rgba(43,184,163,.2);
-  --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18);
-  --cobalt:#5B97E6; --cobalt-tint:rgba(91,151,230,.18);
+  --bg:#161615; --surface:#20201E; --ink:#EDEDE8; --muted:#A09F98; --line:#33332F;
+  --frame:#0E0E0D; --frame-ink:#75746E;
+  --lith:#FFC929; --lith-tint:rgba(255,201,41,.18); --fill-tint:rgba(255,201,41,.2);
+  --sun:#FFC929; --sun-tint:rgba(255,201,41,.16);
+  --out:#A3A29B; --out-tint:rgba(163,162,155,.16);
   --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
-  --warn:#E3A33C; --warn-tint:rgba(227,163,60,.18);
-  --stripe:rgba(255,255,255,.12);
+  --warn:#FB923C; --warn-tint:rgba(251,146,60,.16);
 }
 *,*::before,*::after{box-sizing:inherit}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-text-size-adjust:100%}
@@ -104,7 +104,7 @@ section{margin-top:26px}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
 .conn.live .dot{background:var(--lith);box-shadow:0 0 0 0 var(--lith);animation:pulse 2.4s ease-out infinite}
 .conn.stale .dot{background:var(--warn)}
-.conn.demo .dot{background:var(--cobalt)}
+.conn.demo .dot{background:var(--out)}
 .top-r{display:flex;align-items:center;gap:4px}
 .icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;margin-right:-8px;border:0;border-radius:50%;
   background:transparent;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
@@ -119,7 +119,7 @@ section{margin-top:26px}
 .soc .big{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:5.6rem;font-weight:700;letter-spacing:-.03em}
 .soc .pct{font-family:var(--num);font-size:1.9rem;font-weight:600;margin:.55rem 0 0 .2rem;color:var(--muted)}
 .state{margin:10px 0 0;font-size:1.1rem;font-weight:600;display:flex;align-items:center;gap:8px}
-.state.chg{color:var(--sun)} .state.dsg{color:var(--cobalt)} .state.idle{color:var(--muted)}
+.state.chg{color:var(--sun)} .state.dsg{color:var(--out)} .state.idle{color:var(--muted)}
 .eta{margin:2px 0 0;color:var(--muted)}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:18px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .kpis div{padding:10px 0;min-width:0}
@@ -129,11 +129,10 @@ section{margin-top:26px}
 .kpis dd{margin:2px 0 0;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.25rem;font-weight:600;white-space:nowrap}
 .kpis dd.warn{color:var(--warn)}
 
-.notice{margin-top:18px;padding:10px 12px;border-radius:10px;background:var(--cobalt-tint);font-size:.9rem}
+.notice{margin-top:18px;padding:10px 12px;border-radius:10px;background:var(--lith-tint);font-size:.9rem}
 .notice.lost{background:var(--warn-tint)}
-/* dati vecchi: valori attenuati e niente animazioni di flusso */
+/* dati vecchi: valori attenuati */
 .app.stale .hero,.app.stale .rack{opacity:.55;transition:opacity .4s}
-.app.stale .mod .fill{animation:none}
 
 /* armadio rack */
 .rack{background:var(--frame);border-radius:14px;padding:10px;display:grid;gap:7px}
@@ -142,14 +141,9 @@ section{margin-top:26px}
   -webkit-tap-highlight-color:transparent;transition:transform .12s ease}
 .mod:active{transform:scale(.985)}
 .mod:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
-.fill{position:absolute;inset:0 auto 0 0;width:var(--soc,0%);background:var(--lith-tint);
+.fill{position:absolute;inset:0 auto 0 0;width:var(--soc,0%);background:var(--fill-tint);
   border-right:2px solid var(--lith);transition:width .8s ease}
 .mod.low .fill{background:var(--warn-tint);border-right-color:var(--warn)}
-.mod.chg .fill,.mod.dsg .fill{background-image:repeating-linear-gradient(-55deg,transparent 0 9px,var(--stripe) 9px 18px);background-size:42px 100%}
-.mod.chg .fill{animation:flow-in 1.6s linear infinite}
-.mod.dsg .fill{animation:flow-out 2.4s linear infinite}
-@keyframes flow-in{from{background-position:0 0}to{background-position:42px 0}}
-@keyframes flow-out{from{background-position:42px 0}to{background-position:0 0}}
 .handle{position:relative;width:5px;height:30px;border-radius:3px;background:var(--line);flex:none}
 .mod-body{position:relative;flex:1;display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;padding:8px 12px}
 .mod-name{font-weight:600}
@@ -173,7 +167,7 @@ section{margin-top:26px}
 .hist{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
 .hist-read{margin:0 0 8px;min-height:2.9em;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .hist-read b{color:var(--ink);font-weight:600}
-.hist-read .in{color:var(--sun)} .hist-read .out{color:var(--cobalt)}
+.hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
 .legend{margin:8px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
 .legend span{white-space:nowrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 5px 0 0;vertical-align:-1px}
@@ -199,7 +193,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .cells{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;height:120px;border-bottom:1px solid var(--line)}
 .col{display:flex;align-items:flex-end;height:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .cell{position:relative;width:100%;background:var(--lith);border-radius:3px 3px 1px 1px;min-height:4px;transition:height .5s ease}
-.cell.max{background:var(--sun)} .cell.min{background:var(--cobalt)}
+.cell.max{background:var(--ink)} .cell.min{background:var(--out)}
 .cell.bal::before{content:"";position:absolute;top:-9px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--ink)}
 .cell.sel{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}
 .ax{position:absolute;right:0;font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1;transform:translateY(-50%)}
@@ -224,6 +218,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .seg span{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;border-radius:8px;font-size:.9rem;
   color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;transition:background .15s,color .15s}
 .seg span svg{width:15px;height:15px;flex:none}
+.pal span{flex-direction:column;gap:6px;padding:9px 2px 7px;font-size:.8rem}
+.pal i{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--a) 50%,var(--b) 50%);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 .seg input:checked+span{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .seg input:focus-visible+span{outline:3px solid var(--sun);outline-offset:-1px}
 .names{display:grid;gap:10px;margin-top:8px}
@@ -235,8 +231,132 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .link-btn{border:0;background:none;padding:6px 0;font:inherit;font-size:.9rem;color:var(--alert);cursor:pointer}
 .link-btn:focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:4px}
 
+/* ---------- stile v1.1: grafico circolare, riquadri e pillole (ritocca le regole sopra) ---------- */
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:30px;height:30px;border-radius:8px;flex:none}
+.conn{background:var(--surface);padding:5px 11px;border-radius:999px;font-weight:500}
+section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+
+.hero{margin-top:8px;text-align:center}
+.gauge{position:relative;width:min(250px,72vw);aspect-ratio:1;margin:0 auto}
+.gauge svg{display:block;width:100%;height:100%;overflow:visible}
+.g-arc{fill:none;stroke-width:16;stroke-linecap:round;transform:rotate(135deg);transform-origin:120px 120px}
+.g-track{stroke:var(--line);stroke-dasharray:452.4 603.2}
+.g-fill{stroke:var(--lith);stroke-dasharray:0 603.2;transition:stroke-dasharray .8s ease,stroke .4s}
+.gauge.low .g-fill{stroke:var(--warn)}
+.g-ticks line{stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;opacity:.5}
+.g-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.g-center .soc{justify-content:center;align-items:center;line-height:1}
+.g-center .soc .big{font-size:4.6rem}
+.g-center .soc .pct{font-size:1.6rem;margin:0 0 1.6rem .15rem;align-self:center}
+.g-sub{position:absolute;left:0;right:0;bottom:3%;margin:0;font-size:.95rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.g-sub b{color:var(--ink);font-weight:600}
+.state{justify-content:center;margin:10px auto 0;width:max-content;max-width:100%;padding:6px 14px 6px 12px;border-radius:999px;font-size:.98rem;position:relative}
+.state::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.state.chg{background:var(--sun-tint)} .state.dsg{background:var(--out-tint)} .state.idle{background:var(--line)}
+.eta{margin-top:8px;font-size:.92rem}
+
+.kpis{gap:8px;border:0;margin-top:22px}
+.kpis div,.kpis div:not(:nth-child(3n+1)),.kpis div:nth-child(n+4){border:0;padding:10px 12px;background:var(--surface);border-radius:14px;text-align:left}
+.kpis dd{font-size:1.12rem}
+
+.notice{border-radius:14px}
+.rack{border-radius:18px;padding:8px;gap:6px}
+.mod{border-radius:11px;min-height:64px}
+.alerts li{border-radius:0 12px 12px 0}
+.panel{background:var(--surface);border-radius:18px;padding:14px 14px 12px}
+footer{border-top:0;padding-top:0}
+
+/* ---------- colorazioni (Impostazioni → Colori). Senza attributo: Oro e grafite, i token in testa ---------- */
+:root[data-palette]{--bg:#E9EDF1; --surface:#F7F9FB; --ink:#18212B; --muted:#5B6773; --line:#D3DAE1; --frame:#26303B; --frame-ink:#C9D1D9}
+:root[data-palette="blu"]{--lith:#1F6BFF; --lith-tint:rgba(31,107,255,0.15); --fill-tint:rgba(31,107,255,0.2); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#7A4FD6; --out-tint:rgba(122,79,214,.14); --logo-arc:#3D8BFF}
+:root[data-palette="ciano"]{--lith:#0891B2; --lith-tint:rgba(8,145,178,0.15); --fill-tint:rgba(8,145,178,0.2); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#5B6B80; --out-tint:rgba(91,107,128,.14); --logo-arc:#22D3EE}
+:root[data-palette="smeraldo"]{--lith:#059669; --lith-tint:rgba(5,150,105,0.15); --fill-tint:rgba(5,150,105,0.2); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#3B6FD4; --out-tint:rgba(59,111,212,.14); --logo-arc:#34D399}
+:root[data-palette="viola"]{--lith:#7C3AED; --lith-tint:rgba(124,58,237,0.13); --fill-tint:rgba(124,58,237,0.18); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#5B6B80; --out-tint:rgba(91,107,128,.14); --logo-arc:#A78BFA}
+@media (prefers-color-scheme: dark){
+  :root[data-palette]:not([data-theme="light"]){--bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542; --frame:#0C1117; --frame-ink:#6B7886}
+  :root[data-palette="blu"]:not([data-theme="light"]){--lith:#3D8BFF; --lith-tint:rgba(61,139,255,0.2); --fill-tint:rgba(61,139,255,0.24); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#A68BF7; --out-tint:rgba(166,139,247,.14); --logo-arc:#3D8BFF}
+  :root[data-palette="ciano"]:not([data-theme="light"]){--lith:#22D3EE; --lith-tint:rgba(34,211,238,0.18); --fill-tint:rgba(34,211,238,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#22D3EE}
+  :root[data-palette="smeraldo"]:not([data-theme="light"]){--lith:#34D399; --lith-tint:rgba(52,211,153,0.18); --fill-tint:rgba(52,211,153,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#7AA2F0; --out-tint:rgba(122,162,240,.14); --logo-arc:#34D399}
+  :root[data-palette="viola"]:not([data-theme="light"]){--lith:#A78BFA; --lith-tint:rgba(167,139,250,0.18); --fill-tint:rgba(167,139,250,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#A78BFA}
+}
+:root[data-palette][data-theme="dark"]{--bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542; --frame:#0C1117; --frame-ink:#6B7886}
+:root[data-palette="blu"][data-theme="dark"]{--lith:#3D8BFF; --lith-tint:rgba(61,139,255,0.2); --fill-tint:rgba(61,139,255,0.24); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#A68BF7; --out-tint:rgba(166,139,247,.14); --logo-arc:#3D8BFF}
+:root[data-palette="ciano"][data-theme="dark"]{--lith:#22D3EE; --lith-tint:rgba(34,211,238,0.18); --fill-tint:rgba(34,211,238,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#22D3EE}
+:root[data-palette="smeraldo"][data-theme="dark"]{--lith:#34D399; --lith-tint:rgba(52,211,153,0.18); --fill-tint:rgba(52,211,153,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#7AA2F0; --out-tint:rgba(122,162,240,.14); --logo-arc:#34D399}
+:root[data-palette="viola"][data-theme="dark"]{--lith:#A78BFA; --lith-tint:rgba(167,139,250,0.18); --fill-tint:rgba(167,139,250,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#A78BFA}
+
+/* ---------- stili (Impostazioni → Stile). Senza attributo: Classico. Neon e Solare forzano data-theme="dark" ---------- */
+.g-segs,.g-mark,.mod .segs,.mod .bar{display:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.dm{display:inline-block;vertical-align:baseline;overflow:visible}
+.dm rect{fill:currentColor}
+.vu{font-size:.6em;font-weight:500;color:var(--muted);margin-left:.25em}
+
+/* Neon: card scure con bordo luminoso, numeri a matrice di punti, segmenti a pillola */
+:root[data-style="neon"][data-theme="dark"]{--bg:#070D13; --surface:#0D161F; --ink:#EAF2F8; --muted:#7D8B98; --line:#1A2631; --frame:#0A1118; --frame-ink:#4F5B67}
+[data-style="neon"] body{background:radial-gradient(110% 55% at 50% -8%,color-mix(in srgb,var(--lith) 16%,transparent),transparent 65%) var(--bg) fixed}
+[data-style="neon"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){--g:var(--lith);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--g) 16%,var(--surface)),var(--surface) 72%);
+  border:1.5px solid color-mix(in srgb,var(--g) 72%,transparent);border-radius:22px;
+  box-shadow:0 0 26px -8px var(--g),inset 0 0 24px -14px var(--g)}
+[data-style="neon"] .hero-card{padding:16px 12px 18px}
+[data-style="neon"] .kpis div{--g:#8C99A6}
+[data-style="neon"] .kpis div.chg{--g:var(--sun)} [data-style="neon"] .kpis div.dsg{--g:var(--out)}
+[data-style="neon"] .kpis div:has(.warn){--g:var(--warn)}
+[data-style="neon"] .kpis dd{font-size:1.55rem}
+[data-style="neon"] .kpis dd .dm,[data-style="neon"] .mod-soc .dm{height:.82em}
+[data-style="neon"] .dm{filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}
+[data-style="neon"] .g-track,[data-style="neon"] .g-fill,[data-style="neon"] .g-ticks{display:none}
+[data-style="neon"] .g-segs{display:inline}
+.g-segs rect{fill:var(--line)}
+.g-segs rect.on{fill:var(--lith);filter:drop-shadow(0 0 4px var(--lith))}
+.gauge.low .g-segs rect.on{fill:var(--warn);filter:drop-shadow(0 0 4px var(--warn))}
+[data-style="neon"] .state{background:transparent;border:1.5px solid currentColor;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
+[data-style="neon"] .rack{background:none;padding:0;gap:10px}
+[data-style="neon"] .mod .fill,[data-style="neon"] .mod .handle{display:none}
+[data-style="neon"] .mod{padding:12px 14px;outline:none}
+[data-style="neon"] .mod.low{--g:var(--warn)} [data-style="neon"] .mod.off{--g:#4F5B67;box-shadow:none}
+[data-style="neon"] .mod-body{padding:0;row-gap:4px}
+[data-style="neon"] .mod .segs{display:grid;grid-column:1/-1;grid-template-columns:repeat(20,1fr);gap:3px;height:16px;margin-top:6px}
+.segs i{border-radius:4px;background:var(--line)}
+.segs i.on{background:var(--g,var(--lith));box-shadow:0 0 6px var(--g,var(--lith))}
+[data-style="neon"] .panel{--g:var(--sun)}
+[data-style="neon"] .alerts li{--g:var(--warn);border-radius:16px} [data-style="neon"] .alerts li.prot{--g:var(--alert)}
+[data-style="neon"] .notice.lost{--g:var(--warn)}
+
+/* Solare: fondo salvia, card traslucide, arco sottile con tacca, barre piene */
+:root[data-style="solare"][data-theme="dark"]{--bg:#7C8979; --surface:#8A9786; --ink:#F7F9F3; --muted:#DDE3D8; --line:#A2AC9E; --frame:#66725F; --frame-ink:#C8D0C3;
+  --out:#2F3A2C; --out-tint:rgba(30,40,28,.18)}
+:root[data-style="solare"]:not([data-palette])[data-theme="dark"]{--lith:#ECE45C; --lith-tint:rgba(236,228,92,.28); --sun:#ECE45C; --sun-tint:rgba(236,228,92,.25); --logo-arc:#ECE45C}
+[data-style="solare"] body{background:radial-gradient(130% 70% at 50% 0%,#99A695,#6E7B6A 78%) var(--bg) fixed}
+[data-style="solare"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.17);
+  border-radius:20px;box-shadow:0 12px 30px -20px rgba(0,0,0,.45)}
+[data-style="solare"] .hero-card{padding:16px 12px 18px}
+[data-style="solare"] .soc .big,[data-style="solare"] .kpis dd,[data-style="solare"] .mod-soc{font-weight:500;letter-spacing:-.03em}
+[data-style="solare"] .vu{vertical-align:.55em;font-size:.55em;color:var(--ink);opacity:.8}
+[data-style="solare"] .g-ticks{display:none}
+[data-style="solare"] .g-arc{stroke-width:4}
+[data-style="solare"] .g-track{stroke:rgba(255,255,255,.3)}
+[data-style="solare"] .g-fill,[data-style="solare"] .gauge.low .g-fill{stroke:#fff}
+[data-style="solare"] .g-mark{display:inline;stroke:var(--lith);stroke-width:6;stroke-linecap:round}
+[data-style="solare"] .gauge.low .g-mark{stroke:var(--warn)}
+[data-style="solare"] .state.chg{background:var(--lith);color:#1F2619}
+[data-style="solare"] .state.dsg{background:rgba(255,255,255,.88);color:#1F2619}
+[data-style="solare"] .state.idle{background:rgba(255,255,255,.18);color:var(--ink)}
+[data-style="solare"] .rack{background:none;padding:0;gap:10px}
+[data-style="solare"] .mod .fill,[data-style="solare"] .mod .handle{display:none}
+[data-style="solare"] .mod{padding:12px 14px;outline:none;color:var(--ink)}
+[data-style="solare"] .mod-body{padding:0;row-gap:4px}
+[data-style="solare"] .mod .bar{display:block;grid-column:1/-1;height:14px;margin-top:8px;border-radius:7px;background:rgba(255,255,255,.14);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--lith),color-mix(in srgb,var(--lith) 50%,transparent));transition:width .8s ease}
+[data-style="solare"] .mod.low .bar i{background:linear-gradient(90deg,var(--warn),color-mix(in srgb,var(--warn) 50%,transparent))}
+[data-style="solare"] .mod.off{opacity:.7}
+[data-style="solare"] .hist polyline{stroke:#fff;stroke-dasharray:5 4}
+[data-style="solare"] .alerts li{border-left:4px solid var(--warn)} [data-style="solare"] .alerts li.prot{border-left-color:var(--alert)}
+
 @media (prefers-reduced-motion: reduce){
-  .mod.chg .fill,.mod.dsg .fill,.conn.live .dot{animation:none}
+  .conn.live .dot{animation:none}
   .fill,.cell,.mod{transition:none}
   dialog[open]{animation:none}
 }
@@ -245,7 +365,10 @@ dialog[open]{animation:sheet-up .28s ease-out}
 <body>
 <main class="app">
   <header class="top">
-    <h1>Banco batterie</h1>
+    <h1 class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" style="fill:var(--frame)"/>
+  <circle cx="256" cy="268" r="150" fill="none" style="stroke:rgba(255,255,255,.14)" stroke-width="40" stroke-linecap="round" stroke-dasharray="706.9 942.5" transform="rotate(135 256 268)"/>
+  <circle cx="256" cy="268" r="150" fill="none" style="stroke:var(--logo-arc)" stroke-width="40" stroke-linecap="round" stroke-dasharray="480.7 942.5" transform="rotate(135 256 268)"/>
+  <path d="M270 192 L210 282 L252 282 L238 346 L302 252 L260 252 Z" fill="#F4F4EF"/></svg>MyBattery</h1>
     <div class="top-r">
       <span class="conn" id="conn" role="status"><span class="dot"></span><span id="conn-t">Connessione…</span></span>
       <button class="icon-btn" id="open-set" type="button" aria-label="Impostazioni" title="Impostazioni">
@@ -255,14 +378,28 @@ dialog[open]{animation:sheet-up .28s ease-out}
   </header>
 
   <section class="hero">
-    <div class="soc"><span class="big" id="soc">–</span><span class="pct">%</span></div>
+    <div class="hero-card">
+    <div class="gauge" id="gauge">
+      <svg viewBox="0 0 240 240" aria-hidden="true">
+        <g class="g-ticks"><line x1="42.2" y1="197.8" x2="37.3" y2="202.7"/><line x1="120" y1="10" x2="120" y2="3"/><line x1="197.8" y1="197.8" x2="202.7" y2="202.7"/></g>
+        <circle class="g-arc g-track" cx="120" cy="120" r="96"/>
+        <circle class="g-arc g-fill" id="g-fill" cx="120" cy="120" r="96"/>
+        <g class="g-segs" id="g-segs"></g>
+        <line class="g-mark" id="g-mark" x1="204" y1="120" x2="230" y2="120"/>
+      </svg>
+      <div class="g-center">
+        <div class="soc"><span class="big" id="soc">–</span><span class="pct">%</span></div>
+      </div>
+      <p class="g-sub" id="g-sub"></p>
+    </div>
     <p class="state idle" id="state">In attesa dei dati</p>
     <p class="eta" id="eta"></p>
+    </div>
     <dl class="kpis">
       <div><dt>Potenza</dt><dd id="k-p">–</dd></div>
       <div><dt>Corrente</dt><dd id="k-i">–</dd></div>
       <div><dt>Tensione</dt><dd id="k-v">–</dd></div>
-      <div><dt>Energia</dt><dd id="k-e">–</dd></div>
+      <div><dt>Batterie</dt><dd id="k-e">–</dd></div>
       <div><dt>Squilibrio</dt><dd id="k-d">–</dd></div>
       <div><dt>Temperatura</dt><dd id="k-t">–</dd></div>
     </dl>
@@ -281,11 +418,11 @@ dialog[open]{animation:sheet-up .28s ease-out}
     <p class="ok" id="alerts-ok" hidden>Nessun avviso: tutte le batterie lavorano nei limiti.</p>
   </section>
 
-  <section aria-labelledby="h-hist">
+  <section class="panel" aria-labelledby="h-hist">
     <h2 id="h-hist">Ultime 24 ore</h2>
     <p class="hist-read" id="hist-read"></p>
     <svg class="hist" id="hist" viewBox="0 0 340 152" role="img" aria-label="Andamento della carica e della potenza nelle ultime 24 ore"></svg>
-    <p class="legend"><span><i style="background:var(--lith)"></i>Carica del banco</span><span><i style="background:var(--sun)"></i>Potenza in entrata</span><span><i style="background:var(--cobalt)"></i>Potenza in uscita</span></p>
+    <p class="legend"><span><i style="background:var(--lith)"></i>Carica del banco</span><span><i style="background:var(--sun)"></i>Potenza in entrata</span><span><i style="background:var(--out)"></i>Potenza in uscita</span></p>
   </section>
 
   <footer>
@@ -313,6 +450,15 @@ dialog[open]{animation:sheet-up .28s ease-out}
       <button class="close" id="set-close" type="button">Chiudi</button>
     </div>
 
+    <h3>Stile</h3>
+    <fieldset class="seg" id="set-style">
+      <legend>Stile</legend>
+      <label><input type="radio" name="style" value="classico"><span>Classico</span></label>
+      <label><input type="radio" name="style" value="neon"><span>Neon</span></label>
+      <label><input type="radio" name="style" value="solare"><span>Solare</span></label>
+    </fieldset>
+    <p class="set-note">Neon e Solare hanno uno sfondo tutto loro: la scelta del tema vale solo per Classico.</p>
+
     <h3>Tema</h3>
     <fieldset class="seg" id="set-theme">
       <legend>Tema</legend>
@@ -321,6 +467,17 @@ dialog[open]{animation:sheet-up .28s ease-out}
       <label><input type="radio" name="theme" value="dark"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 10.2A6 6 0 0 1 5.8 2.4a6 6 0 1 0 7.8 7.8z" fill="currentColor"/></svg>Scuro</span></label>
     </fieldset>
     <p class="set-note">Automatico segue il tema del telefono.</p>
+
+    <h3>Colori</h3>
+    <fieldset class="seg pal" id="set-palette">
+      <legend>Colori</legend>
+      <label><input type="radio" name="palette" value="oro"><span><i style="--a:#F5B800;--b:#2B2B29"></i>Oro</span></label>
+      <label><input type="radio" name="palette" value="blu"><span><i style="--a:#1F6BFF;--b:#26303B"></i>Blu</span></label>
+      <label><input type="radio" name="palette" value="ciano"><span><i style="--a:#0891B2;--b:#26303B"></i>Ciano</span></label>
+      <label><input type="radio" name="palette" value="smeraldo"><span><i style="--a:#059669;--b:#26303B"></i>Smeraldo</span></label>
+      <label><input type="radio" name="palette" value="viola"><span><i style="--a:#7C3AED;--b:#26303B"></i>Viola</span></label>
+    </fieldset>
+    <p class="set-note">L'icona sulla schermata Home resta oro: il telefono non la cambia dopo l'installazione.</p>
 
     <h3>Aggiornamento</h3>
     <fieldset class="seg" id="set-poll">
@@ -357,7 +514,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.0"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.1"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -409,8 +566,8 @@ const nameOf = (b, i) => S.names[keyOf(b, i)] || b.name || "Batteria " + (i + 1)
 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
-const OPT = { theme: ["auto","light","dark"], poll: [2,5,10,30], reserve: [0,10,20,30] };
-const DEF = { theme: "auto", poll: 5, reserve: 0, names: {} };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","neon","solare"], poll: [2,5,10,30], reserve: [0,10,20,30] };
+const DEF = { theme: "auto", palette: "oro", style: "classico", poll: 5, reserve: 0, names: {} };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -422,11 +579,43 @@ function loadSettings(){
 }
 function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
 const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
-metas.forEach(m => m.dataset.c = m.content);
+const PAGE_BG = { oro: ["#ECECE8", "#161615"], fredda: ["#E9EDF1", "#121820"] }; // = --bg chiaro e scuro
+const STYLE_BG = { neon: "#070D13", solare: "#7C8979" };
 function applyTheme(){
   const r = document.documentElement;
-  if (S.theme === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", S.theme);
-  metas.forEach(m => m.content = S.theme === "auto" ? m.dataset.c : S.theme === "dark" ? "#121820" : "#E9EDF1");
+  const theme = S.style === "classico" ? S.theme : "dark"; // Neon e Solare usano i colori scuri della palette
+  if (theme === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", theme);
+  if (S.palette === "oro") r.removeAttribute("data-palette"); else r.setAttribute("data-palette", S.palette);
+  if (S.style === "classico") r.removeAttribute("data-style"); else r.setAttribute("data-style", S.style);
+  const [bl, bd] = PAGE_BG[S.palette === "oro" ? "oro" : "fredda"];
+  metas.forEach(m => m.content = STYLE_BG[S.style] || (theme === "light" ? bl : theme === "dark" ? bd : m.media.includes("dark") ? bd : bl));
+}
+
+/* ---------- numeri: a matrice di punti (Neon) o con l'unità piccola (Solare) ---------- */
+const DM = {
+  "0":["01110","10001","10011","10101","11001","10001","01110"], "1":["00100","01100","00100","00100","00100","00100","01110"],
+  "2":["01110","10001","00001","00010","00100","01000","11111"], "3":["11111","00010","00100","00010","00001","10001","01110"],
+  "4":["00010","00110","01010","10010","11111","00010","00010"], "5":["11111","10000","11110","00001","00001","10001","01110"],
+  "6":["00110","01000","10000","11110","10001","10001","01110"], "7":["11111","00001","00010","00100","01000","01000","01000"],
+  "8":["01110","10001","10001","01110","10001","10001","01110"], "9":["01110","10001","10001","01111","00001","00010","01100"],
+  ",":["00","00","00","00","00","01","10"], ".":["0","0","0","0","0","0","1"], "−":["000","000","000","111","000","000","000"],
+  "-":["000","000","000","111","000","000","000"], "+":["000","000","010","111","010","000","000"], " ":["0","0","0","0","0","0","0"]
+};
+function dotMatrix(str){
+  let x = 0, dots = "";
+  for (const ch of str) {
+    const g = DM[ch] || DM[" "];
+    g.forEach((row, y) => [...row].forEach((c, i) => { if (c === "1") dots += `<rect x="${x + i + .12}" y="${y + .12}" width=".76" height=".76" rx=".24"/>`; }));
+    x += g[0].length + 1;
+  }
+  const w = Math.max(1, x - 1);
+  return `<svg class="dm" viewBox="0 0 ${w} 7" style="height:.78em;width:${(w / 7 * .78).toFixed(3)}em" aria-hidden="true">${dots}</svg><span class="sr-only">${esc(str)}</span>`;
+}
+const NUM_RE = /^([−+\-]?[\d.,]+)\s*(.*)$/;
+function setVal(el, text){
+  const m = S.style !== "classico" && NUM_RE.exec(text);
+  if (!m) { el.textContent = text; return; }
+  el.innerHTML = (S.style === "neon" ? dotMatrix(m[1]) : esc(m[1])) + (m[2] ? `<small class="vu">${esc(m[2])}</small>` : "");
 }
 function schedule(){ clearInterval(pollTimer); pollTimer = setInterval(poll, S.poll * 1000); }
 
@@ -497,7 +686,7 @@ function render(m){
   else n.hidden = true;
 
   // hero
-  $("soc").textContent = k.on ? nf(k.soc, 0) : "–";
+  setVal($("soc"), k.on ? nf(k.soc, 0) : "–");
   const st = $("state"), eta = $("eta");
   if (!k.on) {
     st.className = "state idle"; st.textContent = bs.length ? "Nessuna batteria risponde" : "In attesa dei dati"; eta.textContent = "";
@@ -514,13 +703,25 @@ function render(m){
   } else {
     st.className = "state idle"; st.textContent = "A riposo"; eta.textContent = "";
   }
-  $("k-p").textContent = k.on ? spower(k.p) : "–";
-  $("k-i").textContent = k.on ? signed(k.i, 1) + " A" : "–";
-  $("k-v").textContent = k.on ? nf(k.v, 1) + " V" : "–";
-  $("k-e").textContent = k.on ? nf(k.kwh, 1) + " kWh" : "–";
-  $("k-d").textContent = fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–";
+  setVal($("k-p"), k.on ? spower(k.p) : "–");
+  $("k-p").parentElement.className = !k.on ? "" : k.i > 0.5 ? "chg" : k.i < -0.5 ? "dsg" : "";
+  setVal($("k-i"), k.on ? signed(k.i, 1) + " A" : "–");
+  setVal($("k-v"), k.on ? nf(k.v, 1) + " V" : "–");
+  setVal($("k-e"), bs.length ? `${k.on} di ${bs.length}` : "–");
+  $("k-e").className = k.on < bs.length ? "warn" : "";
+  // grafico circolare: 270° = 452,4 unità di arco su 603,2 di circonferenza (r 96)
+  const gf = k.on && fin(k.soc) ? Math.max(0, Math.min(100, k.soc)) / 100 : 0;
+  const dash = `${(452.4 * gf).toFixed(1)} 603.2`;
+  $("g-fill").style.strokeDasharray = dash;
+  const nOn = Math.round(gf * 30); // Neon: 30 pillole; Solare: tacca a fine arco
+  [...$("g-segs").children].forEach((r, i) => r.classList.toggle("on", i < nOn));
+  $("g-mark").setAttribute("transform", `rotate(${(135 + 270 * gf).toFixed(1)} 120 120)`);
+  const lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
+  $("gauge").classList.toggle("low", k.on > 0 && k.soc < lowG);
+  $("g-sub").innerHTML = k.on ? `<b>${nf(k.kwh, 1)} kWh</b> disponibili` : "";
+  setVal($("k-d"), fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–");
   $("k-d").className = k.dmax > 50 ? "warn" : "";
-  $("k-t").textContent = fin(k.tmax) ? "max " + nf(k.tmax, 0) + " °C" : "–";
+  setVal($("k-t"), fin(k.tmax) ? nf(k.tmax, 0) + " °C max" : "–");
   $("k-t").className = k.tmax >= 45 ? "warn" : "";
 
   // rack
@@ -528,19 +729,22 @@ function render(m){
   if (rack.children.length !== bs.length) {
     rack.innerHTML = bs.map((b,i) =>
       `<button class="mod" type="button" data-i="${i}"><span class="fill"></span><span class="handle"></span>
-        <span class="mod-body"><span class="mod-name"></span><span class="mod-sub"></span><span class="mod-soc"></span></span>
+        <span class="mod-body"><span class="mod-name"></span><span class="mod-sub"></span><span class="mod-soc"></span>
+        <span class="segs">${"<i></i>".repeat(20)}</span><span class="bar"><i></i></span></span>
         <span class="handle"></span></button>`).join("");
   }
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   bs.forEach((b,i) => {
     const el = rack.children[i], nm = nameOf(b, i);
-    const flow = b.i > 0.3 ? "chg" : b.i < -0.3 ? "dsg" : "";
-    el.className = "mod" + (b.online ? "" : " off") + (flow && b.online ? " " + flow : "") + (b.online && b.soc < lowSoc ? " low" : "");
+    el.className = "mod" + (b.online ? "" : " off") + (b.online && b.soc < lowSoc ? " low" : "");
     el.querySelector(".fill").style.setProperty("--soc", (fin(b.soc) ? b.soc : 0) + "%");
     const flag = !b.online ? "" : (b.prot && b.prot.length) ? '<i class="mod-flag prot"></i>' : (b.alarms && b.alarms.length) ? '<i class="mod-flag alarm"></i>' : "";
     el.querySelector(".mod-name").innerHTML = esc(nm) + flag;
     el.querySelector(".mod-sub").textContent = b.online ? `${nf(b.v,2)} V   ${signed(b.i,1)} A` : "Non risponde";
-    el.querySelector(".mod-soc").textContent = b.online ? nf(b.soc,0) + "%" : "";
+    setVal(el.querySelector(".mod-soc"), b.online ? nf(b.soc,0) + "%" : "");
+    const lvl = b.online && fin(b.soc) ? Math.max(0, Math.min(100, b.soc)) : 0;
+    [...el.querySelector(".segs").children].forEach((p, j) => p.classList.toggle("on", j < Math.round(lvl / 5)));
+    el.querySelector(".bar i").style.width = lvl + "%";
     el.setAttribute("aria-label", b.online
       ? `${nm}: carica ${nf(b.soc,0)} per cento, ${nf(b.v,2)} volt, ${signed(b.i,1)} ampere. Apri dettagli`
       : `${nm}: non risponde`);
@@ -609,7 +813,7 @@ function drawHistory(h, tNow){
     if (!fin(w) || x(i) < 0) return;
     const hgt = Math.abs(w) / pmax * AMP;
     if (hgt < 0.4) return;
-    bars += `<rect x="${(x(i) - bw/2).toFixed(1)}" y="${(w > 0 ? BASE - hgt : BASE).toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" fill="${w > 0 ? "var(--sun)" : "var(--cobalt)"}"/>`;
+    bars += `<rect x="${(x(i) - bw/2).toFixed(1)}" y="${(w > 0 ? BASE - hgt : BASE).toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" fill="${w > 0 ? "var(--sun)" : "var(--out)"}"/>`;
   });
 
   // griglia orizzontale (carica) e verticale (ogni 6 ore, allineata all'orologio)
@@ -860,9 +1064,9 @@ $("set-close").addEventListener("click", () => $("settings").close());
 $("settings").addEventListener("click", e => { if (e.target === $("settings")) $("settings").close(); });
 $("settings").addEventListener("change", e => {
   const t = e.target; if (t.type !== "radio") return;
-  S[t.name] = t.name === "theme" ? t.value : +t.value;
+  S[t.name] = ["theme", "palette", "style"].includes(t.name) ? t.value : +t.value;
   saveSettings();
-  if (t.name === "theme") applyTheme();
+  if (["theme", "palette", "style"].includes(t.name)) applyTheme();
   if (t.name === "poll") { schedule(); poll(); }
   if (data) render(mode);
 });
@@ -879,6 +1083,8 @@ $("set-reset").addEventListener("click", () => {
 });
 
 $("ver").textContent = APP_VERSION;
+$("g-segs").innerHTML = Array.from({length: 30}, (_, i) =>
+  `<rect x="-10" y="-4.5" width="20" height="9" rx="4.5" transform="translate(120 120) rotate(${135 + (i + .5) * 9}) translate(96 0)"/>`).join("");
 
 /* ---------- app installabile: service worker solo in HTTPS (GitHub Pages), non dalla scheda ---------- */
 if ("serviceWorker" in navigator && window.isSecureContext && location.hostname !== "localhost") {

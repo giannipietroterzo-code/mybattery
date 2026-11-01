@@ -1,4 +1,4 @@
-# MyBattery — web app
+# MyBattery
 
 Monitor per smartphone di un banco di 5 batterie LiFePO4 51,2 V con BMS DR-JC03, letto via RS485 da una scheda ESP32-S3.
 
