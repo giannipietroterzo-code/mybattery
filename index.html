@@ -779,8 +779,15 @@ footer{border-top:0;padding-top:0}
 .cab .seg,.cab .dot{fill:var(--line);transition:fill .25s}
 .cab .seg.on{fill:var(--lith);filter:drop-shadow(0 0 2px var(--lith))}
 .cab .m.low .seg.on{fill:var(--warn);filter:drop-shadow(0 0 2px var(--warn))}
-.cab .run.on{fill:#34C759;filter:drop-shadow(0 0 2.5px #34C759)}
-.cab .alm.on{fill:var(--alert);filter:drop-shadow(0 0 2.5px var(--alert))}
+/* spie: verde = in funzione, rosso = allarme, nelle tonalità dello stile (--led-ok, --led-err) */
+.cab .run.on{fill:var(--led-ok,#34C759);filter:drop-shadow(0 0 2.5px var(--led-ok,#34C759))}
+.cab .alm.on{fill:var(--led-err,var(--alert));filter:drop-shadow(0 0 2.5px var(--led-err,var(--alert)))}
+[data-style="hitech"]{--led-ok:#36F5B0;--led-err:#FF5D73}
+[data-style="terminale"]{--led-ok:#39FF7A;--led-err:#FF5544}
+[data-style="mecha"]{--led-ok:#C3E62B;--led-err:#FF4A1C}
+[data-style="cyber"]{--led-ok:#9CFF3A;--led-err:#FF3B30}
+[data-style="reattore"]{--led-ok:#C3E62B;--led-err:#FF3D1F}
+[data-style="plancia"]{--led-ok:#4DFFB0;--led-err:#FF4D5E}
 .cab .blink{animation:led-blink 1.1s steps(2,start) infinite}
 .cab .m.off{opacity:.4}
 .cab .deco{display:none}
@@ -1079,7 +1086,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.11"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.12"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
