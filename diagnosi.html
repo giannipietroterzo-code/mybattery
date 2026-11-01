@@ -286,7 +286,7 @@ function block42(r) {
     d.tAmb = temp(r.u16()); d.tPack = temp(r.u16()); d.tMos = temp(r.u16());
     const n = r.u8(); d.tCells = []; for (let k = 0; k < n; k++) d.tCells.push(temp(r.u16()));
     const iRaw = r.s16(); d.rInt = r.u16(); d.soh = r.u16(); d.flag = r.u8();
-    d.i = iRaw / (d.flag & 1 ? 100 : 10);
+    d.i = iRaw / (d.flag & 1 ? 10 : 100);   // verificato: bit0 = 0 → 0,01 A (il PDF dice il contrario)
     d.full = r.u16() / 100; d.rem = r.u16() / 100; d.cycles = r.u16();
     d.stV = r.u16(); d.stI = r.u16(); d.stT = r.u16(); d.stA = r.u16(); d.fet = r.u16();
     d.pOv = r.u16(); d.pUv = r.u16(); d.aHi = r.u16(); d.aLo = r.u16(); d.bal = r.u16(); d.bal2 = r.u16();
@@ -447,7 +447,7 @@ function openSim(onData) {
     const cells = Array.from({ length: 16 }, (_, j) => 3318 + Math.round(Math.sin(j * 1.7 + k) * 6) + (j === 5 + k ? -19 : 0) + (j === 11 ? 9 : 0));
     const v = Math.round(cells.reduce((a, x) => a + x, 0) / 10);
     return w(6420 - k * 35) + w(v) + "10" + cells.map(w).join("") + w(214) + w(226 + k * 4) + w(268) + "04" + [221, 224, 229, 226].map((t) => w(t + k * 3)).join("")
-      + w(-(1840 - k * 120)) + w(0) + w(100) + "01" + w(20000) + w(12840 - k * 70) + w(37 + k) + w(0) + w(2) + w(0) + w(0) + w(3)
+      + w(-(1840 - k * 120)) + w(0) + w(100) + "00" + w(20000) + w(12840 - k * 70) + w(37 + k) + w(0) + w(2) + w(0) + w(0) + w(3)
       + w(0) + w(0) + w(0) + w(0) + w(k === 2 ? 1 << 5 : 0) + w(0) + w(0).repeat(4) + "03" + w(0);
   };
   let open = true;
