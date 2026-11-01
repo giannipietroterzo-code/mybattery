@@ -134,28 +134,7 @@ section{margin-top:26px}
 .notice{margin-top:18px;padding:10px 12px;border-radius:10px;background:var(--lith-tint);font-size:.9rem}
 .notice.lost{background:var(--warn-tint)}
 /* dati vecchi: valori attenuati */
-.app.stale .hero,.app.stale .rack{opacity:.55;transition:opacity .4s}
-
-/* armadio rack */
-.rack{background:var(--frame);border-radius:14px;padding:10px;display:grid;gap:7px}
-.mod{position:relative;display:flex;align-items:center;width:100%;min-height:62px;padding:0 10px;
-  border:0;border-radius:7px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;overflow:hidden;
-  -webkit-tap-highlight-color:transparent;transition:transform .12s ease}
-.mod:active{transform:scale(.985)}
-.mod:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
-.fill{position:absolute;inset:0 auto 0 0;width:var(--soc,0%);background:var(--fill-tint);
-  border-right:2px solid var(--lith);transition:width .8s ease}
-.mod.low .fill{background:var(--warn-tint);border-right-color:var(--warn)}
-.handle{position:relative;width:5px;height:30px;border-radius:3px;background:var(--line);flex:none}
-.mod-body{position:relative;flex:1;display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;padding:8px 12px}
-.mod-name{font-weight:600}
-.mod-sub{grid-column:1;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:pre}
-.mod-soc{grid-column:2;grid-row:1/span 2;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.55rem;font-weight:700}
-.mod-flag{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:7px;vertical-align:middle}
-.mod-flag.alarm{background:var(--warn)} .mod-flag.prot{background:var(--alert)}
-.mod.off{background:transparent;outline:1.5px dashed var(--frame-ink);outline-offset:-1.5px;color:var(--frame-ink)}
-.mod.off .fill{display:none}
-.mod.off .mod-sub{color:var(--frame-ink)}
+.app.stale .hero,.app.stale .cab{opacity:.55;transition:opacity .4s}
 
 /* avvisi */
 .alerts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
@@ -264,8 +243,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .kpis dd{font-size:1.12rem}
 
 .notice{border-radius:14px}
-.rack{border-radius:18px;padding:8px;gap:6px}
-.mod{border-radius:11px;min-height:64px}
+
 .alerts li{border-radius:0 12px 12px 0}
 .panel{background:var(--surface);border-radius:18px;padding:14px 14px 12px}
 footer{border-top:0;padding-top:0}
@@ -294,7 +272,7 @@ footer{border-top:0;padding-top:0}
 :root[data-palette="viola"][data-theme="dark"]{--lith:#A78BFA; --lith-tint:rgba(167,139,250,0.18); --fill-tint:rgba(167,139,250,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#A78BFA}
 
 /* ---------- stili (Impostazioni → Stile). Senza attributo: Classico. Neon e Solare forzano data-theme="dark" ---------- */
-.g-segs,.g-mark,.g-tick,.g-dot,.hello,.mod .segs,.mod .bar{display:none}
+.g-segs,.g-mark,.g-tick,.g-dot,.hello{display:none}
 .hello{margin:0 0 6px;line-height:1.3} .hello-k{display:block;font-size:.85rem;color:var(--muted)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .dm{display:inline-block;vertical-align:baseline;overflow:visible}
@@ -304,7 +282,7 @@ footer{border-top:0;padding-top:0}
 /* Neon: card scure con bordo luminoso, numeri a matrice di punti, segmenti a pillola */
 :root[data-style="neon"][data-theme="dark"]{--bg:#070D13; --surface:#0D161F; --ink:#EAF2F8; --muted:#7D8B98; --line:#1A2631; --frame:#0A1118; --frame-ink:#4F5B67}
 [data-style="neon"] body{background:radial-gradient(110% 55% at 50% -8%,color-mix(in srgb,var(--lith) 16%,transparent),transparent 65%) var(--bg) fixed}
-[data-style="neon"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){--g:var(--lith);
+[data-style="neon"] :is(.hero-card,.kpis div,.panel,.notice,.alerts li){--g:var(--lith);
   background:linear-gradient(180deg,color-mix(in srgb,var(--g) 16%,var(--surface)),var(--surface) 72%);
   border:1.5px solid color-mix(in srgb,var(--g) 72%,transparent);border-radius:22px;
   box-shadow:0 0 26px -8px var(--g),inset 0 0 24px -14px var(--g)}
@@ -313,7 +291,7 @@ footer{border-top:0;padding-top:0}
 [data-style="neon"] .kpis div.chg{--g:var(--sun)} [data-style="neon"] .kpis div.dsg{--g:var(--out)}
 [data-style="neon"] .kpis div:has(.warn){--g:var(--warn)}
 [data-style="neon"] .kpis dd{font-size:1.55rem}
-[data-style="neon"] .kpis dd .dm,[data-style="neon"] .mod-soc .dm{height:.82em}
+[data-style="neon"] .kpis dd .dm{height:.82em}
 [data-style="neon"] .dm{filter:drop-shadow(0 0 5px rgba(255,255,255,.35))}
 [data-style="neon"] .g-track,[data-style="neon"] .g-fill,[data-style="neon"] .g-ticks{display:none}
 [data-style="neon"] .g-segs{display:inline}
@@ -321,14 +299,7 @@ footer{border-top:0;padding-top:0}
 .g-segs rect.on{fill:var(--lith);filter:drop-shadow(0 0 4px var(--lith))}
 .gauge.low .g-segs rect.on{fill:var(--warn);filter:drop-shadow(0 0 4px var(--warn))}
 [data-style="neon"] .state{background:transparent;border:1.5px solid currentColor;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
-[data-style="neon"] .rack{background:none;padding:0;gap:10px}
-[data-style="neon"] .mod .fill,[data-style="neon"] .mod .handle{display:none}
-[data-style="neon"] .mod{padding:12px 14px;outline:none}
-[data-style="neon"] .mod.low{--g:var(--warn)} [data-style="neon"] .mod.off{--g:#4F5B67;box-shadow:none}
-[data-style="neon"] .mod-body{padding:0;row-gap:4px}
-[data-style="neon"] .mod .segs{display:grid;grid-column:1/-1;grid-template-columns:repeat(20,1fr);gap:3px;height:16px;margin-top:6px}
-.segs i{border-radius:4px;background:var(--line)}
-.segs i.on{background:var(--g,var(--lith));box-shadow:0 0 6px var(--g,var(--lith))}
+
 [data-style="neon"] .panel{--g:var(--sun)}
 [data-style="neon"] .alerts li{--g:var(--warn);border-radius:16px} [data-style="neon"] .alerts li.prot{--g:var(--alert)}
 [data-style="neon"] .notice.lost{--g:var(--warn)}
@@ -338,10 +309,10 @@ footer{border-top:0;padding-top:0}
   --out:#2F3A2C; --out-tint:rgba(30,40,28,.18)}
 :root[data-style="solare"]:not([data-palette])[data-theme="dark"]{--lith:#ECE45C; --lith-tint:rgba(236,228,92,.28); --sun:#ECE45C; --sun-tint:rgba(236,228,92,.25); --logo-arc:#ECE45C}
 [data-style="solare"] body{background:radial-gradient(130% 70% at 50% 0%,#99A695,#6E7B6A 78%) var(--bg) fixed}
-[data-style="solare"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.17);
+[data-style="solare"] :is(.hero-card,.kpis div,.panel,.notice,.alerts li){background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.17);
   border-radius:20px;box-shadow:0 12px 30px -20px rgba(0,0,0,.45)}
 [data-style="solare"] .hero-card{padding:16px 12px 18px}
-[data-style="solare"] .soc .big,[data-style="solare"] .kpis dd,[data-style="solare"] .mod-soc{font-weight:500;letter-spacing:-.03em}
+[data-style="solare"] .soc .big,[data-style="solare"] .kpis dd{font-weight:500;letter-spacing:-.03em}
 [data-style="solare"] .vu{vertical-align:.55em;font-size:.55em;color:var(--ink);opacity:.8}
 [data-style="solare"] .g-ticks{display:none}
 [data-style="solare"] .g-arc{stroke-width:4}
@@ -352,14 +323,7 @@ footer{border-top:0;padding-top:0}
 [data-style="solare"] .state.chg{background:var(--lith);color:#1F2619}
 [data-style="solare"] .state.dsg{background:rgba(255,255,255,.88);color:#1F2619}
 [data-style="solare"] .state.idle{background:rgba(255,255,255,.18);color:var(--ink)}
-[data-style="solare"] .rack{background:none;padding:0;gap:10px}
-[data-style="solare"] .mod .fill,[data-style="solare"] .mod .handle{display:none}
-[data-style="solare"] .mod{padding:12px 14px;outline:none;color:var(--ink)}
-[data-style="solare"] .mod-body{padding:0;row-gap:4px}
-[data-style="solare"] .mod .bar{display:block;grid-column:1/-1;height:14px;margin-top:8px;border-radius:7px;background:rgba(255,255,255,.14);overflow:hidden}
-.bar i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,var(--lith),color-mix(in srgb,var(--lith) 50%,transparent));transition:width .8s ease}
-[data-style="solare"] .mod.low .bar i{background:linear-gradient(90deg,var(--warn),color-mix(in srgb,var(--warn) 50%,transparent))}
-[data-style="solare"] .mod.off{opacity:.7}
+
 [data-style="solare"] .hist polyline{stroke:#fff;stroke-dasharray:5 4}
 [data-style="solare"] .alerts li{border-left:4px solid var(--warn)} [data-style="solare"] .alerts li.prot{border-left-color:var(--alert)}
 
@@ -367,31 +331,25 @@ footer{border-top:0;padding-top:0}
 :root[data-style="notte"][data-theme="dark"]{--bg:#0A0A0A; --surface:#161616; --ink:#F2F2F2; --muted:#8A8A8A; --line:#262626; --frame:#0A0A0A; --frame-ink:#5A5A5A}
 :root[data-style="notte"]:not([data-palette])[data-theme="dark"]{--lith:#E4EE5A; --lith-tint:rgba(228,238,90,.16); --sun:#E4EE5A; --sun-tint:rgba(228,238,90,.14); --logo-arc:#E4EE5A}
 [data-style="notte"] body{background:radial-gradient(90% 45% at 50% 0%,#1C1C1C,transparent 70%) var(--bg) fixed}
-[data-style="notte"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:var(--surface);border:0;border-radius:24px}
+[data-style="notte"] :is(.hero-card,.kpis div,.panel,.notice,.alerts li){background:var(--surface);border:0;border-radius:24px}
 [data-style="notte"] .hero-card{background:none;padding:4px 0 0}
 [data-style="notte"] .hello{display:block;text-align:left}
 [data-style="notte"] .hello-t{font-size:1.45rem;font-weight:400}
-[data-style="notte"] .soc .big,[data-style="notte"] .kpis dd,[data-style="notte"] .mod-soc{font-weight:300}
+[data-style="notte"] .soc .big,[data-style="notte"] .kpis dd{font-weight:300}
 [data-style="notte"] .g-ticks{display:none}
 [data-style="notte"] .g-arc{stroke-width:6}
 [data-style="notte"] .g-track{stroke:#242424}
 [data-style="notte"] .g-dot{display:inline;fill:var(--lith);stroke:var(--bg);stroke-width:3;filter:drop-shadow(0 0 8px var(--lith))}
 [data-style="notte"] .state{background:var(--surface);color:var(--lith)}
 [data-style="notte"] .state.dsg,[data-style="notte"] .state.idle{color:var(--ink)}
-[data-style="notte"] .rack{background:none;padding:0;gap:10px}
-[data-style="notte"] .mod .fill,[data-style="notte"] .mod .handle{display:none}
-[data-style="notte"] .mod{padding:14px 16px;outline:none}
-[data-style="notte"] .mod-body{padding:0;row-gap:4px}
-[data-style="notte"] .mod .bar{display:block;grid-column:1/-1;height:6px;margin-top:10px;border-radius:3px;background:#262626;overflow:hidden}
-[data-style="notte"] .bar i{background:var(--lith);box-shadow:0 0 10px var(--lith)}
-[data-style="notte"] .mod.low .bar i{background:var(--warn);box-shadow:none}
+
 [data-style="notte"] .alerts li{border-left:3px solid var(--warn)} [data-style="notte"] .alerts li.prot{border-left-color:var(--alert)}
 
 /* Sole: chiaro, card bianche, arco a tacche come un tachimetro, storico su card piena */
 :root[data-style="sole"][data-theme="light"]{--solid:var(--lith); --bg:#EEF0EF; --surface:#FFFFFF; --ink:#141414; --muted:#767977; --line:#E2E4E3; --frame:#FFFFFF; --frame-ink:#B5B8B6}
 :root[data-style="sole"]:not([data-palette])[data-theme="light"]{--lith:#FDB813; --lith-tint:rgba(253,184,19,.2); --fill-tint:rgba(253,184,19,.4); --sun:#A87600; --logo-arc:#FDB813}
 [data-style="sole"] body{background:var(--bg)}
-[data-style="sole"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:var(--surface);border:0;border-radius:26px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+[data-style="sole"] :is(.hero-card,.kpis div,.panel,.notice,.alerts li){background:var(--surface);border:0;border-radius:26px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 [data-style="sole"] .hero-card{padding:18px 12px 20px}
 [data-style="sole"] .soc .big{font-weight:500}
 [data-style="sole"] .g-ticks,[data-style="sole"] .g-track,[data-style="sole"] .g-fill{display:none}
@@ -401,15 +359,7 @@ footer{border-top:0;padding-top:0}
 .gauge.low .g-tick line.on{stroke:var(--warn)}
 [data-style="sole"] .state.chg{background:var(--lith);color:#141414}
 [data-style="sole"] .state.dsg{background:var(--ink);color:var(--surface)}
-[data-style="sole"] .rack{background:none;padding:0;gap:10px}
-[data-style="sole"] .mod .fill,[data-style="sole"] .mod .handle{display:none}
-[data-style="sole"] .mod{padding:14px 16px;outline:none}
-[data-style="sole"] .mod-body{padding:0;row-gap:4px}
-[data-style="sole"] .mod-soc{font-weight:600}
-[data-style="sole"] .mod .bar{display:block;grid-column:1/-1;height:10px;margin-top:10px;border-radius:5px;background:var(--bg);overflow:hidden}
-[data-style="sole"] .bar i{background:var(--lith)}
-[data-style="sole"] .mod.low .bar i{background:var(--warn)}
-[data-style="sole"] .mod.off{opacity:.6}
+
 [data-style="sole"] .panel{background:var(--solid);--surface:var(--solid);--lith:#fff;--ink:#141414;--muted:rgba(20,20,20,.62);--line:rgba(255,255,255,.5);--lith-tint:rgba(255,255,255,.3);--sun:#141414;--out:rgba(20,20,20,.45)}
 [data-style="sole"] .panel .hist polyline{stroke:#fff;stroke-width:2.5}
 [data-style="sole"] .notice{border-radius:20px}
@@ -418,7 +368,7 @@ footer{border-top:0;padding-top:0}
 :root[data-style="vetro"][data-theme="dark"]{--bg:#23272E; --surface:#2C3139; --ink:#F3F4F6; --muted:#9AA1AB; --line:#3A4049; --frame:#1E2228; --frame-ink:#6B7380;
   --sun:#8DB4EA; --sun-tint:rgba(141,180,234,.16); --out:#F0904A; --out-tint:rgba(240,144,74,.16)}
 [data-style="vetro"] body{background:linear-gradient(180deg,#3B4049 0%,#22262C 55%,#1B1E23 100%) var(--bg) fixed}
-[data-style="vetro"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.11);border-radius:24px;
+[data-style="vetro"] :is(.hero-card,.kpis div,.panel,.notice,.alerts li){background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.11);border-radius:24px;
   -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 22px 40px -26px rgba(0,0,0,.7)}
 [data-style="vetro"] .hero-card{padding:18px 14px 20px}
 [data-style="vetro"] .hello{display:block;text-align:left}
@@ -428,18 +378,73 @@ footer{border-top:0;padding-top:0}
 [data-style="vetro"] .g-track{stroke:rgba(255,255,255,.09)}
 [data-style="vetro"] .state{background:none;padding:0;font-size:1.55rem;font-weight:700;color:var(--ink);margin-top:14px;letter-spacing:-.01em}
 [data-style="vetro"] .state::before{display:none}
-[data-style="vetro"] :is(.eta,.g-sub,.mod-sub,.hist-read,footer,.kpis dt){font-family:var(--mono);font-size:.8rem}
-[data-style="vetro"] .rack{background:none;padding:0;gap:10px}
-[data-style="vetro"] .mod .fill,[data-style="vetro"] .mod .handle{display:none}
-[data-style="vetro"] .mod{padding:14px 16px;outline:none;color:var(--ink)}
-[data-style="vetro"] .mod-body{padding:0;row-gap:4px}
-[data-style="vetro"] .mod .bar{display:block;grid-column:1/-1;height:12px;margin-top:10px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden}
-[data-style="vetro"] .bar i{background:linear-gradient(180deg,var(--lith),color-mix(in srgb,var(--lith) 65%,#000))}
-[data-style="vetro"] .mod.low .bar i{background:var(--warn)}
+[data-style="vetro"] :is(.eta,.g-sub,.hist-read,footer,.kpis dt){font-family:var(--mono);font-size:.8rem}
+
+/* ---------- card del tempo stimato ---------- */
+.eta{display:flex;align-items:center;gap:12px;margin:12px auto 0;max-width:340px;padding:9px 14px 9px 9px;border-radius:18px;
+  background:color-mix(in srgb,var(--ink) 6%,transparent);text-align:left;color:var(--ink)}
+.eta:empty{display:none}
+.eta-ico{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--sun-tint);color:var(--sun)}
+.eta.dsg .eta-ico{background:var(--out-tint);color:var(--out)}
+.eta.warn .eta-ico{background:var(--warn-tint);color:var(--warn)}
+.eta-ico svg{width:21px;height:21px}
+.eta-txt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.eta-txt small{font-size:.78rem;color:var(--muted)}
+.eta-txt b{margin-top:2px;font-family:var(--num);font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
+.eta-at{flex:none;font-size:.78rem;line-height:1.3;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+
+/* ---------- armadio: una riga per batteria con indice, LED RUN/ALM, misuratore a 10 segmenti e % ---------- */
+.cab{margin:16px 0 0}
+.cab svg{display:block;width:100%;height:auto}
+.cab .mono{font:500 9.5px var(--mono);fill:var(--muted);letter-spacing:.03em}
+.cab .m{cursor:pointer;-webkit-tap-highlight-color:transparent;outline:none}
+.cab .m:focus-visible .slot{stroke:var(--sun);stroke-width:2}
+.cab .slot{fill:var(--surface);stroke:var(--line);transition:stroke .2s}
+.cab .m:hover .slot{stroke:var(--lith)}
+.cab .name{fill:var(--ink);font:600 13px var(--body)}
+.cab .pct{fill:var(--ink);font:700 20px var(--num);letter-spacing:-.02em}
+.cab .seg,.cab .dot{fill:var(--line);transition:fill .25s}
+.cab .seg.on{fill:var(--lith);filter:drop-shadow(0 0 2px var(--lith))}
+.cab .m.low .seg.on{fill:var(--warn);filter:drop-shadow(0 0 2px var(--warn))}
+.cab .run.on{fill:#34C759;filter:drop-shadow(0 0 2.5px #34C759)}
+.cab .alm.on{fill:var(--alert);filter:drop-shadow(0 0 2.5px var(--alert))}
+.cab .blink{animation:led-blink 1.1s steps(2,start) infinite}
+.cab .m.off{opacity:.4}
+/* righe dell'armadio nel carattere di ogni stile (i colori seguono già chiaro/scuro del tema) */
+[data-style="neon"] .cab .slot{stroke:color-mix(in srgb,var(--lith) 65%,transparent);stroke-width:1.5;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--lith) 55%,transparent))}
+[data-style="neon"] .cab .m.low .slot{stroke:var(--warn)}
+[data-style="solare"] .cab .slot{fill:rgba(255,255,255,.1);stroke:rgba(255,255,255,.17)}
+[data-style="notte"] .cab .slot{stroke:none}
+[data-style="sole"] .cab .slot{fill:#fff;stroke:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,.06))}
+[data-style="vetro"] .cab .slot{fill:rgba(255,255,255,.06);stroke:rgba(255,255,255,.11)}
+.cab.intro .seg{transition-delay:calc(var(--d,0s) + var(--j,0) * 35ms)}
+@keyframes led-blink{to{opacity:.2}}
+
+/* ---------- animazioni: autotest all'avvio e flusso di energia quando scorre corrente ---------- */
+.app-ver{font-size:.66rem;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:1px 7px;border-radius:999px;letter-spacing:.02em}
+/* pulsa solo il segmento che si sta riempiendo (in scarica: quello che si sta svuotando); gli altri restano fermi */
+.g-ghost{stroke:var(--lith);stroke-dasharray:0 603.2;opacity:0}
+.gauge.chg .g-ghost,.gauge.dsg .g-ghost{animation:seg-glow 1s ease-in-out infinite}
+.gauge.dsg .g-ghost{stroke:var(--bg)}
+@keyframes seg-glow{0%,100%{opacity:.1}50%{opacity:.75}}
+[data-style="neon"] .g-ghost,[data-style="sole"] .g-ghost{display:none}
+.cab .seg,.g-segs rect,.g-tick line{--off:var(--line)}
+.cab .seg.act,.g-segs rect.act{animation:seg-fill 1s ease-in-out infinite}
+.g-tick line.act{animation:seg-stroke 1s ease-in-out infinite}
+@keyframes seg-fill{0%,100%{fill:var(--off)}50%{fill:var(--lith)}}
+@keyframes seg-stroke{0%,100%{stroke:var(--off)}50%{stroke:var(--lith)}}
+
+.g-segs rect,.g-tick line{transition:fill .2s,stroke .2s,background .2s,box-shadow .2s}
+
+.gauge.intro .g-segs rect{transition-delay:calc(var(--j,0) * 22ms)}
+.gauge.intro .g-tick line{transition-delay:calc(var(--j,0) * 10ms)}
+.hist.intro{animation:scan-in 1.4s cubic-bezier(.3,.7,.2,1) both}
+@keyframes scan-in{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
 
 @media (prefers-reduced-motion: reduce){
+  .cab .blink,.g-ghost,.cab .seg.act,.g-segs rect.act,.g-tick line.act,.hist.intro{animation:none !important}
   .conn.live .dot{animation:none}
-  .fill,.cell,.mod{transition:none}
+  .cell{transition:none}
   dialog[open]{animation:none}
 }
 </style>
@@ -450,7 +455,7 @@ footer{border-top:0;padding-top:0}
     <h1 class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" style="fill:var(--frame)"/>
   <circle cx="256" cy="268" r="150" fill="none" style="stroke:rgba(255,255,255,.14)" stroke-width="40" stroke-linecap="round" stroke-dasharray="706.9 942.5" transform="rotate(135 256 268)"/>
   <circle cx="256" cy="268" r="150" fill="none" style="stroke:var(--logo-arc)" stroke-width="40" stroke-linecap="round" stroke-dasharray="480.7 942.5" transform="rotate(135 256 268)"/>
-  <path d="M270 192 L210 282 L252 282 L238 346 L302 252 L260 252 Z" fill="#F4F4EF"/></svg>MyBattery</h1>
+  <path d="M270 192 L210 282 L252 282 L238 346 L302 252 L260 252 Z" fill="#F4F4EF"/></svg>MyBattery <span class="app-ver" id="app-ver"></span></h1>
     <div class="top-r">
       <span class="conn" id="conn" role="status"><span class="dot"></span><span id="conn-t">Connessione…</span></span>
       <button class="icon-btn" id="open-set" type="button" aria-label="Impostazioni" title="Impostazioni">
@@ -467,6 +472,7 @@ footer{border-top:0;padding-top:0}
         <g class="g-ticks"><line x1="42.2" y1="197.8" x2="37.3" y2="202.7"/><line x1="120" y1="10" x2="120" y2="3"/><line x1="197.8" y1="197.8" x2="202.7" y2="202.7"/></g>
         <circle class="g-arc g-track" cx="120" cy="120" r="96"/>
         <circle class="g-arc g-fill" id="g-fill" cx="120" cy="120" r="96"/>
+        <circle class="g-arc g-ghost" cx="120" cy="120" r="96"/>
         <g class="g-segs" id="g-segs"></g>
         <line class="g-mark" id="g-mark" x1="204" y1="120" x2="230" y2="120"/>
         <g class="g-tick" id="g-tick"></g>
@@ -478,8 +484,9 @@ footer{border-top:0;padding-top:0}
       <p class="g-sub" id="g-sub"></p>
     </div>
     <p class="state idle" id="state">In attesa dei dati</p>
-    <p class="eta" id="eta"></p>
+    <div class="eta" id="eta"></div>
     </div>
+    <div class="cab" id="cab" role="group" aria-label="Le batterie"></div>
     <dl class="kpis">
       <div><dt>Potenza</dt><dd id="k-p">–</dd></div>
       <div><dt>Corrente</dt><dd id="k-i">–</dd></div>
@@ -491,11 +498,6 @@ footer{border-top:0;padding-top:0}
   </section>
 
   <div class="notice" id="notice" role="status" hidden></div>
-
-  <section aria-labelledby="h-rack">
-    <h2 id="h-rack">Le batterie</h2>
-    <div class="rack" id="rack"></div>
-  </section>
 
   <section aria-labelledby="h-al">
     <h2 id="h-al">Avvisi</h2>
@@ -603,7 +605,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.3"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.4"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -757,6 +759,7 @@ function render(m){
   const bs = data.batteries || [];
   const lim = data.limits || {};
   const k = bank(bs);
+  if (bs.length) intro();
 
   // connessione
   $("conn").className = "conn " + mode;
@@ -775,22 +778,22 @@ function render(m){
   else n.hidden = true;
 
   // hero
-  setVal($("soc"), k.on ? nf(k.soc, 0) : "–");
-  const st = $("state"), eta = $("eta");
+  countTo($("soc"), !k.on || !fin(k.soc) ? null : introPhase ? 100 : k.soc); // autotest: prima 100, poi il valore
+  const st = $("state");
   if (!k.on) {
-    st.className = "state idle"; st.textContent = bs.length ? "Nessuna batteria risponde" : "In attesa dei dati"; eta.textContent = "";
+    st.className = "state idle"; st.textContent = bs.length ? "Nessuna batteria risponde" : "In attesa dei dati"; setEta();
   } else if (k.i > 0.5) {
     st.className = "state chg"; st.textContent = `In carica, ${power(k.p)} in entrata`;
     const left = k.full - k.rem;
-    eta.textContent = left > 1 ? "Pieno tra circa " + dur(left / k.i) : "Quasi pieno: il BMS sta completando la carica";
+    if (left > 1) setEta("chg", "Pieno tra circa", dur(left / k.i), left / k.i);
+    else setEta("chg", "Quasi pieno", "il BMS completa la carica");
   } else if (k.i < -0.5) {
     st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
     const avail = k.rem - k.full * S.reserve / 100;
-    eta.textContent = avail > 0
-      ? "Autonomia di circa " + dur(avail / -k.i) + " a questo consumo" + (S.reserve ? `, tenendo il ${S.reserve}% di riserva` : "")
-      : `Sei sotto la riserva del ${S.reserve}%: conviene ridurre i consumi`;
+    if (avail > 0) setEta("dsg", S.reserve ? `Autonomia fino al ${S.reserve}%` : "Autonomia a questo consumo", dur(avail / -k.i), avail / -k.i);
+    else setEta("warn", `Sotto la riserva del ${S.reserve}%`, "riduci i consumi");
   } else {
-    st.className = "state idle"; st.textContent = "A riposo"; eta.textContent = "";
+    st.className = "state idle"; st.textContent = "A riposo"; setEta();
   }
   setVal($("k-p"), k.on ? spower(k.p) : "–");
   $("k-p").parentElement.className = !k.on ? "" : k.i > 0.5 ? "chg" : k.i < -0.5 ? "dsg" : "";
@@ -799,16 +802,27 @@ function render(m){
   setVal($("k-e"), bs.length ? `${k.on} di ${bs.length}` : "–");
   $("k-e").className = k.on < bs.length ? "warn" : "";
   // grafico circolare: 270° = 452,4 unità di arco su 603,2 di circonferenza (r 96)
-  const gf = k.on && fin(k.soc) ? Math.max(0, Math.min(100, k.soc)) / 100 : 0;
+  const gf = !k.on || !fin(k.soc) ? 0 : introPhase ? 1 : Math.max(0, Math.min(100, k.soc)) / 100;
   const dash = `${(452.4 * gf).toFixed(1)} 603.2`;
   $("g-fill").style.strokeDasharray = dash;
-  const nOn = Math.round(gf * 30); // Neon: 30 pillole; Solare: tacca a fine arco
-  [...$("g-segs").children].forEach((r, i) => r.classList.toggle("on", i < nOn));
+  // pulsa solo l'elemento che si sta riempiendo (in carica) o svuotando (in scarica): gli altri restano fermi
+  const up = k.on > 0 && !introPhase && k.i > 0.5, down = k.on > 0 && !introPhase && k.i < -0.5;
+  const level = (els, frac) => {
+    const n = els.length, lit = !k.on ? 0 : up ? Math.floor(frac * n) : down ? Math.ceil(frac * n) : Math.round(frac * n);
+    const act = up ? lit : down ? lit - 1 : -1;
+    els.forEach((e, i) => { e.classList.toggle("on", i < lit && i !== act); e.classList.toggle("act", i === act); });
+  };
+  level([...$("g-segs").children], gf); // Neon: 30 pillole
+  level([...$("g-tick").children], gf); // Sole: 54 tacche
   const rot = `rotate(${(135 + 270 * gf).toFixed(1)} 120 120)`; // Solare: tacca; Notte: punto luminoso
-  $("g-mark").setAttribute("transform", rot); $("g-dot").setAttribute("transform", rot);
-  [...$("g-tick").children].forEach((l, i, all) => l.classList.toggle("on", k.on > 0 && i / (all.length - 1) <= gf));
+  ["g-mark", "g-dot"].forEach(id => $(id).setAttribute("transform", rot));
+  // arco continuo: pulsa il tratto del 10% subito dopo la carica (in carica) o l'ultimo 10% (in scarica)
+  const a = 452.4 * gf, L = 45.2, from = up ? a : Math.max(0, a - L), len = up ? Math.min(L, 452.4 - a) : Math.min(L, a);
+  document.querySelector(".g-ghost").style.strokeDasharray = `0 ${from.toFixed(1)} ${len.toFixed(1)} 1000`;
   const lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   $("gauge").classList.toggle("low", k.on > 0 && k.soc < lowG);
+  $("gauge").classList.toggle("chg", k.on > 0 && k.i > 0.5);
+  $("gauge").classList.toggle("dsg", k.on > 0 && k.i < -0.5);
   $("g-sub").innerHTML = k.on ? `<b>${nf(k.kwh, 1)} kWh</b> disponibili` : "";
   // intestazione di Notte (saluto e data) e di Vetro (etichetta e ora)
   const now = new Date(nowOf(data) * 1000), hr = now.getHours();
@@ -821,31 +835,8 @@ function render(m){
   setVal($("k-t"), fin(k.tmax) ? nf(k.tmax, 0) + " °C max" : "–");
   $("k-t").className = k.tmax >= 45 ? "warn" : "";
 
-  // rack
-  const rack = $("rack");
-  if (rack.children.length !== bs.length) {
-    rack.innerHTML = bs.map((b,i) =>
-      `<button class="mod" type="button" data-i="${i}"><span class="fill"></span><span class="handle"></span>
-        <span class="mod-body"><span class="mod-name"></span><span class="mod-sub"></span><span class="mod-soc"></span>
-        <span class="segs">${"<i></i>".repeat(20)}</span><span class="bar"><i></i></span></span>
-        <span class="handle"></span></button>`).join("");
-  }
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
-  bs.forEach((b,i) => {
-    const el = rack.children[i], nm = nameOf(b, i);
-    el.className = "mod" + (b.online ? "" : " off") + (b.online && b.soc < lowSoc ? " low" : "");
-    el.querySelector(".fill").style.setProperty("--soc", (fin(b.soc) ? b.soc : 0) + "%");
-    const flag = !b.online ? "" : (b.prot && b.prot.length) ? '<i class="mod-flag prot"></i>' : (b.alarms && b.alarms.length) ? '<i class="mod-flag alarm"></i>' : "";
-    el.querySelector(".mod-name").innerHTML = esc(nm) + flag;
-    el.querySelector(".mod-sub").textContent = b.online ? `${nf(b.v,2)} V   ${signed(b.i,1)} A` : "Non risponde";
-    setVal(el.querySelector(".mod-soc"), b.online ? nf(b.soc,0) + "%" : "");
-    const lvl = b.online && fin(b.soc) ? Math.max(0, Math.min(100, b.soc)) : 0;
-    [...el.querySelector(".segs").children].forEach((p, j) => p.classList.toggle("on", j < Math.round(lvl / 5)));
-    el.querySelector(".bar i").style.width = lvl + "%";
-    el.setAttribute("aria-label", b.online
-      ? `${nm}: carica ${nf(b.soc,0)} per cento, ${nf(b.v,2)} volt, ${signed(b.i,1)} ampere. Apri dettagli`
-      : `${nm}: non risponde`);
-  });
+  drawCabinet(bs, lowSoc);
 
   // avvisi: prima le protezioni, poi gli allarmi
   const items = [];
@@ -989,6 +980,97 @@ hsvg.addEventListener("pointerup", e => {
 });
 hsvg.addEventListener("pointercancel", () => { scrubI = null; updateScrub(); });
 
+/* ---------- card del tempo stimato: icona per lo stato, durata grande, orario previsto ---------- */
+const ETA_ICON = {
+  chg: '<path d="M13 3 6 13h5l-1 8 7-10h-5l1-8z"/>',
+  dsg: '<path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/>',
+  warn: '<path d="M12 4 2.5 20h19L12 4zM12 10v4.5M12 17.2v.3"/>'
+};
+function etaAt(hours){
+  if (!fin(hours) || hours <= 0 || hours > 24 * 6) return "";
+  const now = new Date(nowOf(data) * 1000), t = new Date(now.getTime() + hours * 36e5);
+  const days = Math.round((new Date(t).setHours(0,0,0,0) - new Date(now).setHours(0,0,0,0)) / 864e5);
+  const h = t.toLocaleTimeString("it-IT", {hour: "2-digit", minute: "2-digit"});
+  return days === 0 ? `alle ${h}` : days === 1 ? `domani<br>alle ${h}` : `${t.toLocaleDateString("it-IT", {weekday: "short"})}<br>alle ${h}`;
+}
+function setEta(kind, label, value, hours){
+  const el = $("eta");
+  if (!kind) { el.className = "eta"; el.innerHTML = ""; return; }
+  const at = etaAt(hours);
+  el.className = "eta " + kind;
+  el.innerHTML = `<span class="eta-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ETA_ICON[kind]}</svg></span>` +
+    `<span class="eta-txt"><small>${esc(label)}</small><b>${esc(value)}</b></span>` + (at ? `<span class="eta-at">${at}</span>` : "");
+}
+
+/* ---------- armadio: pannello da strumento con indice, LED RUN/ALM, misuratore a 10 segmenti, % e corrente ---------- */
+function drawCabinet(bs, lowSoc){
+  const cab = $("cab"), n = bs.length;
+  if (!n) { cab.innerHTML = ""; delete cab.dataset.n; return; }
+  const RH = 56, GAP = 8, Y0 = 1, H = Y0 + n * RH + (n - 1) * GAP + 2;
+  if (+cab.dataset.n !== n) {
+    cab.dataset.n = n;
+    let rows = "";
+    for (let i = 0; i < n; i++) {
+      const y = Y0 + i * (RH + GAP), cy = y + RH / 2;
+      let meter = "";
+      for (let j = 0; j < 10; j++) meter += `<rect class="seg" x="${(170 + j * 9.6).toFixed(1)}" y="${cy - 12}" width="6.6" height="24" rx="2"/>`;
+      rows += `<g class="m" data-i="${i}" role="button" tabindex="0" style="--d:${i * 90}ms"><rect class="slot" x="1" y="${y}" width="338" height="${RH}" rx="12"/>` +
+        `<text class="mono idx" x="13" y="${cy - 4}">${String(i + 1).padStart(2, "0")}</text>` +
+        `<circle class="dot run" cx="16" cy="${cy + 9}" r="3.4"/><circle class="dot alm" cx="26" cy="${cy + 9}" r="3.4"/>` +
+        `<text class="name" x="42" y="${cy - 3}"></text><text class="mono sub" x="42" y="${cy + 14}"></text>${meter}` +
+        `<text class="pct" x="328" y="${cy + 7}" text-anchor="end"></text></g>`;
+    }
+    cab.innerHTML = `<svg viewBox="0 0 340 ${H}">` +
+      `${rows}</svg>`;
+    cab.onclick = e => { const m = e.target.closest(".m"); if (m) openBattery(+m.dataset.i); };
+    cab.onkeydown = e => { const m = e.target.closest(".m"); if (m && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openBattery(+m.dataset.i); } };
+  }
+  const rows = cab.querySelectorAll(".m");
+  bs.forEach((b, i) => {
+    const g = rows[i], on = !!b.online, nm = nameOf(b, i);
+    const lvl = !on ? 0 : introPhase ? 100 : fin(b.soc) ? Math.max(0, Math.min(100, b.soc)) : 0;
+    const up = on && !introPhase && b.i > 0.3, down = on && !introPhase && b.i < -0.3;
+    const lit = !on ? 0 : up ? Math.floor(lvl / 10) : down ? Math.max(1, Math.ceil(lvl / 10)) : Math.max(1, Math.round(lvl / 10));
+    const act = up && lit < 10 ? lit : down ? lit - 1 : -1; // il segmento che si sta riempiendo o svuotando
+    const alarm = on && (introPhase || (b.prot && b.prot.length) || (b.alarms && b.alarms.length)); // all'avvio: prova lampade
+    g.setAttribute("class", "m" + (on ? "" : " off") + (on && !introPhase && b.soc < lowSoc ? " low" : ""));
+    g.querySelector(".name").textContent = nm.slice(0, 16);
+    g.querySelector(".sub").textContent = on ? `${nf(b.v, 2)} V   ${signed(b.i, 1)} A` : "Non risponde";
+    g.querySelectorAll(".seg").forEach((r, j) => r.setAttribute("class", "seg" + (j === act ? " act" : j < lit ? " on" : "")));
+    g.querySelector(".run").setAttribute("class", "dot run" + (on ? " on" : "") + (on && !introPhase && Math.abs(b.i) > 0.3 ? " blink" : ""));
+    g.querySelector(".alm").setAttribute("class", "dot alm" + (alarm ? " on" : ""));
+    g.querySelector(".pct").textContent = on ? nf(lvl, 0) + "%" : "--";
+    g.setAttribute("aria-label", on ? `${nm}: carica ${nf(b.soc, 0)} per cento, ${nf(b.v, 2)} volt, ${signed(b.i, 1)} ampere. Apri dettagli` : `${nm}: non risponde`);
+  });
+}
+
+/* ---------- la percentuale grande conta fino al valore invece di saltare ---------- */
+let shownSoc = 0, countRaf = 0;
+function countTo(el, target){
+  cancelAnimationFrame(countRaf);
+  if (target === null) { setVal(el, "–"); return; }
+  const from = shownSoc, t0 = performance.now(), dur = Math.abs(target - from) > 1 ? 900 : 0;
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const step = now => {
+    const t = dur && !reduce ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - t, 3);
+    shownSoc = from + (target - from) * e;
+    setVal(el, nf(shownSoc, 0));
+    if (t < 1) countRaf = requestAnimationFrame(step);
+  };
+  step(t0);
+}
+
+/* ---------- accensione: autotest come un BMS (tutto al 100%, poi i valori veri) ---------- */
+let introDone = false, introPhase = false;
+function intro(){
+  if (introDone) return;
+  introDone = introPhase = true;
+  const els = ["gauge", "cab", "hist"].map($);
+  els.forEach(el => el.classList.add("intro"));
+  setTimeout(() => { introPhase = false; if (data) render(mode); }, 1000);
+  setTimeout(() => els.forEach(el => el.classList.remove("intro")), 2800);
+}
+
 /* ---------- scheda di dettaglio ---------- */
 function fillSheet(i){
   const b = data.batteries[i];
@@ -1070,12 +1152,12 @@ function fillSheet(i){
   `;
 }
 function closeSheet(){ const d = $("sheet"); if (d.open) d.close(); }
-$("rack").addEventListener("click", e => {
-  const m = e.target.closest(".mod"); if (!m || !data) return;
-  openIdx = +m.dataset.i; selCell = null; fillSheet(openIdx);
+function openBattery(i){
+  if (!data) return;
+  openIdx = i; selCell = null; fillSheet(openIdx);
   const d = $("sheet"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
   $("sheet").querySelector(".sheet").scrollTop = 0;
-});
+}
 $("s-body").addEventListener("click", e => {
   const c = e.target.closest(".col"); if (!c || openIdx === null) return;
   const j = +c.dataset.j;
@@ -1180,12 +1262,13 @@ $("set-reset").addEventListener("click", () => {
 });
 
 $("ver").textContent = APP_VERSION;
+$("app-ver").textContent = "v" + APP_VERSION;
 $("g-tick").innerHTML = Array.from({length: 54}, (_, i) => {
   const a = (135 + i * 270 / 53) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
-  return `<line x1="${(120 + 84 * c).toFixed(1)}" y1="${(120 + 84 * sn).toFixed(1)}" x2="${(120 + 106 * c).toFixed(1)}" y2="${(120 + 106 * sn).toFixed(1)}"/>`;
+  return `<line style="--j:${i}" x1="${(120 + 84 * c).toFixed(1)}" y1="${(120 + 84 * sn).toFixed(1)}" x2="${(120 + 106 * c).toFixed(1)}" y2="${(120 + 106 * sn).toFixed(1)}"/>`;
 }).join("");
 $("g-segs").innerHTML = Array.from({length: 30}, (_, i) =>
-  `<rect x="-10" y="-4.5" width="20" height="9" rx="4.5" transform="translate(120 120) rotate(${135 + (i + .5) * 9}) translate(96 0)"/>`).join("");
+  `<rect style="--j:${i}" x="-10" y="-4.5" width="20" height="9" rx="4.5" transform="translate(120 120) rotate(${135 + (i + .5) * 9}) translate(96 0)"/>`).join("");
 
 /* ---------- app installabile: service worker solo in HTTPS (GitHub Pages), non dalla scheda ---------- */
 // Aggiornamento automatico: quando un service worker nuovo prende il controllo la pagina si ricarica
