@@ -199,6 +199,8 @@ section{margin-top:26px}
 .alerts li::before,.al-ok::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,var(--t),transparent 62%)}
 .alerts li.prot{--c:var(--alert);--t:var(--alert-tint)}
 .alerts li.mute{--c:var(--muted);--t:color-mix(in srgb,var(--muted) 14%,transparent)}
+.alerts li.fc{--c:var(--lith);--t:var(--lith-tint)}
+.alerts li.tip{--c:var(--good);--t:var(--good-tint)}
 .alerts li[data-i]{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s}
 .alerts li[data-i]:active{transform:scale(.985)}
 .alerts li[data-i]:focus-visible{outline:2px solid var(--c);outline-offset:2px}
@@ -216,6 +218,18 @@ section{margin-top:26px}
 .al-ok{--c:var(--good);--t:var(--good-tint);align-items:center}
 .al-ok[hidden]{display:none}
 .al-ok .al-txt b{font-size:.98rem}
+.al-mute{display:flex;align-items:center;gap:8px;width:fit-content;margin:12px 0 0 auto;padding:8px 14px;border:1px solid var(--line);border-radius:999px;
+  background:transparent;color:var(--muted);font:inherit;font-size:.82rem;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .2s,border-color .2s,background .2s}
+.al-mute svg{width:17px;height:17px;flex:none}
+.al-mute.on{color:var(--lith);border-color:var(--lith);background:var(--lith-tint)}
+.al-mute u{text-underline-offset:2px;opacity:.8}
+.al-mute[hidden]{display:none}
+.alh{width:100%;height:auto;display:block;margin:4px 0 2px}
+.alh-list .ri{background:var(--t,var(--lith-tint));color:var(--c,var(--lith))}
+.alh-list li.alarm{--c:var(--warn);--t:var(--warn-tint)}
+.alh-list li.prot{--c:var(--alert);--t:var(--alert-tint)}
+.alh-list li.mute{--c:var(--muted);--t:color-mix(in srgb,var(--muted) 14%,transparent)}
+.alh-list small{display:block;color:var(--muted);font-size:.78rem;margin-top:1px}
 .h-n{display:inline-grid;place-items:center;min-width:1.45em;height:1.45em;padding:0 .4em;margin-left:6px;border-radius:999px;vertical-align:.12em;
   background:var(--warn);color:#fff;font:700 .72rem/1 var(--mono)}
 .h-n.prot{background:var(--alert)}
@@ -349,6 +363,15 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .names input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
 .names input::placeholder{color:var(--muted);opacity:.6}
 .names input:focus{outline:2px solid var(--lith);outline-offset:-1px;border-color:transparent}
+.set-lbl{display:block;margin:10px 0 0;font-size:.8rem;color:var(--muted)}
+.chk{display:grid;gap:2px;margin-top:10px}
+.chk label{display:flex;gap:10px;align-items:flex-start;padding:7px 2px;cursor:pointer}
+.chk input{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:var(--lith)}
+.chk b{display:block;font-size:.92rem;font-weight:600}
+.chk small{display:block;font-size:.78rem;color:var(--muted)}
+.ntfy-on{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.ntfy-on code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font:500 .82rem var(--mono)}
+.ntfy-row{display:flex;flex-wrap:wrap;gap:8px}
 .set-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:14px;border-top:1px solid var(--line)}
 .link-btn{border:0;background:none;padding:6px 0;font:inherit;font-size:.9rem;color:var(--alert);cursor:pointer}
 .link-btn:focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:4px}
@@ -917,6 +940,7 @@ footer{border-top:0;padding-top:0}
       <h2 id="h-al">Avvisi <span class="h-n" id="al-n" hidden></span></h2>
       <ul class="alerts" id="alerts"></ul>
       <div class="al-ok" id="alerts-ok" hidden></div>
+      <button class="al-mute" id="al-mute" type="button" aria-pressed="false" hidden></button>
     </section>
     <footer>
       <span id="f-upd">Mai aggiornato</span>
@@ -970,6 +994,14 @@ footer{border-top:0;padding-top:0}
       <ul class="rel-list" id="rel-list"></ul>
       <div class="rel-sun" id="rel-sun"></div>
       <p class="fc-note" id="rel-note"></p>
+    </section>
+    <section class="panel plain" aria-labelledby="h-alh">
+      <h2 id="h-alh">Allarmi dell'ultimo mese</h2>
+      <p class="hist-read" id="alh-read"></p>
+      <svg class="alh" id="alh" viewBox="0 0 340 122" role="img" aria-label="Carica più bassa di ogni giorno negli ultimi 30 giorni"></svg>
+      <p class="legend"><span><i style="background:var(--lith)"></i>Carica più bassa del giorno</span><span><i style="background:var(--alert)"></i>Sotto la soglia</span></p>
+      <ul class="rel-list alh-list" id="alh-list"></ul>
+      <p class="fc-note" id="alh-note"></p>
     </section>
     </div>
     <div class="page" id="pg-4" role="tabpanel" aria-labelledby="tab-4">
@@ -1068,6 +1100,33 @@ footer{border-top:0;padding-top:0}
     </fieldset>
     <p class="set-note">L'autonomia in alto è calcolata fino a questa carica, così ti resta sempre un margine. Consigliato 10–20%: inverter e BMS staccano comunque prima dello 0%.</p>
 
+    <h3>Allarmi</h3>
+    <span class="set-lbl">Carica sotto il</span>
+    <fieldset class="seg" id="set-allow"><legend>Allarme carica bassa</legend>
+      <label><input type="radio" name="alLow" value="10"><span>10%</span></label>
+      <label><input type="radio" name="alLow" value="20"><span>20%</span></label>
+      <label><input type="radio" name="alLow" value="30"><span>30%</span></label>
+      <label><input type="radio" name="alLow" value="40"><span>40%</span></label>
+    </fieldset>
+    <span class="set-lbl">Celle sbilanciate oltre</span>
+    <fieldset class="seg" id="set-aldiff"><legend>Allarme squilibrio celle</legend>
+      <label><input type="radio" name="alDiff" value="50"><span>50 mV</span></label>
+      <label><input type="radio" name="alDiff" value="80"><span>80 mV</span></label>
+      <label><input type="radio" name="alDiff" value="120"><span>120 mV</span></label>
+    </fieldset>
+    <div class="chk" id="set-alchk">
+      <label><input type="checkbox" name="alTemp"><span><b>Temperature</b><small>Celle sopra 45 °C, o sotto 2 °C quando non si possono caricare</small></span></label>
+      <label><input type="checkbox" name="alOff"><span><b>Apparecchi che non rispondono</b><small>Una batteria o un regolatore Epever muto</small></span></label>
+      <label><input type="checkbox" name="alFc"><span><b>Previsioni</b><small>Stanotte rischi la carica bassa, domani poco sole</small></span></label>
+      <label><input type="checkbox" name="alTip"><span><b>Consigli</b><small>Oggi arrivi presto al pieno: c'è energia in più</small></span></label>
+      <label><input type="checkbox" name="alPv"><span><b>Pannelli</b><small>Un gruppo rende molto meno degli altri</small></span></label>
+    </div>
+    <p class="set-note">Le protezioni del BMS e gli allarmi delle batterie compaiono sempre.</p>
+
+    <h3>Notifiche con ntfy</h3>
+    <div id="set-ntfy"></div>
+    <p class="set-note">Arrivano solo a app chiusa: con la app aperta gli allarmi sono qui, con suono e vibrazione. Le previsioni le programma la app quando la chiudi; gli allarmi del momento li manderà la scheda, se raggiunge internet.</p>
+
     <h3>Registrazione dello storico</h3>
     <fieldset class="seg" id="set-log">
       <legend>Salva una riga ogni</legend>
@@ -1117,7 +1176,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.14"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.15"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1145,9 +1204,13 @@ const AL_ICON = {
   prot:  '<path d="M12 3 4.5 6v5.2c0 4.4 3.1 8.1 7.5 9.8 4.4-1.7 7.5-5.4 7.5-9.8V6L12 3z"/><path d="M12 8.2v4.6M12 15.9v.3"/>',
   alarm: '<path d="M12 4 2.5 20h19L12 4z"/><path d="M12 10v4.5M12 17.2v.3"/>',
   mute:  '<path d="M9 2.5V7M15 2.5V7M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0V7zM12 16v5.5"/><path d="M3 3l18 18"/>',
-  ok:    '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="m8 12.3 2.8 2.8L16.2 9.5"/>'
+  ok:    '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="m8 12.3 2.8 2.8L16.2 9.5"/>',
+  fc:    '<path d="M3.5 18.5h17"/><path d="M4.5 7l5 5 3.5-3 6.5 6.5"/><path d="M19.5 11.5V15.5H15.5"/>',
+  moon:  '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"/>',
+  bell:  '<path d="M6 16.5V11a6 6 0 0 1 9.4-4.9M18 11v5.5l1.5 2h-15"/><path d="M10 21a2 2 0 0 0 4 0"/><path d="M3.5 3.5l17 17"/>',
+  tip:   '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>'
 };
-const AL_TAG = { prot: "Protezione", alarm: "Attenzione", mute: "Offline" };
+const AL_TAG = { prot: "Protezione", alarm: "Attenzione", mute: "Offline", fc: "Previsione", tip: "Consiglio" };
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 // una card di avviso; con "i" diventa toccabile e apre la scheda della batteria
 const alertLi = a => `<li class="${a.sev}"${a.i !== undefined ? ` data-i="${a.i}" role="button" tabindex="0"` : ""}>` +
@@ -1184,8 +1247,9 @@ const pvName = g => S.names["pv" + g.addr] || g.name || "Regolatore " + g.addr; 
 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60], tilt: [10,20,30,40,50] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, names: {}, loc: null };
+const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, loc: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1194,6 +1258,8 @@ function loadSettings(){
   Object.keys(OPT).forEach(k => { if (OPT[k].includes(s[k])) o[k] = s[k]; });
   const l = s.loc; // località del meteo: nome e coordinate arrotondate a ~1 km
   if (l && typeof l.name === "string" && fin(l.lat) && fin(l.lon)) o.loc = { name: l.name.slice(0, 60), lat: +l.lat.toFixed(2), lon: +l.lon.toFixed(2) };
+  AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
+  if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
   return o;
 }
@@ -1376,19 +1442,25 @@ function render(m){
     (b.prot||[]).forEach(c => items.push({sev:"prot", who, i, t:msg(c)[0], d:msg(c)[1]}));
     (b.alarms||[]).forEach(c => items.push({sev:"alarm", who, i, t:msg(c)[0], d:msg(c)[1]}));
   });
-  const rank = {prot:0, alarm:1, mute:2};
+  items.push(...myAlarms(bs, k, f));
+  const rank = {prot:0, alarm:1, fc:2, mute:3, tip:4};
   items.sort((a,b) => rank[a.sev] - rank[b.sev]);
+  ringNew(items);
+  recordAl(items);
   const alHtml = items.map(alertLi).join("");
   if ($("alerts").dataset.h !== alHtml) { $("alerts").innerHTML = alHtml; $("alerts").dataset.h = alHtml; } // non riavvia l'animazione a ogni lettura
   const nOn = bs.filter(b => b.online).length;
   $("alerts-ok").hidden = items.length > 0;
   if (!items.length) $("alerts-ok").innerHTML = `<span class="al-ico">${ico(AL_ICON.ok)}</span><span class="al-txt"><b>Tutto in ordine</b>` +
     `<span class="al-d">${nOn === 1 ? "La batteria lavora" : nOn ? `Le ${nOn} batterie lavorano` : "Le batterie lavorano"} nei limiti.</span></span>`;
-  $("al-n").hidden = !items.length;
-  $("al-n").textContent = items.length;
+  const nAl = items.filter(a => a.sev !== "tip").length; // i consigli non contano come allarmi
+  $("al-n").hidden = !nAl;
+  $("al-n").textContent = nAl;
   $("al-n").className = "h-n" + (items.some(a => a.sev === "prot") ? " prot" : "");
-  $("tab-n").hidden = !items.length; $("tab-n").textContent = items.length; // visibile anche dalle altre pagine
+  $("tab-n").hidden = !nAl; $("tab-n").textContent = nAl; // visibile anche dalle altre pagine
   $("tab-n").className = "tab-n" + (items.some(a => a.sev === "prot") ? " prot" : "");
+  drawMute(nAl);
+  drawAlHist();
 
   drawHistory(data.history, nowOf(data));
 
@@ -1985,13 +2057,13 @@ function forecast(t0, soc0, capBms, batW){
   const pvDay = arch ? arch.pvDay : cal.pvDay, extra = !arch && logSrc !== "demo"; // senza archivio, nella versione vera manca l'errore del meteo: lo aggiungo
   const R = 300, N = 48, rnd = rng(Math.floor(t0 / HOUR)), lb = M.lblocks.length ? M.lblocks : [Array(24).fill(1)];
   const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
-  const paths = [], firstFull = [], firstLow = [], low = S.reserve || 5;
+  const paths = [], firstFull = [], firstLow = [], firstAl = [], low = S.reserve || 5, alv = S.alLow;
   const d0 = new Date(t0 * 1000); d0.setHours(0, 0, 0, 0);
   for (let r = 0; r < R; r++) {
     const blocks = [0, 1, 2].map(() => lb[Math.floor(rnd() * lb.length)]);
     const pf = [0, 1].map(l => { const s = pvDay[l]; let f = s.length >= 4 ? s[Math.floor(rnd() * s.length)] : Math.exp(gauss() * (l ? .3 : .2) - (l ? .045 : .02));
       if (extra) f *= Math.exp(gauss() * (l ? .22 : .12)); return f; });
-    let s = soc0; const a = [s]; let fF = null, fL = null;
+    let s = soc0; const a = [s]; let fF = null, fL = null, fA = null;
     for (let i = 0; i < N; i++) {
       const t = det.T[i], d = Math.floor((t - d0.getTime() / 1000) / DAY), h = new Date((t + HOUR / 2) * 1000).getHours();
       let e = det.P[i] * pf[i < 24 ? 0 : 1] - det.L[i] * blocks[clamp(d, 0, 2)][h];
@@ -2000,8 +2072,9 @@ function forecast(t0, soc0, capBms, batW){
       s = clamp(s + e / cap * 100, 0, 100); a.push(s);
       if (fF === null && s >= 99.5) fF = i + 1;
       if (fL === null && s <= low) fL = i + 1;
+      if (fA === null && s <= alv) fA = i + 1;
     }
-    paths.push(a); firstFull.push(fF); firstLow.push(fL);
+    paths.push(a); firstFull.push(fF); firstLow.push(fL); firstAl.push(fA);
   }
   const q = p => det.S.map((_, i) => quant(paths.map(a => a[i]), p));
   const lo = q(.1).map((v, i) => Math.min(v, det.S[i])), hi = q(.9).map((v, i) => Math.max(v, det.S[i]));
@@ -2014,7 +2087,8 @@ function forecast(t0, soc0, capBms, batW){
   const etaQ = arr => { const v = arr.filter(x => x !== null); return v.length >= R * .5 ? [quant(v, .2), quant(v, .5), quant(v, .8)] : null; };
   return { t: det.T, pv: det.P, load: det.L, night: nt, mid: det.S, lo, hi, cap, nc, arch,
     kind: logSrc === "demo" ? "demo" : M.sun && wx ? "meteo" : "media",
-    prob: { full: frac(firstFull, fullBy), fullDay, low: frac(firstLow, lowBy), lowPct: low, alreadyLow: soc0 <= low },
+    prob: { full: frac(firstFull, fullBy), fullDay, low: frac(firstLow, lowBy), lowPct: low, alreadyLow: soc0 <= low,
+      al: frac(firstAl, lowBy), alPct: alv, alAt: etaQ(firstAl), alreadyAl: soc0 <= alv },
     eta: { full: etaQ(firstFull), low: etaQ(firstLow) } };
 }
 // prima ora (frazionaria) in cui la serie passa la soglia
@@ -2218,6 +2292,195 @@ function drawForecast(){
   note.textContent = (fc.kind === "meteo" ? `Meteo di Open-Meteo per ${S.loc.name}` : fc.kind === "demo" ? (S.loc ? `Meteo simulato per ${S.loc.name}` : "Meteo simulato: imposta la località nelle impostazioni")
     : "Senza meteo: uso il sole medio delle ultime due settimane") + ` · consumi imparati in ${dur(model.span * 24).replace(/ e .*/, "")}` +
     ` · forchetta: 8 giornate su 10 cadono nella zona chiara.`;
+}
+
+/* ---------- allarmi: soglie scelte, previsioni e consigli. Con la app aperta suono e vibrazione, a app chiusa ntfy ---------- */
+const dkey = t => { const d = new Date(t * 1000); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+function myAlarms(bs, k, f){
+  const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours();
+  if (k.on && fin(k.soc) && k.soc < S.alLow) out.push({ id: "low", sev: "alarm", t: `Carica bassa: ${nf(k.soc, 0)}%`, d: `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.` });
+  bs.forEach((b, i) => {
+    if (!b.online) return;
+    const who = nameOf(b, i);
+    if (b.cells && b.cells.length && !(b.alarms || []).includes("CELL_DIFF")) {
+      const dv = Math.max(...b.cells) - Math.min(...b.cells);
+      if (dv > S.alDiff) out.push({ id: "diff" + i, sev: "alarm", who, i, t: `Celle sbilanciate di ${nf(dv, 0)} mV`, d: `Oltre la soglia di ${S.alDiff} mV. Il BMS bilancia vicino al pieno: se non scende, controlla.` });
+    }
+    if (S.alTemp) {
+      const tc = tHot(b);
+      if (fin(tc) && tc >= 45) out.push({ id: "hot" + i, sev: "alarm", who, i, t: `Batteria calda: ${nf(tc, 0)} °C`, d: "Controlla la ventilazione dell'armadio." });
+      else if (fin(tc) && tc <= 2) out.push({ id: "cold" + i, sev: "alarm", who, i, t: `Troppo freddo per caricare: ${nf(tc, 0)} °C`, d: "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica." });
+    }
+  });
+  if (S.alOff && Array.isArray(data.pv)) data.pv.forEach(g => { if (g.online === false) out.push({ id: "pvoff" + g.addr, sev: "mute", who: pvName(g), t: "Regolatore non raggiungibile", d: "Controlla il cavo RS485 tra i regolatori." }); });
+  if (f && S.alFc) {
+    const p = f.prob;
+    if (!p.alreadyAl && p.al >= .5) {
+      const at = p.alAt ? hm(q15(f.t[0] + p.alAt[1] * HOUR)) : "";
+      out.push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, verso le ${at}` : ""}. Riduci i consumi stasera.` });
+    }
+    if (model && fin(model.dailyKwh) && hr >= 12) {
+      const d1 = new Date(now * 1000); d1.setHours(24, 0, 0, 0);
+      const kwh = sumDay(t => { const v = pvBase(model, t, true); return fin(v) ? v * (model.cal ? model.cal.pvB[1] : 1) : null; }, d1.getTime() / 1000) / 1000;
+      if (kwh < model.dailyKwh * .7) out.push({ id: "fcsun" + dkey(now), sev: "fc", t: `Domani poco sole: ${nf(kwh, 1)} kWh`, d: `Contro circa ${nf(model.dailyKwh, 1)} kWh di consumi: oggi conviene rimandare forno e lavatrice.` });
+    }
+  }
+  if (f && S.alTip && k.i > 0.5) {
+    const t = crossAt(f.mid, s => s >= 99.5, 99.5);
+    if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
+      out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
+  }
+  if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
+    const gs = data.pv.filter(g => g.online !== false && fin(g.kwh_today) && fin(g.kwp) && g.kwp > 0), rs = gs.map(g => g.kwh_today / g.kwp), best = Math.max(0, ...rs);
+    if (gs.length > 1 && best >= 1) gs.forEach((g, j) => { if (rs[j] < best * .7)
+      out.push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
+  }
+  return out;
+}
+// un allarme nuovo con la app aperta: vibrazione e due toni brevi (i consigli no)
+let alSeen = null, actx = null;
+function ringNew(items){
+  const ids = new Set(items.filter(a => a.sev !== "tip" && a.sev !== "mute").map(a => a.id || a.sev + (a.i ?? "") + a.t));
+  if (alSeen && !document.hidden && !muted() && [...ids].some(x => !alSeen.has(x))) {
+    try { if (navigator.vibrate) navigator.vibrate([180, 90, 180]); } catch (e) {}
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      [0, .24].forEach(dt => { const o = actx.createOscillator(), g = actx.createGain(), t0 = actx.currentTime + dt;
+        o.frequency.value = 880; g.gain.setValueAtTime(.0001, t0); g.gain.exponentialRampToValueAtTime(.2, t0 + .02); g.gain.exponentialRampToValueAtTime(.0001, t0 + .18);
+        o.connect(g).connect(actx.destination); o.start(t0); o.stop(t0 + .2); });
+    } catch (e) {}
+  }
+  alSeen = ids;
+}
+
+// ntfy: canale privato casuale; la app manda solo le previsioni, programmate quando la chiudi e annullate quando la riapri
+const NTFY = "https://ntfy.sh", NTFY_KEY = "mybattery.ntfy.v1", APP_URL = new URL("./", location.href).href;
+const newTopic = () => "mybattery-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join("");
+const ntfyPub = (msg, keep) => fetch(NTFY + "/", { method: "POST", body: JSON.stringify(msg), keepalive: !!keep });
+const readSched = () => { try { return JSON.parse(localStorage.getItem(NTFY_KEY) || "{}") || {}; } catch (e) { return {}; } };
+const writeSched = m => { try { localStorage.setItem(NTFY_KEY, JSON.stringify(m)); } catch (e) {} };
+function fillNtfy(){
+  const el = $("set-ntfy");
+  el.innerHTML = S.ntfy
+    ? `<div class="ntfy-on"><span class="loc-pin">${ico(AL_ICON.fc)}</span><code>${esc(S.ntfy)}</code></div>` +
+      `<div class="ntfy-row"><a class="set-btn" href="ntfy://ntfy.sh/${esc(S.ntfy)}?display=MyBattery">Iscriviti nell'app ntfy</a>` +
+      `<button class="set-btn" id="ntfy-test" type="button">Invia una prova</button><button class="link-btn" id="ntfy-off" type="button">Spegni</button></div>`
+    : `<button class="set-btn" id="ntfy-on" type="button">${ico(AL_ICON.fc)}Attiva le notifiche con ntfy</button>` +
+      `<p class="set-note">Prima installa sul telefono l'app gratuita ntfy. Qui si crea un canale privato con un nome casuale: chi non lo conosce non può leggerlo.</p>`;
+}
+function scheduleOnClose(){
+  if (!S.ntfy || mode !== "live" || !fc || !data) return;
+  const now = Date.now() / 1000, sched = readSched();
+  Object.keys(sched).forEach(q => { if (sched[q] < now - 2 * DAY) delete sched[q]; });
+  myAlarms(data.batteries || [], bank(data.batteries || []), fc).filter(a => a.sev === "fc" || a.sev === "tip").forEach(a => {
+    const seq = "mb-" + a.id;
+    if (sched[seq] && sched[seq] <= now) return;                // già arrivata: non la ripete
+    const d = new Date(); d.setHours(a.sev === "tip" ? 9 : a.id.startsWith("fclow") ? 20 : 19, 0, 0, 0);
+    const at = Math.round(Math.max(d.getTime() / 1000, now + 600));
+    if (at < muteUntil) return;                                 // silenziati: questa salta
+    sched[seq] = at;
+    ntfyPub({ topic: S.ntfy, sequence_id: seq, delay: String(at), title: a.sev === "tip" ? "MyBattery · consiglio" : "MyBattery · previsione",
+      message: `${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : 4, click: APP_URL }, true).catch(() => {});
+  });
+  writeSched(sched);
+}
+function cancelScheduled(){
+  if (!S.ntfy) return;
+  const now = Date.now() / 1000, sched = readSched();
+  Object.keys(sched).forEach(q => { if (sched[q] > now) { fetch(`${NTFY}/${S.ntfy}/${q}`, { method: "DELETE" }).catch(() => {}); delete sched[q]; } });
+  writeSched(sched);
+}
+
+// "Silenzia per stanotte": niente suono, vibrazione né ntfy fino alle 7 (gli avvisi restano a schermo)
+const MUTE_KEY = "mybattery.mute.v1";
+let muteUntil = (() => { try { return +localStorage.getItem(MUTE_KEY) || 0; } catch (e) { return 0; } })();
+const muted = () => Date.now() / 1000 < muteUntil;
+function drawMute(nAl){
+  const b = $("al-mute"), on = muted(), h = new Date().getHours();
+  b.hidden = !on && !nAl;
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", on);
+  b.innerHTML = on ? `${ico(AL_ICON.bell)}Silenziati fino alle ${hm(muteUntil)} · <u>riattiva</u>`
+    : `${ico(AL_ICON.moon)}${h >= 17 || h < 7 ? "Silenzia per stanotte" : "Silenzia fino a domani mattina"}`;
+}
+$("al-mute").addEventListener("click", () => {
+  if (muted()) muteUntil = 0;
+  else { const d = new Date(); if (d.getHours() >= 7) d.setDate(d.getDate() + 1); d.setHours(7, 0, 0, 0); muteUntil = d.getTime() / 1000; }
+  try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {}
+  toast(muteUntil ? `Silenziati fino alle ${hm(muteUntil)}` : "Avvisi riattivati");
+  if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({mute_until: Math.round(muteUntil)})}).catch(() => {});
+  drawMute(1);
+});
+
+// registro degli allarmi visti con la app aperta (le previsioni e i consigli no); quando chiudi la app vale l'ultima lettura
+const ALH_KEY = "mybattery.alh.v1", alKey = a => a.id || a.sev + (a.i ?? "") + a.t;
+let alh = (() => { try { const o = JSON.parse(localStorage.getItem(ALH_KEY) || "{}"); return Array.isArray(o.ev) ? o : { seen: 0, ev: [] }; } catch (e) { return { seen: 0, ev: [] }; } })();
+const saveAlh = () => { try { localStorage.setItem(ALH_KEY, JSON.stringify(alh)); } catch (e) {} };
+function recordAl(items){
+  if (mode !== "live") return;
+  const now = Math.round(Date.now() / 1000), gone = now - alh.seen > 600 ? alh.seen : now, cur = new Map();
+  items.filter(a => a.sev === "prot" || a.sev === "alarm" || a.sev === "mute").forEach(a => cur.set(alKey(a), a));
+  let ch = false;
+  alh.ev.forEach(e => { if (!e.e && !cur.has(e.k)) { e.e = gone || now; ch = true; } });
+  cur.forEach((a, k) => { if (!alh.ev.some(e => !e.e && e.k === k)) { alh.ev.push({ k, sev: a.sev, t: a.t, who: a.who || "", s: now, e: 0 }); ch = true; } });
+  alh.ev = alh.ev.filter(e => !e.e || e.e > now - 45 * DAY).slice(-300);
+  alh.seen = now;
+  if (ch) saveAlh();
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "live") saveAlh(); });
+function demoAlh(){
+  const d0 = Math.floor(Date.now() / 1000 / 900) * 900;
+  return [["alarm", "Celle sbilanciate di 92 mV", "Batteria 3", 3.2, 50], ["mute", "Regolatore non raggiungibile", "Pollaio", 9.6, 6],
+    ["alarm", "Batteria calda: 46 °C", "Batteria 1", 17.4, 85], ["mute", "Batteria non raggiungibile", "Batteria 5", 24.1, 3]]
+    .map(([sev, t, who, ago, min]) => ({ sev, t, who, s: d0 - Math.round(ago * DAY), e: d0 - Math.round(ago * DAY) + min * 60 }));
+}
+
+// "Allarmi dell'ultimo mese": la carica più bassa di ogni giorno dal registro della scheda, più gli allarmi registrati
+let alhSig = "";
+function drawAlHist(){
+  const thr = S.alLow, now = Date.now() / 1000, t0 = new Date(); t0.setHours(0, 0, 0, 0); t0.setDate(t0.getDate() - 29);
+  const from = t0.getTime() / 1000, rows = LOG.filter(r => r[0] >= from && fin(r[2]));
+  const ev = (logSrc === "demo" ? demoAlh() : alh.ev).filter(e => (e.e || now) >= from).sort((a, b) => b.s - a.s);
+  const sig = [thr, LOG.length, LOG.length && LOG[LOG.length - 1][0], ev.length, ev[0] && ev[0].e, dkey(now)].join();
+  if (sig === alhSig) return; alhSig = sig;
+  const read = $("alh-read"), svg = $("alh"), list = $("alh-list"), note = $("alh-note");
+  const dm = t => new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" });
+  // giorni, discese sotto la soglia (con 2 punti di isteresi), ore sotto
+  const days = Array.from({ length: 30 }, () => null), dayOf = t => Math.floor((t - from) / DAY + 1 / 48);
+  let n = 0, under = false, mins = 0, low = null;
+  rows.forEach(([t, m, soc]) => {
+    const i = Math.min(29, Math.max(0, dayOf(t)));
+    if (!days[i] || soc < days[i].soc) days[i] = { soc, t };
+    if (!low || soc < low.soc) low = { soc, t };
+    if (soc < thr) { mins += m; if (!under) { n++; under = true; } } else if (soc >= thr + 2) under = false;
+  });
+  if (!rows.length) {
+    read.innerHTML = logSrc === "live" ? "Lo storico parte appena la scheda salva le prime righe del registro." : "In attesa dello storico.";
+    svg.innerHTML = "";
+  } else {
+    const ore = mins / 60, oreTxt = ore < 1 ? `${Math.round(mins)} minuti` : `${nf(ore, ore < 10 ? 1 : 0)} ore`;
+    read.innerHTML = (n
+      ? `Sotto il <b>${thr}%</b> <b>${n} ${n === 1 ? "volta" : "volte"}</b> in 30 giorni, per <b>${oreTxt}</b> in tutto.`
+      : `Mai sotto il <b>${thr}%</b> negli ultimi 30 giorni.`) +
+      ` Il punto più basso: <b>${nf(low.soc, 0)}%</b> il ${dm(low.t)} alle ${hm(low.t)}.`;
+    const y = v => 96 - Math.max(0, Math.min(100, v)) * .86, bw = 312 / 30;          // a destra resta lo spazio per la soglia
+    svg.innerHTML = [0, 50, 100].map(v => `<line x1="0" x2="312" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line)" stroke-width=".6"/>`).join("") +
+      days.map((d, i) => {
+        const x = (i * bw + 1.6).toFixed(1), w = (bw - 3.2).toFixed(1), today = i === 29;
+        if (!d) return `<rect x="${x}" y="93" width="${w}" height="3" rx="1.5" fill="var(--line)"/>`;
+        const top = y(d.soc), c = d.soc < thr ? "var(--alert)" : "var(--lith)";
+        return `<rect x="${x}" y="${top.toFixed(1)}" width="${w}" height="${(96 - top).toFixed(1)}" rx="2" fill="${c}" opacity="${today ? 1 : .82}"><title>${dm(d.t)}: minimo ${nf(d.soc, 0)}% alle ${hm(d.t)}</title></rect>`;
+      }).join("") +
+      `<line x1="0" x2="314" y1="${y(thr).toFixed(1)}" y2="${y(thr).toFixed(1)}" stroke="var(--alert)" stroke-width="1.2" stroke-dasharray="4 3"/>` +
+      `<text x="340" y="${(y(thr) + 3.5).toFixed(1)}" text-anchor="end" font-size="9.5" font-weight="700" fill="var(--alert)">${thr}%</text>` +
+      [0, 7, 14, 21, 29].map(i => `<text x="${(i * bw + bw / 2).toFixed(1)}" y="112" text-anchor="${i === 29 ? "end" : i ? "middle" : "start"}" font-size="9.5" fill="var(--muted)">${i === 29 ? "oggi" : dm(from + i * DAY + 3600)}</text>`).join("");
+  }
+  const durTxt = e => { const m = Math.round(((e.e || now) - e.s) / 60); return e.e ? (m < 60 ? `durato ${Math.max(1, m)} min` : `durato ${nf(m / 60, m < 600 ? 1 : 0)} h`) : "ancora attivo"; };
+  list.innerHTML = ev.slice(0, 8).map(e => `<li class="${e.sev}"><span class="ri">${ico(AL_ICON[e.sev])}</span><span><b>${esc(e.t)}</b>` +
+    `<small>${e.who ? esc(e.who) + " · " : ""}${dm(e.s)} alle ${hm(e.s)} · ${durTxt(e)}</small></span></li>`).join("");
+  note.textContent = logSrc === "demo" ? "Gli allarmi qui sopra sono di esempio."
+    : ev.length ? "Gli altri allarmi li registra la app mentre è aperta: quelli scattati a app chiusa li terrà la scheda."
+    : "Gli allarmi di batterie e regolatori compaiono qui quando scattano (la app li registra mentre è aperta).";
 }
 
 /* ---------- pannello "Quanto è affidabile": errori misurati, correzioni imparate, mappa del sole ---------- */
@@ -2704,6 +2967,8 @@ function simulate(){
 
 /* ---------- pannello impostazioni ---------- */
 function fillSettings(){
+  AL_BOOL.forEach(k => { const el = document.querySelector(`#settings input[name="${k}"]`); if (el) el.checked = !!S[k]; });
+  fillNtfy();
   Object.keys(OPT).forEach(k => { const el = document.querySelector(`#settings input[name="${k}"][value="${S[k]}"]`); if (el) el.checked = true; });
   const bs = (data && data.batteries) || [];
   $("set-names").innerHTML = bs.length ? bs.map((b,i) => {
@@ -2768,8 +3033,18 @@ $("open-set").addEventListener("click", () => {
 });
 $("set-close").addEventListener("click", () => $("settings").close());
 $("settings").addEventListener("click", e => { if (e.target === $("settings")) $("settings").close(); });
+$("set-ntfy").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "ntfy-on") { S.ntfy = newTopic(); saveSettings(); fillNtfy(); }
+  else if (b.id === "ntfy-off") { cancelScheduled(); S.ntfy = ""; saveSettings(); fillNtfy(); }
+  else if (b.id === "ntfy-test") ntfyPub({ topic: S.ntfy, title: "MyBattery", tags: ["battery"], priority: 4, click: APP_URL,
+    message: "Prova: gli allarmi arriveranno così, solo con la app chiusa." }).then(r => toast(r.ok ? "Prova inviata" : "ntfy non risponde")).catch(() => toast("Nessuna rete"));
+});
+document.addEventListener("visibilitychange", () => { if (document.hidden) scheduleOnClose(); else cancelScheduled(); });
 $("settings").addEventListener("change", e => {
-  const t = e.target; if (t.type !== "radio") return;
+  const t = e.target;
+  if (t.type === "checkbox" && AL_BOOL.includes(t.name)) { S[t.name] = t.checked; saveSettings(); fc = null; fcAt = 0; if (data) render(mode); return; }
+  if (t.type !== "radio") return;
   S[t.name] = ["theme", "palette", "style"].includes(t.name) ? t.value : +t.value;
   saveSettings();
   if (["theme", "palette", "style"].includes(t.name)) { applyTheme(); if (data) render(mode); }
