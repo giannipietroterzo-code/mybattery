@@ -16,8 +16,9 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>MyBattery</title>
 <script>/* tema, colori e stile scelti nelle impostazioni, applicati prima del disegno per evitare il lampo */
-try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}"),r=document.documentElement;
-if(o.theme==="light"||o.theme==="dark")r.setAttribute("data-theme",o.theme);
+var r=document.documentElement;r.setAttribute("data-theme","dark"); /* predefinito: Classico scuro */
+try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}");
+if(o.theme==="light")r.setAttribute("data-theme","light");else if(o.theme==="auto")r.removeAttribute("data-theme");
 if(["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0)r.setAttribute("data-palette",o.palette);
 if(["neon","solare","notte","sole","vetro"].indexOf(o.style)>=0){r.setAttribute("data-style",o.style);r.setAttribute("data-theme",o.style==="sole"?"light":"dark")}}catch(e){}</script>
 <!--
@@ -268,6 +269,10 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .alerts li{border-radius:0 12px 12px 0}
 .panel{background:var(--surface);border-radius:18px;padding:14px 14px 12px}
 footer{border-top:0;padding-top:0}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:10;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;font-weight:500;white-space:nowrap;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);transition:opacity .3s,transform .3s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
 
 /* ---------- colorazioni (Impostazioni → Colori). Senza attributo: Oro e grafite, i token in testa ---------- */
 :root[data-palette]{--bg:#E9EDF1; --surface:#F7F9FB; --ink:#18212B; --muted:#5B6773; --line:#D3DAE1; --frame:#26303B; --frame-ink:#C9D1D9}
@@ -510,6 +515,7 @@ footer{border-top:0;padding-top:0}
     <span id="f-wifi"></span>
   </footer>
 </main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <dialog id="sheet" aria-labelledby="s-title">
   <div class="sheet">
@@ -597,7 +603,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.2"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.3"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -650,7 +656,7 @@ const nameOf = (b, i) => S.names[keyOf(b, i)] || b.name || "Batteria " + (i + 1)
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","neon","solare","notte","sole","vetro"], poll: [2,5,10,30], reserve: [0,10,20,30] };
-const DEF = { theme: "auto", palette: "oro", style: "classico", poll: 5, reserve: 0, names: {} };
+const DEF = { theme: "dark", palette: "oro", style: "classico", poll: 5, reserve: 0, names: {} };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1182,9 +1188,33 @@ $("g-segs").innerHTML = Array.from({length: 30}, (_, i) =>
   `<rect x="-10" y="-4.5" width="20" height="9" rx="4.5" transform="translate(120 120) rotate(${135 + (i + .5) * 9}) translate(96 0)"/>`).join("");
 
 /* ---------- app installabile: service worker solo in HTTPS (GitHub Pages), non dalla scheda ---------- */
-if ("serviceWorker" in navigator && window.isSecureContext && location.hostname !== "localhost") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+// Aggiornamento automatico: quando un service worker nuovo prende il controllo la pagina si ricarica
+// (aspettando che si chiudano i pannelli aperti) e poi dice con quale versione è ripartita.
+const UPD_KEY = "mybattery.updatedFrom";
+let reloadPending = false, reloading = false;
+function toast(text){
+  const el = $("toast"); el.textContent = text; el.classList.add("show");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 4000);
 }
+function reloadForUpdate(){
+  if (reloading) return;
+  if ($("settings").open || $("sheet").open) { reloadPending = true; return; }
+  reloading = true;
+  try { sessionStorage.setItem(UPD_KEY, APP_VERSION); } catch (e) {}
+  location.reload();
+}
+["settings", "sheet"].forEach(id => $(id).addEventListener("close", () => { if (reloadPending) reloadForUpdate(); }));
+if ("serviceWorker" in navigator && window.isSecureContext && location.hostname !== "localhost") {
+  const hadController = !!navigator.serviceWorker.controller; // alla prima installazione non serve ricaricare
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController) reloadForUpdate(); });
+  navigator.serviceWorker.register("sw.js").then(reg => {
+    // l'app installata può restare aperta per giorni: ricontrolla quando torna in primo piano
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+}
+let updatedFrom = null;
+try { updatedFrom = sessionStorage.getItem(UPD_KEY); sessionStorage.removeItem(UPD_KEY); } catch (e) {}
+if (updatedFrom && updatedFrom !== APP_VERSION) toast(`MyBattery aggiornata alla versione ${APP_VERSION}`);
 
 applyTheme();
 poll();
