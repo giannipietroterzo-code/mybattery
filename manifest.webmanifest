@@ -8,8 +8,8 @@
   "display": "standalone",
   "orientation": "portrait",
   "lang": "it",
-  "background_color": "#ECECE8",
-  "theme_color": "#ECECE8",
+  "background_color": "#0B0B0B",
+  "theme_color": "#0B0B0B",
   "categories": [
     "utilities"
   ],

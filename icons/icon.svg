@@ -1,6 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#2B2B29"/>
-  <circle cx="256" cy="268" r="150" fill="none" stroke="#44443F" stroke-width="40" stroke-linecap="round" stroke-dasharray="706.9 942.5" transform="rotate(135 256 268)"/>
-  <circle cx="256" cy="268" r="150" fill="none" stroke="#FFC929" stroke-width="40" stroke-linecap="round" stroke-dasharray="480.7 942.5" transform="rotate(135 256 268)"/>
-  <path d="M270 192 L210 282 L252 282 L238 346 L302 252 L260 252 Z" fill="#F4F4EF"/>
+  <polygon points="112,0 512,0 512,400 400,512 0,512 0,112" fill="#141414"/>
+  <polygon points="131.5,36 476,36 476,380.5 380.5,476 36,476 36,131.5" fill="none" stroke="#FFB617" stroke-width="12"/>
+  <path d="M334 72L348 58H357L343 72Z" fill="#FFB617"/><path d="M354 72L368 58H377L363 72Z" fill="#FFB617"/><path d="M374 72L388 58H397L383 72Z" fill="#FFB617"/><path d="M394 72L408 58H417L403 72Z" fill="#FFB617"/><path d="M414 72L428 58H437L423 72Z" fill="#FFB617"/>
+  <rect x="251" y="66" width="10" height="32" fill="#FFB617"/>
+  <circle cx="256" cy="272" r="112" fill="none" stroke="#956D16" stroke-width="5"/>
+  <circle cx="256" cy="272" r="196" fill="none" stroke="#D09616" stroke-width="7" stroke-linecap="butt" stroke-dasharray="923.6 1231.5" transform="rotate(135 256 272)"/>
+  <circle cx="256" cy="272" r="152" fill="none" stroke="#2A2A2A" stroke-width="48" stroke-linecap="butt" stroke-dasharray="716.3 955.0" transform="rotate(135 256 272)"/>
+  <circle cx="256" cy="272" r="152" fill="none" stroke="#FFB617" stroke-width="48" stroke-linecap="butt" stroke-dasharray="487.1 955.0" transform="rotate(135 256 272)"/>
+  <path d="M270 196 L210 286 L252 286 L238 350 L302 256 L260 256 Z" fill="#F4F4EF"/>
 </svg>

@@ -355,7 +355,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 
 /* ---------- stile v1.1: grafico circolare, riquadri e pillole (ritocca le regole sopra) ---------- */
 .brand{display:flex;align-items:center;gap:10px}
-.logo{width:30px;height:30px;border-radius:8px;flex:none}
+.logo{width:30px;height:30px;flex:none}
 .conn{background:var(--surface);padding:5px 11px;border-radius:999px;font-weight:500}
 section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 
@@ -878,10 +878,7 @@ footer{border-top:0;padding-top:0}
 <body>
 <main class="app">
   <header class="top">
-    <h1 class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" style="fill:var(--frame)"/>
-  <circle cx="256" cy="268" r="150" fill="none" style="stroke:rgba(255,255,255,.14)" stroke-width="40" stroke-linecap="round" stroke-dasharray="706.9 942.5" transform="rotate(135 256 268)"/>
-  <circle cx="256" cy="268" r="150" fill="none" style="stroke:var(--logo-arc)" stroke-width="40" stroke-linecap="round" stroke-dasharray="480.7 942.5" transform="rotate(135 256 268)"/>
-  <path d="M270 192 L210 282 L252 282 L238 346 L302 252 L260 252 Z" fill="#F4F4EF"/></svg>MyBattery <span class="app-ver" id="app-ver"></span></h1>
+    <h1 class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><polygon points="112,0 512,0 512,400 400,512 0,512 0,112" style="fill:var(--frame)"/><polygon points="131.5,36 476,36 476,380.5 380.5,476 36,476 36,131.5" fill="none" style="stroke:var(--logo-arc)" stroke-width="22"/><circle cx="256" cy="272" r="152" fill="none" style="stroke:rgba(255,255,255,.14)" stroke-width="58" stroke-dasharray="716.3 955" transform="rotate(135 256 272)"/><circle cx="256" cy="272" r="152" fill="none" style="stroke:var(--logo-arc)" stroke-width="58" stroke-dasharray="487.1 955" transform="rotate(135 256 272)"/><path d="M270 196 L210 286 L252 286 L238 350 L302 256 L260 256 Z" fill="#F4F4EF"/></svg>MyBattery <span class="app-ver" id="app-ver"></span></h1>
     <div class="top-r">
       <span class="conn" id="conn" role="status"><span class="dot"></span><span id="conn-t">Connessione…</span></span>
       <button class="icon-btn" id="open-set" type="button" aria-label="Impostazioni" title="Impostazioni">
@@ -1120,7 +1117,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.13"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.14"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
