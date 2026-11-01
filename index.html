@@ -19,7 +19,7 @@
 try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}"),r=document.documentElement;
 if(o.theme==="light"||o.theme==="dark")r.setAttribute("data-theme",o.theme);
 if(["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0)r.setAttribute("data-palette",o.palette);
-if(o.style==="neon"||o.style==="solare"){r.setAttribute("data-style",o.style);r.setAttribute("data-theme","dark")}}catch(e){}</script>
+if(["neon","solare","notte","sole","vetro"].indexOf(o.style)>=0){r.setAttribute("data-style",o.style);r.setAttribute("data-theme",o.style==="sole"?"light":"dark")}}catch(e){}</script>
 <!--
   CONTRATTO DATI (prodotto dal firmware ESP32)
   GET /api/status  ->
@@ -61,6 +61,7 @@ if(o.style==="neon"||o.style==="solare"){r.setAttribute("data-style",o.style);r.
   --alert:#C83A3A; --alert-tint:rgba(200,58,58,.12);
   --warn:#C2410C; --warn-tint:rgba(194,65,12,.12);
   --num: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -218,6 +219,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .seg span{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;border-radius:8px;font-size:.9rem;
   color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;transition:background .15s,color .15s}
 .seg span svg{width:15px;height:15px;flex:none}
+.seg.seg3{grid-auto-flow:row;grid-template-columns:repeat(3,1fr)}
 .pal span{flex-direction:column;gap:6px;padding:9px 2px 7px;font-size:.8rem}
 .pal i{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--a) 50%,var(--b) 50%);box-shadow:0 0 0 1px rgba(0,0,0,.08)}
 .seg input:checked+span{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.14)}
@@ -287,7 +289,8 @@ footer{border-top:0;padding-top:0}
 :root[data-palette="viola"][data-theme="dark"]{--lith:#A78BFA; --lith-tint:rgba(167,139,250,0.18); --fill-tint:rgba(167,139,250,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#A78BFA}
 
 /* ---------- stili (Impostazioni → Stile). Senza attributo: Classico. Neon e Solare forzano data-theme="dark" ---------- */
-.g-segs,.g-mark,.mod .segs,.mod .bar{display:none}
+.g-segs,.g-mark,.g-tick,.g-dot,.hello,.mod .segs,.mod .bar{display:none}
+.hello{margin:0 0 6px;line-height:1.3} .hello-k{display:block;font-size:.85rem;color:var(--muted)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .dm{display:inline-block;vertical-align:baseline;overflow:visible}
 .dm rect{fill:currentColor}
@@ -355,6 +358,80 @@ footer{border-top:0;padding-top:0}
 [data-style="solare"] .hist polyline{stroke:#fff;stroke-dasharray:5 4}
 [data-style="solare"] .alerts li{border-left:4px solid var(--warn)} [data-style="solare"] .alerts li.prot{border-left-color:var(--alert)}
 
+/* Notte: nero profondo, numeri sottili, arco fine con il punto luminoso, barre sottili */
+:root[data-style="notte"][data-theme="dark"]{--bg:#0A0A0A; --surface:#161616; --ink:#F2F2F2; --muted:#8A8A8A; --line:#262626; --frame:#0A0A0A; --frame-ink:#5A5A5A}
+:root[data-style="notte"]:not([data-palette])[data-theme="dark"]{--lith:#E4EE5A; --lith-tint:rgba(228,238,90,.16); --sun:#E4EE5A; --sun-tint:rgba(228,238,90,.14); --logo-arc:#E4EE5A}
+[data-style="notte"] body{background:radial-gradient(90% 45% at 50% 0%,#1C1C1C,transparent 70%) var(--bg) fixed}
+[data-style="notte"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:var(--surface);border:0;border-radius:24px}
+[data-style="notte"] .hero-card{background:none;padding:4px 0 0}
+[data-style="notte"] .hello{display:block;text-align:left}
+[data-style="notte"] .hello-t{font-size:1.45rem;font-weight:400}
+[data-style="notte"] .soc .big,[data-style="notte"] .kpis dd,[data-style="notte"] .mod-soc{font-weight:300}
+[data-style="notte"] .g-ticks{display:none}
+[data-style="notte"] .g-arc{stroke-width:6}
+[data-style="notte"] .g-track{stroke:#242424}
+[data-style="notte"] .g-dot{display:inline;fill:var(--lith);stroke:var(--bg);stroke-width:3;filter:drop-shadow(0 0 8px var(--lith))}
+[data-style="notte"] .state{background:var(--surface);color:var(--lith)}
+[data-style="notte"] .state.dsg,[data-style="notte"] .state.idle{color:var(--ink)}
+[data-style="notte"] .rack{background:none;padding:0;gap:10px}
+[data-style="notte"] .mod .fill,[data-style="notte"] .mod .handle{display:none}
+[data-style="notte"] .mod{padding:14px 16px;outline:none}
+[data-style="notte"] .mod-body{padding:0;row-gap:4px}
+[data-style="notte"] .mod .bar{display:block;grid-column:1/-1;height:6px;margin-top:10px;border-radius:3px;background:#262626;overflow:hidden}
+[data-style="notte"] .bar i{background:var(--lith);box-shadow:0 0 10px var(--lith)}
+[data-style="notte"] .mod.low .bar i{background:var(--warn);box-shadow:none}
+[data-style="notte"] .alerts li{border-left:3px solid var(--warn)} [data-style="notte"] .alerts li.prot{border-left-color:var(--alert)}
+
+/* Sole: chiaro, card bianche, arco a tacche come un tachimetro, storico su card piena */
+:root[data-style="sole"][data-theme="light"]{--solid:var(--lith); --bg:#EEF0EF; --surface:#FFFFFF; --ink:#141414; --muted:#767977; --line:#E2E4E3; --frame:#FFFFFF; --frame-ink:#B5B8B6}
+:root[data-style="sole"]:not([data-palette])[data-theme="light"]{--lith:#FDB813; --lith-tint:rgba(253,184,19,.2); --fill-tint:rgba(253,184,19,.4); --sun:#A87600; --logo-arc:#FDB813}
+[data-style="sole"] body{background:var(--bg)}
+[data-style="sole"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:var(--surface);border:0;border-radius:26px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+[data-style="sole"] .hero-card{padding:18px 12px 20px}
+[data-style="sole"] .soc .big{font-weight:500}
+[data-style="sole"] .g-ticks,[data-style="sole"] .g-track,[data-style="sole"] .g-fill{display:none}
+[data-style="sole"] .g-tick{display:inline}
+.g-tick line{stroke:var(--line);stroke-width:3.2;stroke-linecap:round}
+.g-tick line.on{stroke:var(--lith)}
+.gauge.low .g-tick line.on{stroke:var(--warn)}
+[data-style="sole"] .state.chg{background:var(--lith);color:#141414}
+[data-style="sole"] .state.dsg{background:var(--ink);color:var(--surface)}
+[data-style="sole"] .rack{background:none;padding:0;gap:10px}
+[data-style="sole"] .mod .fill,[data-style="sole"] .mod .handle{display:none}
+[data-style="sole"] .mod{padding:14px 16px;outline:none}
+[data-style="sole"] .mod-body{padding:0;row-gap:4px}
+[data-style="sole"] .mod-soc{font-weight:600}
+[data-style="sole"] .mod .bar{display:block;grid-column:1/-1;height:10px;margin-top:10px;border-radius:5px;background:var(--bg);overflow:hidden}
+[data-style="sole"] .bar i{background:var(--lith)}
+[data-style="sole"] .mod.low .bar i{background:var(--warn)}
+[data-style="sole"] .mod.off{opacity:.6}
+[data-style="sole"] .panel{background:var(--solid);--surface:var(--solid);--lith:#fff;--ink:#141414;--muted:rgba(20,20,20,.62);--line:rgba(255,255,255,.5);--lith-tint:rgba(255,255,255,.3);--sun:#141414;--out:rgba(20,20,20,.45)}
+[data-style="sole"] .panel .hist polyline{stroke:#fff;stroke-width:2.5}
+[data-style="sole"] .notice{border-radius:20px}
+
+/* Vetro: ardesia, card di vetro smerigliato, titolo grande, carica blu e scarica arancio, dettagli monospaziati */
+:root[data-style="vetro"][data-theme="dark"]{--bg:#23272E; --surface:#2C3139; --ink:#F3F4F6; --muted:#9AA1AB; --line:#3A4049; --frame:#1E2228; --frame-ink:#6B7380;
+  --sun:#8DB4EA; --sun-tint:rgba(141,180,234,.16); --out:#F0904A; --out-tint:rgba(240,144,74,.16)}
+[data-style="vetro"] body{background:linear-gradient(180deg,#3B4049 0%,#22262C 55%,#1B1E23 100%) var(--bg) fixed}
+[data-style="vetro"] :is(.hero-card,.kpis div,.mod,.panel,.notice,.alerts li){background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.11);border-radius:24px;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 22px 40px -26px rgba(0,0,0,.7)}
+[data-style="vetro"] .hero-card{padding:18px 14px 20px}
+[data-style="vetro"] .hello{display:block;text-align:left}
+[data-style="vetro"] .hello-k{color:var(--out);text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:600;font-family:var(--mono)}
+[data-style="vetro"] .g-ticks{display:none}
+[data-style="vetro"] .g-arc{stroke-width:14}
+[data-style="vetro"] .g-track{stroke:rgba(255,255,255,.09)}
+[data-style="vetro"] .state{background:none;padding:0;font-size:1.55rem;font-weight:700;color:var(--ink);margin-top:14px;letter-spacing:-.01em}
+[data-style="vetro"] .state::before{display:none}
+[data-style="vetro"] :is(.eta,.g-sub,.mod-sub,.hist-read,footer,.kpis dt){font-family:var(--mono);font-size:.8rem}
+[data-style="vetro"] .rack{background:none;padding:0;gap:10px}
+[data-style="vetro"] .mod .fill,[data-style="vetro"] .mod .handle{display:none}
+[data-style="vetro"] .mod{padding:14px 16px;outline:none;color:var(--ink)}
+[data-style="vetro"] .mod-body{padding:0;row-gap:4px}
+[data-style="vetro"] .mod .bar{display:block;grid-column:1/-1;height:12px;margin-top:10px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden}
+[data-style="vetro"] .bar i{background:linear-gradient(180deg,var(--lith),color-mix(in srgb,var(--lith) 65%,#000))}
+[data-style="vetro"] .mod.low .bar i{background:var(--warn)}
+
 @media (prefers-reduced-motion: reduce){
   .conn.live .dot{animation:none}
   .fill,.cell,.mod{transition:none}
@@ -379,6 +456,7 @@ footer{border-top:0;padding-top:0}
 
   <section class="hero">
     <div class="hero-card">
+    <p class="hello" id="hello"></p>
     <div class="gauge" id="gauge">
       <svg viewBox="0 0 240 240" aria-hidden="true">
         <g class="g-ticks"><line x1="42.2" y1="197.8" x2="37.3" y2="202.7"/><line x1="120" y1="10" x2="120" y2="3"/><line x1="197.8" y1="197.8" x2="202.7" y2="202.7"/></g>
@@ -386,6 +464,8 @@ footer{border-top:0;padding-top:0}
         <circle class="g-arc g-fill" id="g-fill" cx="120" cy="120" r="96"/>
         <g class="g-segs" id="g-segs"></g>
         <line class="g-mark" id="g-mark" x1="204" y1="120" x2="230" y2="120"/>
+        <g class="g-tick" id="g-tick"></g>
+        <circle class="g-dot" id="g-dot" cx="216" cy="120" r="7"/>
       </svg>
       <div class="g-center">
         <div class="soc"><span class="big" id="soc">–</span><span class="pct">%</span></div>
@@ -451,13 +531,16 @@ footer{border-top:0;padding-top:0}
     </div>
 
     <h3>Stile</h3>
-    <fieldset class="seg" id="set-style">
+    <fieldset class="seg seg3" id="set-style">
       <legend>Stile</legend>
       <label><input type="radio" name="style" value="classico"><span>Classico</span></label>
       <label><input type="radio" name="style" value="neon"><span>Neon</span></label>
       <label><input type="radio" name="style" value="solare"><span>Solare</span></label>
+      <label><input type="radio" name="style" value="notte"><span>Notte</span></label>
+      <label><input type="radio" name="style" value="sole"><span>Sole</span></label>
+      <label><input type="radio" name="style" value="vetro"><span>Vetro</span></label>
     </fieldset>
-    <p class="set-note">Neon e Solare hanno uno sfondo tutto loro: la scelta del tema vale solo per Classico.</p>
+    <p class="set-note">Ogni stile ha i suoi sfondi (Sole è chiaro, gli altri scuri): la scelta del tema vale solo per Classico.</p>
 
     <h3>Tema</h3>
     <fieldset class="seg" id="set-theme">
@@ -514,7 +597,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.1"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.2"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -566,7 +649,7 @@ const nameOf = (b, i) => S.names[keyOf(b, i)] || b.name || "Batteria " + (i + 1)
 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","neon","solare"], poll: [2,5,10,30], reserve: [0,10,20,30] };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","neon","solare","notte","sole","vetro"], poll: [2,5,10,30], reserve: [0,10,20,30] };
 const DEF = { theme: "auto", palette: "oro", style: "classico", poll: 5, reserve: 0, names: {} };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
@@ -580,10 +663,10 @@ function loadSettings(){
 function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
 const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
 const PAGE_BG = { oro: ["#ECECE8", "#161615"], fredda: ["#E9EDF1", "#121820"] }; // = --bg chiaro e scuro
-const STYLE_BG = { neon: "#070D13", solare: "#7C8979" };
+const STYLE_BG = { neon: "#070D13", solare: "#7C8979", notte: "#0A0A0A", sole: "#EEF0EF", vetro: "#2B3038" };
 function applyTheme(){
   const r = document.documentElement;
-  const theme = S.style === "classico" ? S.theme : "dark"; // Neon e Solare usano i colori scuri della palette
+  const theme = S.style === "classico" ? S.theme : S.style === "sole" ? "light" : "dark"; // gli stili usano la palette chiara o scura
   if (theme === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", theme);
   if (S.palette === "oro") r.removeAttribute("data-palette"); else r.setAttribute("data-palette", S.palette);
   if (S.style === "classico") r.removeAttribute("data-style"); else r.setAttribute("data-style", S.style);
@@ -715,10 +798,18 @@ function render(m){
   $("g-fill").style.strokeDasharray = dash;
   const nOn = Math.round(gf * 30); // Neon: 30 pillole; Solare: tacca a fine arco
   [...$("g-segs").children].forEach((r, i) => r.classList.toggle("on", i < nOn));
-  $("g-mark").setAttribute("transform", `rotate(${(135 + 270 * gf).toFixed(1)} 120 120)`);
+  const rot = `rotate(${(135 + 270 * gf).toFixed(1)} 120 120)`; // Solare: tacca; Notte: punto luminoso
+  $("g-mark").setAttribute("transform", rot); $("g-dot").setAttribute("transform", rot);
+  [...$("g-tick").children].forEach((l, i, all) => l.classList.toggle("on", k.on > 0 && i / (all.length - 1) <= gf));
   const lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   $("gauge").classList.toggle("low", k.on > 0 && k.soc < lowG);
   $("g-sub").innerHTML = k.on ? `<b>${nf(k.kwh, 1)} kWh</b> disponibili` : "";
+  // intestazione di Notte (saluto e data) e di Vetro (etichetta e ora)
+  const now = new Date(nowOf(data) * 1000), hr = now.getHours();
+  $("hello").innerHTML = S.style === "vetro"
+    ? `<span class="hello-k">Banco batterie · ${hm(nowOf(data))}</span>`
+    : `<span class="hello-k">${esc(now.toLocaleDateString("it-IT", {weekday: "long", day: "numeric", month: "long"}))}</span>` +
+      `<span class="hello-t">${hr >= 5 && hr < 12 ? "Buongiorno" : hr >= 12 && hr < 18 ? "Buon pomeriggio" : "Buonasera"}</span>`;
   setVal($("k-d"), fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–");
   $("k-d").className = k.dmax > 50 ? "warn" : "";
   setVal($("k-t"), fin(k.tmax) ? nf(k.tmax, 0) + " °C max" : "–");
@@ -1083,6 +1174,10 @@ $("set-reset").addEventListener("click", () => {
 });
 
 $("ver").textContent = APP_VERSION;
+$("g-tick").innerHTML = Array.from({length: 54}, (_, i) => {
+  const a = (135 + i * 270 / 53) * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+  return `<line x1="${(120 + 84 * c).toFixed(1)}" y1="${(120 + 84 * sn).toFixed(1)}" x2="${(120 + 106 * c).toFixed(1)}" y2="${(120 + 106 * sn).toFixed(1)}"/>`;
+}).join("");
 $("g-segs").innerHTML = Array.from({length: 30}, (_, i) =>
   `<rect x="-10" y="-4.5" width="20" height="9" rx="4.5" transform="translate(120 120) rotate(${135 + (i + .5) * 9}) translate(96 0)"/>`).join("");
 
