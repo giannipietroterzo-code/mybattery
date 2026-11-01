@@ -16,11 +16,12 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>MyBattery</title>
 <script>/* tema, colori e stile scelti nelle impostazioni, applicati prima del disegno per evitare il lampo */
-var r=document.documentElement;r.setAttribute("data-theme","dark"); /* predefinito: Classico scuro */
+var r=document.documentElement;r.setAttribute("data-theme","dark"); /* Classico: scuro se non scelto */
 try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}");
 if(o.theme==="light")r.setAttribute("data-theme","light");else if(o.theme==="auto")r.removeAttribute("data-theme");
-if(["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0&&!o.style||o.style==="classico"&&["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0)r.setAttribute("data-palette",o.palette);
-if(["hitech","terminale","mecha","cyber","reattore","plancia"].indexOf(o.style)>=0){r.setAttribute("data-style",o.style);r.setAttribute("data-theme","dark");if(o.style==="hitech")r.setAttribute("data-hud","");if(o.style==="mecha")r.setAttribute("data-mecha","")}}catch(e){}</script>
+var st=["classico","hitech","terminale","mecha","cyber","reattore","plancia"].indexOf(o.style)>=0?o.style:"mecha"; /* predefinito: Mecha */
+if(st==="classico"&&["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0)r.setAttribute("data-palette",o.palette);
+if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme","dark");if(st==="hitech")r.setAttribute("data-hud","");if(st==="mecha")r.setAttribute("data-mecha","")}}catch(e){}</script>
 <!--
   CONTRATTO DATI (prodotto dal firmware ESP32)
   GET /api/status  ->
@@ -489,9 +490,9 @@ footer{border-top:0;padding-top:0}
 /* Mecha: pannelli HUD neri con cornice arancione ad angoli smussati, cerchi concentrici, tratteggi diagonali,
    caratteri stretti e maiuscoli. La cornice è lo sfondo arancione del pannello, il riempimento è il ::before rientrato di 2 px */
 :root[data-style="mecha"][data-theme="dark"]{--bg:#0A0A0A; --surface:#151515; --ink:#F2F2F2; --muted:#9C9C9C; --line:#2A2A2A; --frame:#101010; --frame-ink:#6A6A6A;
-  --sun:#FFA31A; --sun-tint:rgba(255,163,26,.16); --out:#ECECEC; --out-tint:rgba(236,236,236,.12);
+  --sun:#FFB617; --sun-tint:rgba(255,182,23,.16); --out:#ECECEC; --out-tint:rgba(236,236,236,.12);
   --good:#A6E22E; --good-tint:rgba(166,226,46,.14); --warn:#FFE04D; --warn-tint:rgba(255,224,77,.14); --alert:#FF453A; --alert-tint:rgba(255,69,58,.15)}
-:root[data-style="mecha"]:not([data-palette])[data-theme="dark"]{--lith:#FFA31A; --lith-tint:rgba(255,163,26,.18); --fill-tint:rgba(255,163,26,.24); --logo-arc:#FFA31A}
+:root[data-style="mecha"]:not([data-palette])[data-theme="dark"]{--lith:#FFB617; --lith-tint:rgba(255,182,23,.18); --fill-tint:rgba(255,182,23,.24); --logo-arc:#FFB617}
 [data-mecha] body{background:radial-gradient(90% 55% at 50% 30%,#171717,transparent 75%),
   repeating-linear-gradient(135deg,color-mix(in srgb,var(--lith) 4%,transparent) 0 1px,transparent 1px 16px),var(--bg)}
 [data-mecha] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){--bd:color-mix(in srgb,var(--lith) 55%,#000);position:relative;isolation:isolate;
@@ -681,6 +682,42 @@ footer{border-top:0;padding-top:0}
 [data-style="plancia"] .cab .seg{rx:0}
 [data-style="plancia"] :is(.pv-rows,.pv-tab){background:var(--surface);border-radius:0;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));outline:1.5px solid color-mix(in srgb,var(--lith) 60%,transparent);outline-offset:-1.5px}
 [data-style="plancia"] .pv-g circle{stroke-linecap:butt}
+
+/* ---------- impostazioni e schede (finestre dal basso) negli stili hi-tech: cornice, titoli, pulsanti e selettori dello stile ---------- */
+[data-style] dialog{background:linear-gradient(180deg,color-mix(in srgb,var(--lith) 7%,transparent),transparent 120px),var(--surface);
+  border-top:2px solid var(--lith);box-shadow:0 -12px 34px -12px color-mix(in srgb,var(--lith) 45%,transparent)}
+[data-style] dialog::backdrop{background:rgba(0,0,0,.62)}
+[data-style] .grab{background:var(--lith);opacity:.8}
+[data-style] .sheet-head h2{color:var(--lith);text-transform:uppercase;letter-spacing:.08em;font-size:1.05rem}
+[data-style] .sheet h3{color:var(--lith);text-transform:uppercase;letter-spacing:.1em;font-size:.76rem;font-weight:700}
+[data-style] :is(.close,.set-btn){background:transparent;color:var(--lith);border:1.5px solid color-mix(in srgb,var(--lith) 70%,transparent)}
+[data-style] .seg{background:var(--bg);border:1px solid color-mix(in srgb,var(--lith) 22%,transparent)}
+[data-style] .seg input:checked+span{background:var(--lith);color:var(--bg);box-shadow:0 0 12px -3px var(--lith)}
+[data-style] :is(.names input,.loc-f input){background:var(--bg);border-color:color-mix(in srgb,var(--lith) 30%,transparent)}
+[data-style] :is(.loc-res button,.loc-cur,.temps span){background:var(--bg);border:1px solid color-mix(in srgb,var(--lith) 18%,transparent)}
+[data-style] .stats dt{color:var(--lith);text-transform:uppercase;letter-spacing:.06em;font-size:.7rem}
+[data-style] .set-foot{border-top-color:color-mix(in srgb,var(--lith) 25%,transparent)}
+/* forme: angoli vivi e smussati (Mecha, Terminale, Plancia), appena arrotondati (Hi-Tech), morbidi e luminosi (Cyber, Reattore) */
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) dialog{border-radius:0;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px)}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input,.loc-res button,.loc-cur,.temps span,.cell){border-radius:0}
+[data-style="mecha"] .seg input:checked+span,[data-style="mecha"] .close{clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
+[data-style="mecha"] .close{background:var(--lith);color:#111;border:0;font-weight:700;padding:8px 18px}
+:is([data-mecha],[data-style="reattore"],[data-style="plancia"]) :is(.sheet-head h2,.sheet h3,.seg span,.close,.set-btn,.stats dt,.stats dd){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
+[data-style="mecha"] .sheet-head h2{display:flex;align-items:center;gap:10px;flex:1}
+[data-style="mecha"] .sheet-head h2::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--lith),transparent)}
+[data-style="terminale"] .sheet-head h2::before{content:"> "}
+[data-style="terminale"] .sheet h3::before{content:"// ";opacity:.7}
+[data-style="plancia"] .sheet h3{display:inline-block;padding:3px 20px 3px 9px;background:var(--lith);color:#021012;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%)}
+[data-style="plancia"] .close{clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,8px 100%,0 50%);border:0;background:color-mix(in srgb,var(--lith) 18%,transparent);padding:8px 18px}
+[data-style="hitech"] dialog{border-radius:4px 4px 0 0}
+[data-style="hitech"] :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input){border-radius:3px}
+[data-style="hitech"] :is(.sheet-head h2,.sheet h3,.stats dt){font-family:var(--mono)}
+[data-style="cyber"] dialog{border-radius:14px 14px 0 0;border:1.5px solid var(--lith);border-bottom:0;box-shadow:0 0 22px -4px color-mix(in srgb,var(--lith) 60%,transparent)}
+[data-style="cyber"] :is(.sheet-head h2,.sheet h3){text-shadow:0 0 8px color-mix(in srgb,var(--lith) 70%,transparent);letter-spacing:.2em}
+[data-style="cyber"] .seg input:checked+span{background:color-mix(in srgb,var(--out) 22%,transparent);color:var(--out);box-shadow:inset 0 0 0 1.5px var(--out),0 0 12px -2px var(--out)}
+[data-style="cyber"] .stats dd{font-family:var(--mono);color:var(--out);text-shadow:0 0 8px color-mix(in srgb,var(--out) 55%,transparent)}
+[data-style="reattore"] dialog{border-radius:12px 12px 0 0;border:1px solid color-mix(in srgb,var(--lith) 60%,transparent);border-bottom:0}
+[data-style="reattore"] .close{border-radius:999px}
 
 
 [data-hud] body{background:radial-gradient(120% 55% at 50% -12%,color-mix(in srgb,var(--lith) 14%,transparent),transparent 62%),
@@ -1042,7 +1079,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.10"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.11"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1110,7 +1147,7 @@ const pvName = g => S.names["pv" + g.addr] || g.name || "Regolatore " + g.addr; 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60] };
-const DEF = { theme: "dark", palette: "oro", style: "classico", poll: 5, reserve: 0, log: 30, names: {}, loc: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, names: {}, loc: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1758,7 +1795,7 @@ function etaForecast(k, f){
     const r = S.reserve, low = s => s <= r + .01, t = crossAt(f.mid, low, r);
     if (t !== null) { setEta("dsg", (r ? `Autonomia fino al ${r}%` : "Autonomia prevista") + pm(crossAt(f.lo, low, r), crossAt(f.hi, low, r)), dur(t), hq(t)); return true; }
     const iMin = f.mid.slice(0, 37).reduce((b, s, i, a) => s < a[b] ? i : b, 0);
-    if (iMin > 0) { setEta("dsg", "Prima del sole scendi fino al", nf(f.mid[iMin], 0) + "%", hq(iMin)); return true; }
+    if (iMin > 0) { setEta("dsg", "Prima del sole scendi a", nf(f.mid[iMin], 0) + "%", hq(iMin)); return true; }
   }
   return false;
 }
