@@ -60,6 +60,7 @@ if(["neon","solare","notte","sole","vetro"].indexOf(o.style)>=0){r.setAttribute(
   --sun:#9A7000; --sun-tint:rgba(245,184,0,.22);
   --out:#5E5D58; --out-tint:rgba(94,93,88,.13); --logo-arc:#FFC929;
   --alert:#C83A3A; --alert-tint:rgba(200,58,58,.12);
+  --good:#1E9E52; --good-tint:rgba(30,158,82,.12);
   --warn:#C2410C; --warn-tint:rgba(194,65,12,.12);
   --num: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -77,6 +78,7 @@ if(["neon","solare","notte","sole","vetro"].indexOf(o.style)>=0){r.setAttribute(
     --sun:#FFC929; --sun-tint:rgba(255,201,41,.16);
     --out:#A3A29B; --out-tint:rgba(163,162,155,.16);
     --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
+    --good:#34C759; --good-tint:rgba(52,199,89,.16);
     --warn:#FB923C; --warn-tint:rgba(251,146,60,.16);
   }
 }
@@ -88,6 +90,7 @@ if(["neon","solare","notte","sole","vetro"].indexOf(o.style)>=0){r.setAttribute(
   --sun:#FFC929; --sun-tint:rgba(255,201,41,.16);
   --out:#A3A29B; --out-tint:rgba(163,162,155,.16);
   --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
+  --good:#34C759; --good-tint:rgba(52,199,89,.16);
   --warn:#FB923C; --warn-tint:rgba(251,146,60,.16);
 }
 *,*::before,*::after{box-sizing:inherit}
@@ -130,19 +133,43 @@ section{margin-top:26px}
 .kpis dt{font-size:.8rem;color:var(--muted)}
 .kpis dd{margin:2px 0 0;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.25rem;font-weight:600;white-space:nowrap}
 .kpis dd.warn{color:var(--warn)}
+.k-sub{display:block;margin-top:1px;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.k-sub:empty{display:none}
+.k-sub.warn{color:var(--warn);font-weight:600}
 
 .notice{margin-top:18px;padding:10px 12px;border-radius:10px;background:var(--lith-tint);font-size:.9rem}
 .notice.lost{background:var(--warn-tint)}
 /* dati vecchi: valori attenuati */
 .app.stale .hero,.app.stale .cab{opacity:.55;transition:opacity .4s}
 
-/* avvisi */
+/* avvisi: card con icona per gravità; protezioni in rosso, allarmi in arancio, batteria muta in grigio */
 .alerts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.alerts li{padding:10px 12px 10px 14px;border-radius:10px;background:var(--warn-tint);border-left:4px solid var(--warn)}
-.alerts li.prot{background:var(--alert-tint);border-left-color:var(--alert)}
-.alerts b{font-weight:600}
-.alerts span{display:block;font-size:.85rem;color:var(--muted)}
-.ok{margin:0;color:var(--muted)}
+.alerts li,.al-ok{--c:var(--warn);--t:var(--warn-tint);position:relative;overflow:hidden;display:flex;align-items:flex-start;gap:12px;
+  padding:12px 12px 12px 10px;border-radius:16px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 28%,transparent)}
+.alerts li::before,.al-ok::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,var(--t),transparent 62%)}
+.alerts li.prot{--c:var(--alert);--t:var(--alert-tint)}
+.alerts li.mute{--c:var(--muted);--t:color-mix(in srgb,var(--muted) 14%,transparent)}
+.alerts li[data-i]{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s}
+.alerts li[data-i]:active{transform:scale(.985)}
+.alerts li[data-i]:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+.al-ico{position:relative;flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--t);color:var(--c)}
+.al-ico svg{width:20px;height:20px}
+.prot .al-ico::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--c);animation:al-ping 2s ease-out infinite}
+@keyframes al-ping{0%{transform:scale(1);opacity:.7}70%,100%{transform:scale(1.55);opacity:0}}
+.al-txt{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.al-k{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted);margin-bottom:2px;white-space:nowrap;overflow:hidden}
+.al-tag{flex:none;padding:1px 6px;border-radius:5px;background:var(--t);color:var(--c);font:700 .62rem/1.5 var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.al-who{overflow:hidden;text-overflow:ellipsis}
+.al-txt b{font-weight:600;font-size:.98rem}
+.al-txt span.al-d{margin-top:2px;font-size:.84rem;color:var(--muted)}
+.al-go{position:relative;flex:none;align-self:center;width:16px;height:16px;color:var(--muted)}
+.al-ok{--c:var(--good);--t:var(--good-tint);align-items:center}
+.al-ok[hidden]{display:none}
+.al-ok .al-txt b{font-size:.98rem}
+.h-n{display:inline-grid;place-items:center;min-width:1.45em;height:1.45em;padding:0 .4em;margin-left:6px;border-radius:999px;vertical-align:.12em;
+  background:var(--warn);color:#fff;font:700 .72rem/1 var(--mono)}
+.h-n.prot{background:var(--alert)}
+.h-n[hidden]{display:none}
 
 /* storico */
 .hist{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
@@ -244,7 +271,6 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 
 .notice{border-radius:14px}
 
-.alerts li{border-radius:0 12px 12px 0}
 .panel{background:var(--surface);border-radius:18px;padding:14px 14px 12px}
 footer{border-top:0;padding-top:0}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:10;transform:translate(-50%,20px);opacity:0;pointer-events:none;
@@ -301,7 +327,8 @@ footer{border-top:0;padding-top:0}
 [data-style="neon"] .state{background:transparent;border:1.5px solid currentColor;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
 
 [data-style="neon"] .panel{--g:var(--sun)}
-[data-style="neon"] .alerts li{--g:var(--warn);border-radius:16px} [data-style="neon"] .alerts li.prot{--g:var(--alert)}
+[data-style="neon"] .alerts li{--g:var(--warn);border-radius:18px} [data-style="neon"] .alerts li.prot{--g:var(--alert)} [data-style="neon"] .alerts li.mute{--g:#8C99A6}
+[data-style="neon"] .al-ok{border-radius:18px;border:1.5px solid color-mix(in srgb,var(--good) 72%,transparent);box-shadow:0 0 26px -8px var(--good),inset 0 0 24px -14px var(--good)}
 [data-style="neon"] .notice.lost{--g:var(--warn)}
 
 /* Solare: fondo salvia, card traslucide, arco sottile con tacca, barre piene */
@@ -325,7 +352,7 @@ footer{border-top:0;padding-top:0}
 [data-style="solare"] .state.idle{background:rgba(255,255,255,.18);color:var(--ink)}
 
 [data-style="solare"] .hist polyline{stroke:#fff;stroke-dasharray:5 4}
-[data-style="solare"] .alerts li{border-left:4px solid var(--warn)} [data-style="solare"] .alerts li.prot{border-left-color:var(--alert)}
+[data-style="solare"] .al-ok{border:1px solid rgba(255,255,255,.17);background:rgba(255,255,255,.1)}
 
 /* Notte: nero profondo, numeri sottili, arco fine con il punto luminoso, barre sottili */
 :root[data-style="notte"][data-theme="dark"]{--bg:#0A0A0A; --surface:#161616; --ink:#F2F2F2; --muted:#8A8A8A; --line:#262626; --frame:#0A0A0A; --frame-ink:#5A5A5A}
@@ -343,7 +370,7 @@ footer{border-top:0;padding-top:0}
 [data-style="notte"] .state{background:var(--surface);color:var(--lith)}
 [data-style="notte"] .state.dsg,[data-style="notte"] .state.idle{color:var(--ink)}
 
-[data-style="notte"] .alerts li{border-left:3px solid var(--warn)} [data-style="notte"] .alerts li.prot{border-left-color:var(--alert)}
+[data-style="notte"] .al-ok{border:0;border-radius:24px}
 
 /* Sole: chiaro, card bianche, arco a tacche come un tachimetro, storico su card piena */
 :root[data-style="sole"][data-theme="light"]{--solid:var(--lith); --bg:#EEF0EF; --surface:#FFFFFF; --ink:#141414; --muted:#767977; --line:#E2E4E3; --frame:#FFFFFF; --frame-ink:#B5B8B6}
@@ -443,7 +470,7 @@ footer{border-top:0;padding-top:0}
 @keyframes scan-in{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
 
 @media (prefers-reduced-motion: reduce){
-  .cab .blink,.g-ghost,.cab .seg.act,.g-segs rect.act,.g-tick line.act,.hist.intro{animation:none !important}
+  .cab .blink,.g-ghost,.cab .seg.act,.g-segs rect.act,.g-tick line.act,.hist.intro,.prot .al-ico::after{animation:none !important}
   .conn.live .dot{animation:none}
   .cell{transition:none}
   dialog[open]{animation:none}
@@ -492,18 +519,18 @@ footer{border-top:0;padding-top:0}
       <div><dt>Potenza</dt><dd id="k-p">–</dd></div>
       <div><dt>Corrente</dt><dd id="k-i">–</dd></div>
       <div><dt>Tensione</dt><dd id="k-v">–</dd></div>
-      <div><dt>Batterie</dt><dd id="k-e">–</dd></div>
-      <div><dt>Squilibrio</dt><dd id="k-d">–</dd></div>
-      <div><dt>Temperatura</dt><dd id="k-t">–</dd></div>
+      <div><dt>Batterie</dt><dd id="k-e">–</dd><small class="k-sub" id="k-e2"></small></div>
+      <div><dt>Squilibrio</dt><dd id="k-d">–</dd><small class="k-sub" id="k-d2"></small></div>
+      <div><dt>Temp. max</dt><dd id="k-t">–</dd><small class="k-sub" id="k-t2"></small></div>
     </dl>
   </section>
 
   <div class="notice" id="notice" role="status" hidden></div>
 
   <section aria-labelledby="h-al">
-    <h2 id="h-al">Avvisi</h2>
+    <h2 id="h-al">Avvisi <span class="h-n" id="al-n" hidden></span></h2>
     <ul class="alerts" id="alerts"></ul>
-    <p class="ok" id="alerts-ok" hidden>Nessun avviso: tutte le batterie lavorano nei limiti.</p>
+    <div class="al-ok" id="alerts-ok" hidden></div>
   </section>
 
   <section class="panel" aria-labelledby="h-hist">
@@ -606,7 +633,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.5"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.6"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -630,6 +657,20 @@ const MSG = {
   FAULT:     ["Guasto del BMS", "Il BMS segnala un guasto interno. Contatta il venditore."]
 };
 const msg = c => MSG[c] || [c, ""];
+const AL_ICON = {
+  prot:  '<path d="M12 3 4.5 6v5.2c0 4.4 3.1 8.1 7.5 9.8 4.4-1.7 7.5-5.4 7.5-9.8V6L12 3z"/><path d="M12 8.2v4.6M12 15.9v.3"/>',
+  alarm: '<path d="M12 4 2.5 20h19L12 4z"/><path d="M12 10v4.5M12 17.2v.3"/>',
+  mute:  '<path d="M9 2.5V7M15 2.5V7M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0V7zM12 16v5.5"/><path d="M3 3l18 18"/>',
+  ok:    '<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"/><path d="m8 12.3 2.8 2.8L16.2 9.5"/>'
+};
+const AL_TAG = { prot: "Protezione", alarm: "Attenzione", mute: "Offline" };
+const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+// una card di avviso; con "i" diventa toccabile e apre la scheda della batteria
+const alertLi = a => `<li class="${a.sev}"${a.i !== undefined ? ` data-i="${a.i}" role="button" tabindex="0"` : ""}>` +
+  `<span class="al-ico">${ico(AL_ICON[a.sev])}</span><span class="al-txt">` +
+  `<span class="al-k"><span class="al-tag">${AL_TAG[a.sev]}</span>${a.who ? `<span class="al-who">${esc(a.who)}</span>` : ""}</span>` +
+  `<b>${esc(a.t)}</b>${a.d ? `<span class="al-d">${esc(a.d)}</span>` : ""}</span>` +
+  (a.i !== undefined ? `<svg class="al-go" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"/></svg>` : "") + `</li>`;
 
 /* ---------- formattazione ---------- */
 const fin = n => typeof n === "number" && isFinite(n);
@@ -739,6 +780,8 @@ async function poll(){
 }
 
 /* ---------- calcoli sul banco ---------- */
+// la cella più calda di una batteria (o l'elettronica, se il BMS non manda le celle)
+function tHot(b){ const t = (b.t_cells || []).filter(fin); return t.length ? Math.max(...t) : fin(b.t_mos) ? b.t_mos : NaN; }
 function bank(bs){
   const on = bs.filter(b => b.online);
   const sum = f => on.reduce((s,b) => s + (fin(f(b)) ? f(b) : 0), 0);
@@ -746,10 +789,12 @@ function bank(bs){
   const v = on.length ? sum(b => b.v) / on.length : 0;
   const diffs = on.map(b => b.cells && b.cells.length ? Math.max(...b.cells) - Math.min(...b.cells) : NaN).filter(fin);
   const temps = on.flatMap(b => [...(b.t_cells || []), b.t_mos]).filter(fin);
+  const hots = on.map(tHot).filter(fin);
   return { soc: full ? rem / full * 100 : NaN, rem, full, i, v, p: v * i, on: on.length,
     kwh: sum(b => b.rem_ah * b.v) / 1000,
     dmax: diffs.length ? Math.max(...diffs) : NaN,
-    tmax: temps.length ? Math.max(...temps) : NaN };
+    tmax: temps.length ? Math.max(...temps) : NaN,
+    tspread: hots.length > 1 ? Math.max(...hots) - Math.min(...hots) : NaN };
 }
 const nowOf = d => d && fin(d.time) && d.time > 1.6e9 ? d.time : Date.now() / 1000;
 
@@ -802,6 +847,9 @@ function render(m){
   setVal($("k-v"), k.on ? nf(k.v, 1) + " V" : "–");
   setVal($("k-e"), bs.length ? `${k.on} di ${bs.length}` : "–");
   $("k-e").className = k.on < bs.length ? "warn" : "";
+  const offN = bs.length - k.on;
+  $("k-e2").textContent = !bs.length ? "" : !offN ? "tutte online" : `${offN} offline`;
+  $("k-e2").className = "k-sub" + (offN ? " warn" : "");
   // grafico circolare: 270° = 452,4 unità di arco su 603,2 di circonferenza (r 96)
   const gf = !k.on || !fin(k.soc) ? 0 : introPhase ? 1 : Math.max(0, Math.min(100, k.soc)) / 100;
   const dash = `${(452.4 * gf).toFixed(1)} 603.2`;
@@ -833,8 +881,14 @@ function render(m){
       `<span class="hello-t">${hr >= 5 && hr < 12 ? "Buongiorno" : hr >= 12 && hr < 18 ? "Buon pomeriggio" : "Buonasera"}</span>`;
   setVal($("k-d"), fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–");
   $("k-d").className = k.dmax > 50 ? "warn" : "";
-  setVal($("k-t"), fin(k.tmax) ? nf(k.tmax, 0) + " °C max" : "–");
+  let dI = -1, dV = -1; // la batteria con le celle più distanti
+  bs.forEach((b, i) => { if (b.online && b.cells && b.cells.length) { const d = Math.max(...b.cells) - Math.min(...b.cells); if (d > dV) { dV = d; dI = i; } } });
+  $("k-d2").textContent = dI >= 0 && k.on > 1 ? "in " + nameOf(bs[dI], dI) : "";
+  setVal($("k-t"), fin(k.tmax) ? nf(k.tmax, 0) + " °C" : "–");
   $("k-t").className = k.tmax >= 45 ? "warn" : "";
+  // scarto termico tra le batterie: a parità di corrente una batteria più calda delle altre va controllata
+  $("k-t2").textContent = fin(k.tspread) ? `scarto ${nf(k.tspread, 1)} °C` : "";
+  $("k-t2").className = "k-sub" + (k.tspread >= 5 ? " warn" : "");
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   drawCabinet(bs, lowSoc);
@@ -843,13 +897,21 @@ function render(m){
   const items = [];
   bs.forEach((b,i) => {
     const who = nameOf(b, i);
-    if (!b.online) { items.push({sev:"alarm", who, t:"Batteria non raggiungibile", d:"Controlla il cavo di comunicazione tra le batterie."}); return; }
-    (b.prot||[]).forEach(c => items.push({sev:"prot", who, t:msg(c)[0], d:msg(c)[1]}));
-    (b.alarms||[]).forEach(c => items.push({sev:"alarm", who, t:msg(c)[0], d:msg(c)[1]}));
+    if (!b.online) { items.push({sev:"mute", who, i, t:"Batteria non raggiungibile", d:"Controlla il cavo di comunicazione tra le batterie."}); return; }
+    (b.prot||[]).forEach(c => items.push({sev:"prot", who, i, t:msg(c)[0], d:msg(c)[1]}));
+    (b.alarms||[]).forEach(c => items.push({sev:"alarm", who, i, t:msg(c)[0], d:msg(c)[1]}));
   });
-  items.sort((a,b) => (a.sev === "prot" ? 0 : 1) - (b.sev === "prot" ? 0 : 1));
-  $("alerts").innerHTML = items.map(a => `<li class="${a.sev}"><b>${esc(a.who)}: ${esc(a.t)}</b>${a.d ? `<span>${esc(a.d)}</span>` : ""}</li>`).join("");
+  const rank = {prot:0, alarm:1, mute:2};
+  items.sort((a,b) => rank[a.sev] - rank[b.sev]);
+  const alHtml = items.map(alertLi).join("");
+  if ($("alerts").dataset.h !== alHtml) { $("alerts").innerHTML = alHtml; $("alerts").dataset.h = alHtml; } // non riavvia l'animazione a ogni lettura
+  const nOn = bs.filter(b => b.online).length;
   $("alerts-ok").hidden = items.length > 0;
+  if (!items.length) $("alerts-ok").innerHTML = `<span class="al-ico">${ico(AL_ICON.ok)}</span><span class="al-txt"><b>Tutto in ordine</b>` +
+    `<span class="al-d">${nOn === 1 ? "La batteria lavora" : nOn ? `Le ${nOn} batterie lavorano` : "Le batterie lavorano"} nei limiti.</span></span>`;
+  $("al-n").hidden = !items.length;
+  $("al-n").textContent = items.length;
+  $("al-n").className = "h-n" + (items.some(a => a.sev === "prot") ? " prot" : "");
 
   drawHistory(data.history, nowOf(data));
 
@@ -1042,7 +1104,7 @@ function drawCabinet(bs, lowSoc){
     g.querySelector(".alm").setAttribute("class", "dot alm" + (alarm ? " on" : ""));
     g.querySelector(".pct").textContent = on ? nf(lvl, 0) + "%" : "--";
     // la cella più calda: è la temperatura che fa scattare le protezioni di carica e scarica
-    const tcs = (b.t_cells || []).filter(fin), tc = tcs.length ? Math.max(...tcs) : fin(b.t_mos) ? b.t_mos : NaN;
+    const tc = tHot(b);
     const tEl = g.querySelector(".tc");
     tEl.textContent = on && fin(tc) ? nf(tc, 0) + " °C" : "";
     tEl.setAttribute("class", "mono tc" + (on && (tc >= 45 || tc <= 2) ? " warn" : ""));
@@ -1145,7 +1207,7 @@ function fillSheet(i){
       <div><dt>Stato di salute</dt><dd>${nf(b.soh,0)}%</dd></div>
       <div><dt>Cicli</dt><dd>${nf(b.cycles,0)}</dd></div>
     </dl>
-    ${flags.length ? `<h3>Avvisi</h3><ul class="alerts">${flags.map(([s,c]) => `<li class="${s}"><b>${esc(msg(c)[0])}</b>${msg(c)[1] ? `<span>${esc(msg(c)[1])}</span>` : ""}</li>`).join("")}</ul>` : ""}
+    ${flags.length ? `<h3>Avvisi</h3><ul class="alerts">${flags.map(([sev,c]) => alertLi({sev, t:msg(c)[0], d:msg(c)[1]})).join("")}</ul>` : ""}
     <h3>Le ${cells.length || 16} celle${cells.length ? ' <span class="hint">· tocca una cella per leggerla</span>' : ""}</h3>
     ${cellHtml}
     <h3>Temperature</h3>
@@ -1158,6 +1220,8 @@ function fillSheet(i){
   `;
 }
 function closeSheet(){ const d = $("sheet"); if (d.open) d.close(); }
+$("alerts").addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (li) openBattery(+li.dataset.i); });
+$("alerts").addEventListener("keydown", e => { const li = e.target.closest("li[data-i]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openBattery(+li.dataset.i); } });
 function openBattery(i){
   if (!data) return;
   openIdx = i; selCell = null; fillSheet(openIdx);
