@@ -118,6 +118,10 @@ h1,h2,h3{margin:0;font-weight:600}
 .verdict.bad{background:var(--alert-tint)}
 .verdict.warn{background:var(--warn-tint)}
 .verdict b{display:block;margin-bottom:2px}
+.bank{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.bank div{background:var(--lith-tint);border-radius:12px;padding:9px 10px}
+.bank dt{font-size:.72rem;color:var(--muted)}
+.bank dd{margin:1px 0 0;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700;font-size:1.05rem;white-space:nowrap}
 .bat{margin-top:12px;padding:14px;border-radius:16px;background:var(--bg)}
 .bat-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .bat-h h3{font-size:.95rem}
@@ -182,7 +186,7 @@ h1,h2,h3{margin:0;font-weight:600}
     <h2 id="h-cmd"><span class="n">2</span>Prova il protocollo</h2>
     <div class="cmds">
       <button class="cmd wide" id="auto" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5 16 16"/></svg>
-        <span><b>Prova automatica</b><small>Cerca chi risponde (indirizzi 0–4, inizio ~ e &gt;), poi legge i dati</small></span></button>
+        <span><b>Prova automatica</b><small>Cerca chi risponde (indirizzi 0–4, inizio ~ e &gt;), poi legge ogni batteria</small></span></button>
     </div>
     <span class="lbl">Indirizzo</span>
     <fieldset class="seg" id="adr"><legend>Indirizzo</legend>
@@ -201,7 +205,7 @@ h1,h2,h3{margin:0;font-weight:600}
       <button class="cmd" type="button" data-cid="4F" data-info="" disabled><span class="code">4FH</span><b>Versione</b><small>La risposta più corta</small></button>
       <button class="cmd" type="button" data-cid="51" data-info="" disabled><span class="code">51H</span><b>Produttore</b><small>Nome e firmware</small></button>
       <button class="cmd" type="button" data-cid="42" data-info="01" disabled><span class="code">42H · 01</span><b>Dati batteria</b><small>Celle, temperature, stato</small></button>
-      <button class="cmd" type="button" data-cid="42" data-info="FF" disabled><span class="code">42H · FF</span><b>Tutte le batterie</b><small>Arrivano tutte e 5?</small></button>
+      <button class="cmd" type="button" data-cid="42" data-info="01" data-all="1" disabled><span class="code">42H × 5</span><b>Tutte le batterie</b><small>Indirizzi 0–4, una al secondo</small></button>
     </div>
     <div class="busy hidden" id="busy"><span class="spin"></span><span id="busy-t"></span></div>
     <div class="prog hidden" id="prog"><i id="prog-i"></i></div>
@@ -448,16 +452,16 @@ function openSim(onData) {
   };
   let open = true;
   return {
-    api: "simulazione", chip: "BMS simulato", detail: "nessun cavo: risponde l'indirizzo 0 con ~",
+    api: "simulazione", chip: "BMS simulato", detail: "nessun cavo: rispondono gli indirizzi 0–4 con ~",
     async write(bytes) {
       const s = new TextDecoder().decode(bytes).trim();
       setTimeout(() => open && onData(enc(s + "\r")), 30);     // eco
       const adr = parseInt(s.slice(3, 5), 16), cid = s.slice(7, 9), info = s.slice(13, -4);
-      if (s[0] !== "~" || adr !== 0) return;                  // gli altri tacciono
+      if (s[0] !== "~" || adr > 4) return;                    // come il BMS vero: rispondono 0–4, solo con ~
       let out;
-      if (cid === "4F") out = reply(0, "");
-      else if (cid === "51") out = reply(0, [..."DR-JC03   "].map((c) => hex(c.charCodeAt(0), 2)).join("") + "0105" + [..."DR POWER            "].map((c) => hex(c.charCodeAt(0), 2)).join(""));
-      else if (cid === "42") out = reply(0, "00" + (info === "FF" ? "05" + [0, 1, 2, 3, 4].map(block).join("") : "01" + block(0)));
+      if (cid === "4F") out = reply(adr, "");
+      else if (cid === "51") out = reply(adr, [..."DR-JC03   "].map((c) => hex(c.charCodeAt(0), 2)).join("") + "0105" + [..."DR POWER            "].map((c) => hex(c.charCodeAt(0), 2)).join(""));
+      else if (cid === "42") out = reply(adr, "01" + "01" + block(adr));   // anche con FF: solo il proprio blocco
       // la risposta arriva a pezzi, come sulla seriale vera
       setTimeout(() => { if (!open) return; const b = enc(out); for (let o = 0; o < b.length; o += 64) onData(b.slice(o, o + 64)); }, 160);
     },
@@ -544,11 +548,11 @@ function cellsSvg(d) {
       + `<text x="${(x + (bw - 4) / 2).toFixed(1)}" y="${H + 11}" text-anchor="middle">${j + 1}</text>`;
   }).join("") + "</svg>";
 }
-function batCard(d, k, n) {
+function batCard(d, k, n, title) {
   if (!d.cells || !d.cells.length) return `<div class="bat"><p class="note">Blocco ${k + 1}: dati non leggibili.</p></div>`;
   const lo = Math.min(...d.cells), hi = Math.max(...d.cells);
   const tags = [];
-  if (d.machine != null) tags.push(`<span class="tag">${MACHINE[d.machine] || "stato " + d.machine}</span>`);
+  if (d.machine) tags.push(`<span class="tag">${MACHINE[d.machine] || "stato " + d.machine}</span>`);
   if (d.fet != null) tags.push(`<span class="tag ${d.fet & 1 ? "good" : "bad"}">MOS carica ${d.fet & 1 ? "acceso" : "spento"}</span>`, `<span class="tag ${d.fet & 2 ? "good" : "bad"}">MOS scarica ${d.fet & 2 ? "acceso" : "spento"}</span>`);
   const warns = d.stV != null ? [...bitsOn(d.stV, BITS.stV), ...bitsOn(d.stI, BITS.stI), ...bitsOn(d.stA, BITS.stA)] : [];
   if (d.stT) warns.push("temperature " + hex(d.stT) + "H");
@@ -559,7 +563,7 @@ function batCard(d, k, n) {
   if (d.cut) tags.push('<span class="tag warn">dati troncati</span>');
   const pw = d.i != null ? d.i * d.v : null;
   return `<div class="bat">
-    <div class="bat-h"><h3>${n > 1 ? "Batteria " + (k + 1) : "Batteria"}</h3><span class="soc">${fmt(d.soc, 1)}<small>%</small></span></div>
+    <div class="bat-h"><h3>${esc(title || (n > 1 ? "Blocco " + (k + 1) : "Batteria"))}</h3><span class="soc">${fmt(d.soc, 1)}<small>%</small></span></div>
     <dl class="kv">
       <div><dt>Tensione</dt><dd>${fmt(d.v)} V</dd></div>
       <div><dt>Corrente</dt><dd>${d.i != null ? fmt(d.i, 1) + " A" : "—"}</dd></div>
@@ -591,6 +595,52 @@ function showReply(cid, r, ctx) {
     + res.blocks.map((d, k) => batCard(d, k, n)).join("");
 }
 
+function showBank(items, soi) {
+  const good = items.filter((x) => x.r && !x.r.bad && x.r.rtn === 0)
+    .map((x) => ({ adr: x.adr, d: decode42(x.r.info) })).filter((x) => x.d.ok);
+  const all = good.map((x) => x.d.blocks[0]);
+  let html = verdict(good.length === items.length ? "ok" : "warn", `Dati letti da ${good.length} batterie su ${items.length}`,
+    `Una domanda 42H per indirizzo, inizio ${esc(soi)}.`);
+  if (all.length) {
+    const sum = (f) => all.reduce((a, d) => a + (f(d) || 0), 0);
+    const full = sum((d) => d.full), rem = sum((d) => d.rem), amp = sum((d) => d.i), watt = sum((d) => d.i * d.v);
+    const cells = all.flatMap((d) => d.cells), temps = all.flatMap((d) => [...(d.tCells || []), d.tPack]);
+    html += `<dl class="bank">
+      <div><dt>Banco</dt><dd>${full ? fmt(rem / full * 100, 1) : "—"} %</dd></div>
+      <div><dt>Corrente</dt><dd>${fmt(amp, 1)} A</dd></div>
+      <div><dt>Potenza</dt><dd>${Math.round(watt).toLocaleString("it-IT")} W</dd></div>
+      <div><dt>Residua</dt><dd>${fmt(rem, 0)} Ah</dd></div>
+      <div><dt>Celle min–max</dt><dd>${Math.min(...cells)}–${Math.max(...cells)}</dd></div>
+      <div><dt>Temp. max</dt><dd>${fmt(Math.max(...temps), 1)} °C</dd></div>
+    </dl>`;
+  }
+  html += items.map((x) => {
+    const title = nameOf(x.adr) + " · indirizzo " + x.adr;
+    if (!x.r) return `<div class="bat"><p class="note"><b>${esc(title)}</b>: nessuna risposta.</p></div>`;
+    if (x.r.bad || x.r.rtn) return `<div class="bat"><p class="note"><b>${esc(title)}</b>: ${esc(x.r.bad || "esito " + hex(x.r.rtn, 2) + "H " + (RTN[x.r.rtn] || ""))}</p></div>`;
+    const res = decode42(x.r.info);
+    return res.blocks.map((d, k) => batCard(d, k, 1, title)).join("") + (res.ok ? "" : `<p class="note">${esc(title)}: struttura da verificare.</p>`);
+  }).join("");
+  return html;
+}
+async function readAll(adrs, soi, step) {
+  const items = [];
+  for (const adr of adrs) {
+    $("busy-t").textContent = `Leggo ${nameOf(adr)} (indirizzo ${adr})…`;
+    items.push({ adr, r: await ask("42", adr, "01", soi, 2500) });
+    if (step) step();
+  }
+  return items;
+}
+async function allBatteries() {
+  const soi = pick("soi");
+  $("result").innerHTML = `<p class="note">Leggo gli indirizzi da 0 a 4, uno al secondo.</p>`;
+  $("prog").classList.remove("hidden");
+  let n = 0;
+  const items = await readAll([0, 1, 2, 3, 4], soi, () => $("prog-i").style.width = (++n * 20) + "%");
+  $("result").innerHTML = showBank(items, soi);
+}
+
 async function run(fn) {
   if (busy || !link) return;
   busy = true; setConn("on", $("chip-t").textContent, $("chip-s").textContent);
@@ -599,6 +649,9 @@ async function run(fn) {
   busy = false; $("busy").classList.add("hidden"); $("prog").classList.add("hidden");
   if (link) setConn("on", $("chip-t").textContent, $("chip-s").textContent);
 }
+let NAMES = {};
+try { NAMES = JSON.parse(localStorage.getItem("mybattery.settings") || "{}").names || {}; } catch (e) {}
+const nameOf = (adr) => NAMES[String(adr)] || (adr === 0 ? "Master" : "Batteria " + (adr + 1));
 const pick = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
 async function single(cid, info) {
   const adr = +pick("adr"), soi = pick("soi");
@@ -625,12 +678,14 @@ async function auto() {
       "Controlla che il cavo sia nella porta RS485 della master (non CAN) e prova a invertire A e B, se il cavo è fatto da te. Copia il registro: anche il silenzio è un'informazione."));
     return;
   }
-  const f = found[0], scan = el.innerHTML.replace(/<p class="note">.*?<\/p>/, "");
-  document.querySelector(`input[name="adr"][value="${f.adr}"]`).checked = true;
-  document.querySelector(`input[name="soi"][value="${f.soi}"]`).checked = true;
-  $("busy-t").textContent = "Leggo i dati di tutte le batterie (42H)…";
-  showReply("42", await ask("42", f.adr, "FF", f.soi, 2500), f);
-  el.insertAdjacentHTML("afterbegin", scan + verdict("ok", "Risponde " + found.map((x) => "l'indirizzo " + x.adr + " con " + x.soi).join(", "), ""));
+  const soi = found[0].soi, adrs = found.filter((x) => x.soi === soi).map((x) => x.adr);
+  const scan = el.innerHTML.replace(/<p class="note">.*?<\/p>/, "");
+  document.querySelector(`input[name="adr"][value="${adrs[0]}"]`).checked = true;
+  document.querySelector(`input[name="soi"][value="${soi}"]`).checked = true;
+  $("prog-i").style.width = "0%";
+  let n = 0;
+  const items = await readAll(adrs, soi, () => $("prog-i").style.width = (++n / adrs.length * 100) + "%");
+  el.innerHTML = scan + verdict("ok", `Rispondono ${adrs.length === 1 ? "l'indirizzo " + adrs[0] : "gli indirizzi " + adrs.join(", ")} con ${soi}`, "") + showBank(items, soi);
 }
 
 /* ================= Avvio ================= */
@@ -647,7 +702,7 @@ $("usb-alt").onclick = () => connect(false, true);
 $("usb-alt").classList.toggle("hidden", !(hasSerial && hasUsb));
 $("disconnect").onclick = async () => { if (link) await link.close(); link = null; setConn("off", "Cavo scollegato", ""); log("info", "scollegato"); };
 $("auto").onclick = () => run(auto);
-document.querySelectorAll(".cmd[data-cid]").forEach((b) => b.onclick = () => run(() => single(b.dataset.cid, b.dataset.info)));
+document.querySelectorAll(".cmd[data-cid]").forEach((b) => b.onclick = () => run(() => b.dataset.all ? allBatteries() : single(b.dataset.cid, b.dataset.info)));
 $("clear").onclick = () => { $("log").textContent = ""; };
 $("copy").onclick = async () => {
   const text = "MyBattery · diagnosi BMS · " + new Date().toLocaleString("it-IT") + "\n" + ($("chip-t").textContent + " · " + $("chip-s").textContent) + "\n\n"
