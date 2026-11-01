@@ -403,6 +403,7 @@ footer{border-top:0;padding-top:0}
 .cab .m:hover .slot{stroke:var(--lith)}
 .cab .name{fill:var(--ink);font:600 13px var(--body)}
 .cab .pct{fill:var(--ink);font:700 20px var(--num);letter-spacing:-.02em}
+.cab .tc.warn{fill:var(--warn);font-weight:700}
 .cab .seg,.cab .dot{fill:var(--line);transition:fill .25s}
 .cab .seg.on{fill:var(--lith);filter:drop-shadow(0 0 2px var(--lith))}
 .cab .m.low .seg.on{fill:var(--warn);filter:drop-shadow(0 0 2px var(--warn))}
@@ -605,7 +606,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.4"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.5"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1018,7 +1019,7 @@ function drawCabinet(bs, lowSoc){
         `<text class="mono idx" x="13" y="${cy - 4}">${String(i + 1).padStart(2, "0")}</text>` +
         `<circle class="dot run" cx="16" cy="${cy + 9}" r="3.4"/><circle class="dot alm" cx="26" cy="${cy + 9}" r="3.4"/>` +
         `<text class="name" x="42" y="${cy - 3}"></text><text class="mono sub" x="42" y="${cy + 14}"></text>${meter}` +
-        `<text class="pct" x="328" y="${cy + 7}" text-anchor="end"></text></g>`;
+        `<text class="pct" x="328" y="${cy + 3}" text-anchor="end"></text><text class="mono tc" x="328" y="${cy + 17}" text-anchor="end"></text></g>`;
     }
     cab.innerHTML = `<svg viewBox="0 0 340 ${H}">` +
       `${rows}</svg>`;
@@ -1040,7 +1041,12 @@ function drawCabinet(bs, lowSoc){
     g.querySelector(".run").setAttribute("class", "dot run" + (on ? " on" : "") + (on && !introPhase && Math.abs(b.i) > 0.3 ? " blink" : ""));
     g.querySelector(".alm").setAttribute("class", "dot alm" + (alarm ? " on" : ""));
     g.querySelector(".pct").textContent = on ? nf(lvl, 0) + "%" : "--";
-    g.setAttribute("aria-label", on ? `${nm}: carica ${nf(b.soc, 0)} per cento, ${nf(b.v, 2)} volt, ${signed(b.i, 1)} ampere. Apri dettagli` : `${nm}: non risponde`);
+    // la cella più calda: è la temperatura che fa scattare le protezioni di carica e scarica
+    const tcs = (b.t_cells || []).filter(fin), tc = tcs.length ? Math.max(...tcs) : fin(b.t_mos) ? b.t_mos : NaN;
+    const tEl = g.querySelector(".tc");
+    tEl.textContent = on && fin(tc) ? nf(tc, 0) + " °C" : "";
+    tEl.setAttribute("class", "mono tc" + (on && (tc >= 45 || tc <= 2) ? " warn" : ""));
+    g.setAttribute("aria-label", on ? `${nm}: carica ${nf(b.soc, 0)} per cento, ${nf(b.v, 2)} volt, ${signed(b.i, 1)} ampere${fin(tc) ? `, celle fino a ${nf(tc, 0)} gradi` : ""}. Apri dettagli` : `${nm}: non risponde`);
   });
 }
 
@@ -1210,6 +1216,8 @@ function simulate(){
     const ocv = 3200 + b.soc * 1.25 + b.i * 0.9;
     b.cells = b.cells.map((mv,j) => Math.round(mv + (ocv + Math.sin(j*1.7+k)*4 + (k===2&&j===6?46:0) - mv) * .2 + (Math.random()-.5)*2));
     b.v = b.cells.reduce((a,c)=>a+c,0) / 1000;
+    if (!b.t0) b.t0 = [...b.t_cells];
+    b.t_cells = b.t0.map(t => +(t + Math.abs(b.i) * .09).toFixed(1));
   });
   // anche lo storico demo avanza, un punto ogni 5 minuti
   const hs = sim.history;
