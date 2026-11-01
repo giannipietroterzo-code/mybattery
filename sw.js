@@ -1,11 +1,12 @@
 // Service worker: app offline, aggiornamento in background (stale-while-revalidate)
 // Cambiando VERSION (insieme ad APP_VERSION in index.html) i telefoni scaricano tutto di nuovo.
 // Funziona solo in HTTPS (GitHub Pages): servita dalla scheda in HTTP la pagina non lo registra.
-const VERSION = '1.6';
+const VERSION = '1.7';
 const CACHE = 'mybattery-v' + VERSION;
 const ASSETS = [
   './',
   './index.html',
+  './diagnosi.html',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
@@ -33,13 +34,15 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.includes('/api/')) return;
 
   const isNav = req.mode === 'navigate';
+  // aprendo la cartella si serve index.html; le altre pagine (diagnosi.html) restano sé stesse
+  const key = isNav && /\/(index\.html)?$/.test(url.pathname) ? './index.html' : url.origin + url.pathname + (isNav ? '' : url.search);
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      const cached = await cache.match(isNav ? './index.html' : req, { ignoreSearch: isNav });
+      const cached = await cache.match(key, { ignoreSearch: isNav });
       // revalida sempre col server (ETag), così l'aggiornamento non aspetta la scadenza della cache HTTP
-      const fresh = fetch(isNav ? './index.html' : req.url, { cache: 'no-cache' })
+      const fresh = fetch(key, { cache: 'no-cache' })
         .then((res) => {
-          if (res.ok) cache.put(isNav ? './index.html' : req, res.clone());
+          if (res.ok) cache.put(key, res.clone());
           return res;
         })
         .catch(() => cached);

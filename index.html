@@ -28,6 +28,7 @@ if(["neon","solare","notte","sole","vetro"].indexOf(o.style)>=0){r.setAttribute(
     "time": 1793460000,              // epoch secondi UTC (RTC della scheda); se l'RTC non è impostato
                                      // (valore < 1600000000) la pagina usa l'ora del telefono
     "rssi": -58,                     // segnale WiFi dBm
+    "log_min": 30,                   // minuti tra le righe del registro a lungo termine: GET /api/log (docs/storico-e-previsioni.md)
     "batteries": [{
       "addr": 0, "name": "Master", "online": true,
       "soc": 81.2, "soh": 100,       // %
@@ -170,6 +171,53 @@ section{margin-top:26px}
   background:var(--warn);color:#fff;font:700 .72rem/1 var(--mono)}
 .h-n.prot{background:var(--alert)}
 .h-n[hidden]{display:none}
+
+/* previsione 48 ore e abitudini di consumo */
+.fc,.heat{width:100%;height:auto;display:block}
+.heat{margin:6px 0 14px}
+.fc-note{margin:8px 0 0;font-size:.76rem;color:var(--muted)}
+.fc-note:empty{display:none}
+.wx{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 12px}
+.wx:empty{display:none}
+.wx-d{display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:14px;background:color-mix(in srgb,var(--ink) 5%,transparent);min-width:0}
+.wx-i{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
+.wx-i svg{width:19px;height:19px}
+.wx-d.sun .wx-i,.wx-d.part .wx-i{background:var(--sun-tint);color:var(--sun)}
+.wx-t{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.wx-t small{font-size:.7rem;color:var(--muted)}
+.wx-t b{font-family:var(--num);font-size:.98rem;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wx-t b small{font-size:.66em;font-weight:500;color:var(--muted)}
+.wx-t em{font-style:normal;font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.habits{margin-top:4px}
+.alerts li.hab{--c:var(--lith);--t:var(--lith-tint)}
+.alerts.habits{gap:0}
+.alerts.habits li.hab{align-items:center;padding:10px 2px;background:none;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none}
+.alerts.habits li.hab:first-child{border-top:0}
+.alerts.habits li.hab::before{display:none}
+.hab .al-ico{width:34px;height:34px}
+.hab .al-ico svg{width:18px;height:18px}
+.hab .al-txt b{font-size:.94rem}
+.hab .al-d{font-size:.8rem}
+.nw{white-space:nowrap}
+.hab-kwh{flex:none;text-align:right;font-family:var(--num);font-size:1.05rem;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums}
+.hab-kwh small{display:block;font-size:.68rem;font-weight:500;color:var(--muted)}
+a.set-btn{text-decoration:none}
+.set-btn{display:inline-flex;align-items:center;gap:7px;border:0;background:var(--bg);color:var(--ink);font:inherit;font-size:.9rem;font-weight:600;padding:9px 14px;border-radius:11px;cursor:pointer;margin-top:10px}
+.set-btn svg{width:17px;height:17px}
+.set-btn:disabled{opacity:.45;cursor:default}
+.set-btn:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.loc-f{display:flex;gap:8px;margin-top:8px}
+.loc-f input{flex:1;min-width:0;font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.loc-f input:focus{outline:2px solid var(--lith);outline-offset:-1px;border-color:transparent}
+.loc-f .set-btn{margin:0}
+.loc-res{display:grid;gap:4px;margin-top:8px}
+.loc-res button{display:flex;justify-content:space-between;align-items:baseline;gap:10px;text-align:left;border:0;background:var(--bg);color:var(--ink);font:inherit;padding:10px 12px;border-radius:10px;cursor:pointer}
+.loc-res small{color:var(--muted);font-size:.8rem;text-align:right}
+.loc-cur{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.loc-cur .loc-n{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.loc-cur small{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.loc-pin{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--lith-tint);color:var(--lith)}
+.loc-pin svg{width:18px;height:18px}
 
 /* storico */
 .hist{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
@@ -327,7 +375,7 @@ footer{border-top:0;padding-top:0}
 [data-style="neon"] .state{background:transparent;border:1.5px solid currentColor;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
 
 [data-style="neon"] .panel{--g:var(--sun)}
-[data-style="neon"] .alerts li{--g:var(--warn);border-radius:18px} [data-style="neon"] .alerts li.prot{--g:var(--alert)} [data-style="neon"] .alerts li.mute{--g:#8C99A6}
+[data-style="neon"] .alerts li.hab{--g:var(--lith)} [data-style="neon"] .alerts li{--g:var(--warn);border-radius:18px} [data-style="neon"] .alerts li.prot{--g:var(--alert)} [data-style="neon"] .alerts li.mute{--g:#8C99A6}
 [data-style="neon"] .al-ok{border-radius:18px;border:1.5px solid color-mix(in srgb,var(--good) 72%,transparent);box-shadow:0 0 26px -8px var(--good),inset 0 0 24px -14px var(--good)}
 [data-style="neon"] .notice.lost{--g:var(--warn)}
 
@@ -387,7 +435,7 @@ footer{border-top:0;padding-top:0}
 [data-style="sole"] .state.chg{background:var(--lith);color:#141414}
 [data-style="sole"] .state.dsg{background:var(--ink);color:var(--surface)}
 
-[data-style="sole"] .panel{background:var(--solid);--surface:var(--solid);--lith:#fff;--ink:#141414;--muted:rgba(20,20,20,.62);--line:rgba(255,255,255,.5);--lith-tint:rgba(255,255,255,.3);--sun:#141414;--out:rgba(20,20,20,.45)}
+[data-style="sole"] .panel:not(.plain){background:var(--solid);--surface:var(--solid);--lith:#fff;--ink:#141414;--muted:rgba(20,20,20,.62);--line:rgba(255,255,255,.5);--lith-tint:rgba(255,255,255,.3);--sun:#141414;--out:rgba(20,20,20,.45)}
 [data-style="sole"] .panel .hist polyline{stroke:#fff;stroke-width:2.5}
 [data-style="sole"] .notice{border-radius:20px}
 
@@ -540,6 +588,23 @@ footer{border-top:0;padding-top:0}
     <p class="legend"><span><i style="background:var(--lith)"></i>Carica del banco</span><span><i style="background:var(--sun)"></i>Potenza in entrata</span><span><i style="background:var(--out)"></i>Potenza in uscita</span></p>
   </section>
 
+  <section class="panel plain" aria-labelledby="h-fc">
+    <h2 id="h-fc">Prossime 48 ore</h2>
+    <div class="wx" id="wx"></div>
+    <p class="hist-read" id="fc-read"></p>
+    <svg class="fc" id="fc" viewBox="0 0 340 152" role="img" aria-label="Previsione della carica nelle prossime 48 ore"></svg>
+    <p class="legend"><span><i style="background:var(--lith)"></i>Carica prevista</span><span><i style="background:var(--lith-tint)"></i>Margine</span><span><i style="background:var(--sun)"></i>Sole</span><span><i style="background:var(--out)"></i>Consumi</span></p>
+    <p class="fc-note" id="fc-note"></p>
+  </section>
+
+  <section class="panel plain" aria-labelledby="h-hab">
+    <h2 id="h-hab">Abitudini di consumo</h2>
+    <p class="hist-read" id="hab-read"></p>
+    <svg class="heat" id="heat" viewBox="0 0 340 116" role="img" aria-label="Consumo medio per giorno della settimana e ora"></svg>
+    <ul class="alerts habits" id="habits"></ul>
+    <p class="fc-note" id="hab-note"></p>
+  </section>
+
   <footer>
     <span id="f-upd">Mai aggiornato</span>
     <span id="f-wifi"></span>
@@ -618,6 +683,25 @@ footer{border-top:0;padding-top:0}
     </fieldset>
     <p class="set-note">L'autonomia mostrata in alto si ferma a questa carica, così ti resta un margine.</p>
 
+    <h3>Registrazione dello storico</h3>
+    <fieldset class="seg" id="set-log">
+      <legend>Salva una riga ogni</legend>
+      <label><input type="radio" name="log" value="15"><span>15 min</span></label>
+      <label><input type="radio" name="log" value="30"><span>30 min</span></label>
+      <label><input type="radio" name="log" value="45"><span>45 min</span></label>
+      <label><input type="radio" name="log" value="60"><span>60 min</span></label>
+    </fieldset>
+    <p class="set-note">La scheda salva carica, energia entrata e uscita e, se legge i regolatori, la produzione dei pannelli. Non cancella mai niente: a 30 minuti sono circa 300 KB l'anno.</p>
+    <button class="set-btn" id="set-csv" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 19.5h16"/></svg>Esporta lo storico (CSV)</button>
+
+    <h3>Meteo per le previsioni</h3>
+    <div id="set-loc"></div>
+    <p class="set-note">Il meteo arriva da Open-Meteo, gratis e senza registrazione: riceve solo le coordinate arrotondate a circa 1 km.</p>
+
+    <h3>Diagnosi</h3>
+    <a class="set-btn" href="diagnosi.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg>Diagnosi BMS col cavo USB</a>
+    <p class="set-note">Prova il protocollo del BMS dal telefono col cavo USB–RS485 delle batterie, senza la scheda (Chrome su Android, con adattatore OTG).</p>
+
     <h3>Nomi delle batterie</h3>
     <div class="names" id="set-names"></div>
 
@@ -633,7 +717,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.6"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.7"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -699,14 +783,16 @@ const nameOf = (b, i) => S.names[keyOf(b, i)] || b.name || "Batteria " + (i + 1)
 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","neon","solare","notte","sole","vetro"], poll: [2,5,10,30], reserve: [0,10,20,30] };
-const DEF = { theme: "dark", palette: "oro", style: "classico", poll: 5, reserve: 0, names: {} };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","neon","solare","notte","sole","vetro"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60] };
+const DEF = { theme: "dark", palette: "oro", style: "classico", poll: 5, reserve: 0, log: 30, names: {}, loc: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
   try { s = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
   const o = { ...DEF, names: {} };
   Object.keys(OPT).forEach(k => { if (OPT[k].includes(s[k])) o[k] = s[k]; });
+  const l = s.loc; // località del meteo: nome e coordinate arrotondate a ~1 km
+  if (l && typeof l.name === "string" && fin(l.lat) && fin(l.lon)) o.loc = { name: l.name.slice(0, 60), lat: +l.lat.toFixed(2), lon: +l.lon.toFixed(2) };
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
   return o;
 }
@@ -772,7 +858,9 @@ async function poll(){
     const j = await r.json();
     if (!j || !Array.isArray(j.batteries)) throw new Error("formato");
     data = j; lastOk = Date.now(); everLive = true;
+    if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; saveSettings(); } // comanda la scheda
     render("live");
+    syncLog();
   } catch (e) {
     if (everLive) render("stale");
     else { data = simulate(); render("demo"); }
@@ -806,6 +894,8 @@ function render(m){
   const lim = data.limits || {};
   const k = bank(bs);
   if (bs.length) intro();
+  if (m === "demo" && logSrc !== "demo") { LOG = demoLog(); logSrc = "demo"; model = learn(LOG); fc = null; fcNull = false; drawHabits(); }
+  const f = currentForecast(k);
 
   // connessione
   $("conn").className = "conn " + mode;
@@ -831,12 +921,14 @@ function render(m){
   } else if (k.i > 0.5) {
     st.className = "state chg"; st.textContent = `In carica, ${power(k.p)} in entrata`;
     const left = k.full - k.rem;
-    if (left > 1) setEta("chg", "Pieno tra circa", dur(left / k.i), left / k.i);
+    if (etaForecast(k, f)) {}
+    else if (left > 1) setEta("chg", "Pieno tra circa", dur(left / k.i), left / k.i);
     else setEta("chg", "Quasi pieno", "il BMS completa la carica");
   } else if (k.i < -0.5) {
     st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
     const avail = k.rem - k.full * S.reserve / 100;
-    if (avail > 0) setEta("dsg", S.reserve ? `Autonomia fino al ${S.reserve}%` : "Autonomia a questo consumo", dur(avail / -k.i), avail / -k.i);
+    if (etaForecast(k, f)) {}
+    else if (avail > 0) setEta("dsg", S.reserve ? `Autonomia fino al ${S.reserve}%` : "Autonomia a questo consumo", dur(avail / -k.i), avail / -k.i);
     else setEta("warn", `Sotto la riserva del ${S.reserve}%`, "riduci i consumi");
   } else {
     st.className = "state idle"; st.textContent = "A riposo"; setEta();
@@ -1042,6 +1134,471 @@ hsvg.addEventListener("pointerup", e => {
   if (e.pointerType !== "mouse") { clearTimeout(scrubTimer); scrubTimer = setTimeout(() => { scrubI = null; updateScrub(); }, 3000); }
 });
 hsvg.addEventListener("pointercancel", () => { scrubI = null; updateScrub(); });
+
+/* ---------- registro a lungo termine: carica e consumi, una riga ogni S.log minuti, mai cancellato ---------- */
+// riga: [inizio (s), durata (min), carica a fine riga (%), Wh entrati nel banco, Wh usciti, Wh dai pannelli o null]
+// La scheda la scrive in flash; il telefono ne tiene una copia (IndexedDB) e fa qui tutti i calcoli. Vedi docs/storico-e-previsioni.md
+const LOG_API = "/api/log", WX_KEY = "mybattery.meteo", HOUR = 3600, NOMV = 51.2;
+const DEMO_LOC = { lat: 42.0, lon: 12.5 }, DEMO_KWP = 4.8; // demo: 6 kWp di pannelli all'80%, W per ogni W/m² di sole
+let LOG = [], logSrc = "", model = null, wx = null, fc = null, fcAt = 0, fcNull = false, lastLogSync = 0;
+
+const db = (() => {
+  let p = null;
+  const open = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open("mybattery", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("log");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const run = (mode, fn) => open().then(d => new Promise((res, rej) => {
+    const tx = d.transaction("log", mode), req = fn(tx.objectStore("log"));
+    tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error);
+  }));
+  return {
+    all: () => run("readonly", s => s.getAll()).catch(() => []),
+    put: rows => run("readwrite", s => { rows.forEach(r => s.put(r, r[0])); }).catch(() => {})
+  };
+})();
+const validRow = r => Array.isArray(r) && r.length >= 5 && fin(r[0]) && fin(r[1]) && r[1] > 0 && fin(r[3]) && fin(r[4]);
+
+// scarica solo le righe che mancano al telefono
+async function syncLog(){
+  if (Date.now() - lastLogSync < 5 * 60e3 && logSrc === "live") return;
+  lastLogSync = Date.now();
+  if (logSrc !== "live") { LOG = ((await db.all()) || []).filter(validRow); logSrc = "live"; }
+  let from = LOG.length ? LOG[LOG.length - 1][0] + 1 : 0;
+  const added = [];
+  try {
+    for (let guard = 0; guard < 100; guard++) {
+      const r = await fetch(`${LOG_API}?from=${from}`, {cache: "no-store"});
+      if (!r.ok) break;
+      const j = await r.json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(validRow);
+      if (!rows.length) break;
+      added.push(...rows); from = rows[rows.length - 1][0] + 1;
+      if (!j.more) break;
+    }
+  } catch (e) {}
+  if (added.length) { LOG.push(...added); db.put(added); }
+  relearn();
+}
+
+/* ---------- sole: posizione del sole e cielo sereno (per la demo e per capire quando è notte) ---------- */
+function sinElev(t, lat, lon){
+  const d = new Date(t * 1000), doy = (Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5;
+  const decl = 23.44 * Math.PI / 180 * Math.sin(2 * Math.PI * (284 + doy) / 365), la = lat * Math.PI / 180;
+  const ha = (d.getUTCHours() + d.getUTCMinutes() / 60 + lon / 15 - 12) * 15 * Math.PI / 180;
+  return Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(ha);
+}
+const clearSky = (t, lat, lon) => { const z = sinElev(t, lat, lon); return z > .01 ? 1098 * z * Math.exp(-.057 / z) : 0; }; // W/m², Haurwitz
+const here = () => S.loc || DEMO_LOC;
+
+/* ---------- demo: 100 giorni di una casa con abitudini riconoscibili ---------- */
+const rng = seed => { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
+const demoDays = new Map();
+function demoDay(t){
+  const d = new Date(t * 1000), key = d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate();
+  if (!demoDays.has(key)) { const r = rng(key * 7919); demoDays.set(key, { wd: d.getDay(), dm: d.getDate(), cloud: .22 + .78 * Math.pow(r(), .55), ev: Array.from({length: 8}, r) }); }
+  return demoDays.get(key);
+}
+function demoLoad(t){
+  const d = new Date(t * 1000), h = d.getHours() + d.getMinutes() / 60, D = demoDay(t);
+  let w = 190 + 40 * Math.sin(h * 2.1);                                                  // frigo, inverter, standby
+  if (h >= 19 && h < 21 && D.ev[0] < .9) w += 850;                                       // cena
+  if (D.wd >= 1 && D.wd <= 5 && h >= 7 && h < 8 && D.ev[1] < .85) w += 520;              // colazione nei feriali
+  if ((D.wd === 2 || D.wd === 6) && h >= 10 && h < 12 && D.ev[2] < .9) w += 1100;        // lavatrice
+  if (D.wd === 0 && h >= 12 && h < 14 && D.ev[3] < .85) w += 1300;                       // forno la domenica
+  if (D.dm === 1 && h >= 9 && h < 11) w += 1600;                                         // pompa il primo del mese
+  if (D.ev[4] < .3 && h >= 14 + D.ev[5] * 5 && h < 15 + D.ev[5] * 5) w += 900;           // imprevisti
+  return w;
+}
+const demoSun = t => DEMO_KWP * clearSky(t, here().lat, here().lon) * demoDay(t).cloud;
+function demoLog(){
+  const step = S.log * 60, cap = 5 * 200 * NOMV, end = Math.floor(Date.now() / 1000 / step) * step, rows = [];
+  let soc = 55;
+  for (let t = end - 100 * DAY; t < end; t += step) {
+    const mid = t + step / 2, lw = demoLoad(mid) * step / HOUR, pw = demoSun(mid) * step / HOUR;
+    let chg = 0, dsg = 0, pv = pw;
+    if (pw >= lw) { chg = Math.min((pw - lw) * .97, (100 - soc) / 100 * cap); pv = lw + chg / .97; }
+    else dsg = Math.min(lw - pw, soc / 100 * cap);
+    soc = Math.max(0, Math.min(100, soc + (chg - dsg) / cap * 100));
+    rows.push([t, S.log, +soc.toFixed(1), Math.round(chg), Math.round(dsg), Math.round(pv)]);
+  }
+  return rows;
+}
+
+/* ---------- apprendimento: consumi per ora, profilo settimanale e abitudini ricorrenti ---------- */
+const quant = (a, p) => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y), i = (s.length - 1) * p, lo = Math.floor(i); return s[lo] + (s[Math.min(lo + 1, s.length - 1)] - s[lo]) * (i - lo); };
+const WD = ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
+const dayKey = d => d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate();
+
+function learn(rows){
+  if (rows.length < 2) return null;
+  const loc = here(), hours = new Map();
+  let pvRows = 0;
+  rows.forEach(([t, m, soc, chg, dsg, pv]) => {
+    const mid = t + m * 30, d = new Date(mid * 1000); d.setMinutes(0, 0, 0);
+    const key = d.getTime() / 1000, has = fin(pv);
+    if (has) pvRows++;
+    // consumi = sole − entrata + uscita; senza i regolatori si conoscono solo quando il sole è giù
+    const load = has ? pv - chg + dsg : sinElev(mid, loc.lat, loc.lon) < -.05 ? dsg - chg : null;
+    let o = hours.get(key);
+    if (!o) hours.set(key, o = { t: key, lwh: 0, lmin: 0, pwh: 0, pmin: 0, nwh: 0, nmin: 0, soc });
+    if (fin(load)) { o.lwh += Math.max(0, load); o.lmin += m; }
+    if (has) { o.pwh += pv; o.pmin += m; }
+    o.nwh += chg - dsg; o.nmin += m; o.soc = soc;
+  });
+  const H = [...hours.values()].map(o => ({ t: o.t, soc: o.soc,
+    load: o.lmin >= 15 ? o.lwh / (o.lmin / 60) : null, pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, net: o.nmin ? o.nwh / (o.nmin / 60) : 0 }));
+  const first = rows[0][0], last = rows[rows.length - 1][0] + rows[rows.length - 1][1] * 60, span = (last - first) / DAY;
+
+  // giorni e ore
+  const days = new Map();
+  H.forEach(o => {
+    const d = new Date(o.t * 1000), k = dayKey(d);
+    let D = days.get(k); if (!D) days.set(k, D = { wd: d.getDay(), dm: d.getDate(), t: o.t, W: Array(24).fill(null) });
+    if (o.load !== null) D.W[d.getHours()] = o.load;
+  });
+  const DL = [...days.values()];
+  const loads = H.map(o => o.load).filter(v => v !== null);
+  const base = loads.length ? quant(loads, .1) : NaN;
+
+  // profilo per giorno della settimana e ora, ultime 8 settimane (mediana e quartili)
+  const recent = DL.filter(D => D.t >= last - 56 * DAY);
+  const byH = Array.from({length: 24}, (_, h) => recent.map(D => D.W[h]).filter(v => v !== null));
+  const prof = Array.from({length: 7}, (_, wd) => Array.from({length: 24}, (_, h) => {
+    let v = recent.filter(D => D.wd === wd).map(D => D.W[h]).filter(x => x !== null);
+    if (v.length < 2) v = byH[h];
+    return v.length ? { med: quant(v, .5), lo: quant(v, .25), hi: quant(v, .75), n: v.length } : fin(base) ? { med: base, lo: base, hi: base * 1.3, n: 0 } : null;
+  }));
+  const pvProf = Array.from({length: 24}, (_, h) => {
+    const v = H.filter(o => o.t >= last - 14 * DAY && o.pv !== null && new Date(o.t * 1000).getHours() === h).map(o => o.pv);
+    return v.length ? quant(v, .5) : null;
+  });
+  const model = { span, rows: rows.length, step: rows[rows.length - 1][1], first, last, H, days: DL, base, prof, pvProf,
+    pvKnown: pvRows > rows.length * .5, patterns: [] };
+  model.dailyKwh = fin(base) ? prof.reduce((s, row) => s + row.reduce((a, c) => a + (c ? c.med : 0), 0), 0) / 7 / 1000 : NaN;
+  if (span >= 7 && fin(base)) model.patterns = findPatterns(DL, base);
+  return model;
+}
+
+// un'ora è "evento" se supera il consumo di fondo di almeno 250 W; si cerca con che regolarità ritorna
+function findPatterns(DL, base){
+  const thr = Math.max(250, base * .6), ev = w => w !== null && w - base >= thr;
+  const frac = a => a.length ? a.filter(Boolean).length / a.length : 0;
+  const rules = new Map(); // regola -> ore
+  const add = (key, h) => { if (!rules.has(key)) rules.set(key, []); rules.get(key).push(h); };
+  for (let h = 0; h < 24; h++) {
+    const all = [], byWd = Array.from({length: 7}, () => []), byDm = {};
+    DL.forEach(D => { const w = D.W[h]; if (w === null) return; const e = ev(w); all.push(e); byWd[D.wd].push(e); (byDm[D.dm] = byDm[D.dm] || []).push(e); });
+    if (all.length < 7) continue;
+    const pick = s => [].concat(...s.map(i => byWd[i]));
+    const work = frac(pick([1,2,3,4,5])), wend = frac(pick([0,6]));
+    let weekly = false;
+    if (frac(all) >= .6) add("day", h);
+    else if (work >= .6 && wend <= .25) add("work", h);
+    else if (wend >= .6 && work <= .25) add("wend", h);
+    else {
+      const set = [0,1,2,3,4,5,6].filter(i => byWd[i].length >= 2 && frac(byWd[i]) >= .6);
+      const rest = pick([0,1,2,3,4,5,6].filter(i => !set.includes(i)));
+      if (set.length && set.length <= 3 && frac(rest) <= .25) { add("wd:" + set.join(","), h); weekly = true; }
+    }
+    // un giorno del mese: tutte le volte per almeno tre mesi, e quasi mai negli altri giorni a quell'ora
+    Object.entries(byDm).forEach(([dm, a]) => {
+      if (a.length < 3 || frac(a) < .99 || weekly) return;
+      const others = DL.filter(D => D.dm !== +dm && D.W[h] !== null).map(D => ev(D.W[h]));
+      if (frac(others) <= .2) add("dm:" + dm, h);
+    });
+  }
+  const out = [];
+  rules.forEach((hs, key) => {
+    hs.sort((a, b) => a - b);
+    let s = hs[0];
+    for (let i = 1; i <= hs.length; i++) {
+      if (i < hs.length && hs[i] === hs[i - 1] + 1) continue;
+      const from = s, to = hs[i - 1] + 1;
+      const match = D => key === "day" || (key === "work" && D.wd >= 1 && D.wd <= 5) || (key === "wend" && (D.wd === 0 || D.wd === 6)) ||
+        (key.startsWith("wd:") && key.slice(3).split(",").map(Number).includes(D.wd)) || (key.startsWith("dm:") && D.dm === +key.slice(3));
+      let seen = 0, tot = 0, wh = 0;
+      DL.filter(match).forEach(D => {
+        const ws = D.W.slice(from, to); if (ws.every(w => w === null)) return;
+        tot++;
+        if (ws.some(ev)) { seen++; wh += ws.reduce((a, w) => a + (w !== null ? Math.max(0, w - base) : 0), 0); }
+      });
+      if (seen >= 2) out.push({ key, from, to, seen, tot, kwh: wh / seen / 1000, w: wh / seen / (to - from) });
+      if (i < hs.length) s = hs[i];
+    }
+  });
+  return out.sort((a, b) => b.kwh * b.seen / b.tot - a.kwh * a.seen / a.tot).slice(0, 6);
+}
+const ruleText = p => {
+  const when = `${p.from}–${p.to}`;
+  if (p.key === "day") return ["Ogni giorno", "Giornaliero", when];
+  if (p.key === "work") return ["Dal lunedì al venerdì", "Feriali", when];
+  if (p.key === "wend") return ["Nel fine settimana", "Weekend", when];
+  if (p.key.startsWith("dm:")) { const d = +p.key.slice(3); return [d === 1 ? "Il primo di ogni mese" : `Il giorno ${d} di ogni mese`, "Mensile", when]; }
+  const ds = p.key.slice(3).split(",").map(i => WD[i]);
+  return ["Ogni " + (ds.length > 1 ? ds.slice(0, -1).join(", ") + " e " + ds[ds.length - 1] : ds[0]), "Settimanale", when];
+};
+
+function relearn(){
+  model = learn(LOG); fc = null; fcAt = 0; fcNull = false;
+  drawHabits();
+  if (data) render(mode);
+}
+
+/* ---------- meteo: irraggiamento orario da Open-Meteo (solo coordinate arrotondate) ---------- */
+async function loadWx(force){
+  if (!S.loc) { wx = null; fcAt = 0; fcNull = false; return; }
+  try {
+    const c = JSON.parse(localStorage.getItem(WX_KEY) || "null");
+    if (c && c.lat === S.loc.lat && c.lon === S.loc.lon) { wx = c; if (!force && Date.now() - c.at < 3600e3) { fcAt = 0; fcNull = false; return; } }
+  } catch (e) {}
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${S.loc.lat}&longitude=${S.loc.lon}` +
+      `&hourly=shortwave_radiation&daily=weather_code&past_days=31&forecast_days=3&timezone=auto&timeformat=unixtime`;
+    const r = await fetch(u);
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    if (!j.hourly || !j.daily) throw new Error("formato");
+    wx = { at: Date.now(), lat: S.loc.lat, lon: S.loc.lon, ht: j.hourly.time, rad: j.hourly.shortwave_radiation, dt: j.daily.time, code: j.daily.weather_code };
+    try { localStorage.setItem(WX_KEY, JSON.stringify(wx)); } catch (e) {}
+  } catch (e) {} // senza rete resta l'ultimo meteo salvato
+  fcAt = 0; fcNull = false; if (data) render(mode);
+}
+// Open-Meteo dà la media dell'ora precedente: il valore delle 13 vale per 12–13
+const radMap = () => wx && (wx.map || (wx.map = new Map(wx.ht.map((t, i) => [t - HOUR, wx.rad[i]]))));
+const radAt = t => { const m = radMap(); if (!m) return null; const v = m.get(Math.floor(t / HOUR) * HOUR); return fin(v) ? v : null; };
+
+// quanti W rendono i pannelli per ogni W/m² di sole, imparato dagli ultimi 31 giorni (escluse le ore a batteria piena)
+function panelGain(){
+  if (logSrc === "demo") return DEMO_KWP;
+  if (!wx || !model) return null;
+  if (model.gainFor === wx.at) return model.gain;
+  let sxy = 0, sxx = 0, n = 0;
+  model.H.forEach(o => {
+    const r = radAt(o.t + 1); if (!fin(r) || r < 60 || o.soc >= 95) return;
+    const h = new Date(o.t * 1000).getHours(), wd = new Date(o.t * 1000).getDay(), p = model.prof[wd][h];
+    const pv = o.pv !== null ? o.pv : p ? o.net + p.med : null; // senza regolatori: netto + consumi tipici di quell'ora
+    if (!fin(pv) || pv < 0) return;
+    sxy += pv * r; sxx += r * r; n++;
+  });
+  model.gainFor = wx.at; model.gain = n >= 20 ? sxy / sxx : null;
+  return model.gain;
+}
+
+/* ---------- previsione 48 ore: carica + sole previsto − consumi previsti, in tre scenari ---------- */
+function sunSource(){
+  const g = panelGain();
+  if (wx && fin(g)) return { at: t => { const r = radAt(t); return r === null ? null : g * r; }, kind: "meteo" };
+  if (logSrc === "demo") return { at: demoSun, kind: "demo" };
+  if (model && model.pvProf.some(v => v !== null)) return { at: t => model.pvProf[new Date(t * 1000).getHours()] || 0, kind: "media" };
+  return null;
+}
+function loadAt(t, q){
+  const d = new Date(t * 1000), h = d.getHours(), p = model.prof[d.getDay()][h];
+  let w = p ? p[q] : model.base;
+  model.patterns.forEach(x => { if (x.key === "dm:" + d.getDate() && h >= x.from && h < x.to) w += x.w * x.seen / x.tot; });
+  return w;
+}
+function forecast(t0, soc0, capWh){
+  const sun = sunSource(); if (!sun) return null;
+  const N = 48, T = [], P = [], L = [], night = [], scen = { mid: ["med", 1], lo: ["hi", .75], hi: ["lo", 1.15] }, out = {};
+  for (let i = 0; i <= N; i++) {
+    const t = t0 + i * HOUR; T.push(t);
+    const s = sun.at(t + HOUR / 2); P.push(fin(s) ? s : 0); L.push(loadAt(t + HOUR / 2, "med"));
+    night.push(sinElev(t, here().lat, here().lon) < 0);
+  }
+  Object.entries(scen).forEach(([name, [q, k]]) => {
+    let s = soc0; const a = [s];
+    for (let i = 0; i < N; i++) {
+      let e = P[i] * k - loadAt(T[i] + HOUR / 2, q);
+      if (e > 0) { e *= .97; if (s > 95) e *= Math.max(.15, (100 - s) / 5); }
+      s = Math.max(0, Math.min(100, s + e / capWh * 100)); a.push(s);
+    }
+    out[name] = a;
+  });
+  return { t: T, pv: P, load: L, night, ...out, kind: sun.kind };
+}
+// prima ora (frazionaria) in cui la serie passa la soglia
+const crossAt = (a, test, target) => { for (let i = 1; i < a.length; i++) if (test(a[i])) return i - 1 + Math.max(0, Math.min(1, (target - a[i - 1]) / ((a[i] - a[i - 1]) || 1))); return null; };
+const q15 = t => Math.round(t / 900) * 900; // le previsioni sono orarie: niente "07:59"
+const sumDay = (f, day0) => { let s = 0; for (let h = 0; h < 24; h++) { const v = f(day0 + h * HOUR + HOUR / 2); if (fin(v)) s += v; } return s; };
+
+function currentForecast(k){
+  if (!model || model.span < 7 || !k.on || !fin(k.soc)) { if (!fcNull) { fc = null; fcNull = true; drawForecast(); } return null; }
+  if (fc && Date.now() - fcAt < 60e3) return fc;
+  if (!fc && fcNull && Date.now() - fcAt < 60e3) return null;
+  fc = forecast(nowOf(data), k.soc, k.full * NOMV); fcAt = Date.now(); fcNull = !fc;
+  drawForecast();
+  return fc;
+}
+// la card in alto usa la previsione quando c'è: pieno o massimo di oggi, autonomia o minimo prima del sole
+function etaForecast(k, f){
+  if (!f) return false;
+  const t0 = f.t[0], hq = h => (q15(t0 + h * HOUR) - t0) / HOUR;
+  const pm = (a, b) => { if (a === null || b === null) return ""; const r = Math.abs(a - b) / 2; return r * 60 < 5 ? "" : r < 1.5 ? ` · ±${Math.round(r * 12) * 5} min` : ` · ±${nf(r, 1)} h`; };
+  if (k.i > 0.5) {
+    const full = s => s >= 99.5, t = crossAt(f.mid, full, 99.5);
+    if (t !== null) { setEta("chg", "Pieno tra circa" + pm(crossAt(f.lo, full, 99.5), crossAt(f.hi, full, 99.5)), dur(t), hq(t)); return true; }
+    let end = f.night.findIndex((nt, i) => i > 0 && nt); if (end < 0) end = f.t.length - 1;
+    const seg = f.mid.slice(0, end + 1), iMax = seg.indexOf(Math.max(...seg));
+    if (iMax > 0) { setEta("chg", "Oggi arrivi al massimo", nf(f.mid[iMax], 0) + "%", hq(iMax)); return true; }
+    return false;
+  }
+  if (k.i < -0.5) {
+    const r = S.reserve, low = s => s <= r + .01, t = crossAt(f.mid, low, r);
+    if (t !== null) { setEta("dsg", (r ? `Autonomia fino al ${r}%` : "Autonomia prevista") + pm(crossAt(f.lo, low, r), crossAt(f.hi, low, r)), dur(t), hq(t)); return true; }
+    const iMin = f.mid.slice(0, 37).reduce((b, s, i, a) => s < a[b] ? i : b, 0);
+    if (iMin > 0) { setEta("dsg", "Prima del sole scendi fino al", nf(f.mid[iMin], 0) + "%", hq(iMin)); return true; }
+  }
+  return false;
+}
+
+/* ---------- pannello "Prossime 48 ore": meteo dei tre giorni, carica prevista con forchetta, sole e consumi ---------- */
+const WX_ICON = {
+  sun:   '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+  part:  '<path d="M8.5 4.2v1.6M3.4 9.3h1.6M4.9 5.7l1.1 1.1M12.1 5.7 11 6.8"/><path d="M5.6 12.4a3.6 3.6 0 1 1 6.3-3.3"/><path d="M8 20h9.5a3.5 3.5 0 0 0 .2-7 5 5 0 0 0-9.6 1.2A2.9 2.9 0 0 0 8 20z"/>',
+  cloud: '<path d="M7 19h10.5a4 4 0 0 0 .3-8 5.6 5.6 0 0 0-10.8 1.4A3.3 3.3 0 0 0 7 19z"/>',
+  rain:  '<path d="M7 15h10.5a4 4 0 0 0 .3-8 5.6 5.6 0 0 0-10.8 1.4A3.3 3.3 0 0 0 7 15z"/><path d="M8.5 18l-1 2.5M12.5 18l-1 2.5M16.5 18l-1 2.5"/>',
+  snow:  '<path d="M7 15h10.5a4 4 0 0 0 .3-8 5.6 5.6 0 0 0-10.8 1.4A3.3 3.3 0 0 0 7 15z"/><path d="M8.5 19h.01M12 20.5h.01M15.5 19h.01"/>',
+  storm: '<path d="M7 15h10.5a4 4 0 0 0 .3-8 5.6 5.6 0 0 0-10.8 1.4A3.3 3.3 0 0 0 7 15z"/><path d="m12.5 15-2 3.5h3l-2 3.5"/>'
+};
+const wmo = c => c <= 1 ? "sun" : c === 2 ? "part" : c <= 48 ? "cloud" : c <= 67 || (c >= 80 && c <= 82) ? "rain" : c <= 86 ? "snow" : "storm";
+const WX_WORD = { sun: "Sereno", part: "Variabile", cloud: "Coperto", rain: "Pioggia", snow: "Neve", storm: "Temporali" };
+function dayKind(day0){
+  if (wx) { const i = wx.dt.findIndex(t => Math.abs(t - day0) < 4 * HOUR); if (i >= 0 && fin(wx.code[i])) return wmo(wx.code[i]); }
+  if (logSrc === "demo") { const c = demoDay(day0 + 12 * HOUR).cloud; return c > .8 ? "sun" : c > .55 ? "part" : c > .38 ? "cloud" : "rain"; }
+  return null;
+}
+
+const FW = 340, FTOP = 10, FSOCH = 80, FBASE = 124, FAMP = 20;
+const fy = s => FTOP + (1 - Math.max(0, Math.min(100, s)) / 100) * FSOCH;
+function drawForecast(){
+  const svg = $("fc"), read = $("fc-read"), note = $("fc-note"), chips = $("wx");
+  if (!fc) {
+    chips.innerHTML = ""; read.innerHTML = ""; note.textContent = "";
+    const msg = !model || model.span < 7 ? "La previsione parte dopo 7 giorni di storico" : "Imposta la località del meteo per la previsione";
+    svg.innerHTML = `<text x="170" y="76" text-anchor="middle" fill="var(--muted)" font-size="11">${msg}</text>`;
+    return;
+  }
+  const n = fc.t.length, X = i => i / (n - 1) * FW, now = fc.t[0];
+
+  // i tre giorni: tempo previsto ed energia attesa dal sole
+  const sun = sunSource(), d0 = new Date(now * 1000); d0.setHours(0, 0, 0, 0);
+  chips.innerHTML = [0, 1, 2].map(i => {
+    const day = d0.getTime() / 1000 + i * DAY, kind = dayKind(day), kwh = sun ? sumDay(sun.at, day) / 1000 : NaN;
+    const name = i === 0 ? "Oggi" : i === 1 ? "Domani" : WD[new Date(day * 1000).getDay()].replace(/^./, c => c.toUpperCase());
+    return `<div class="wx-d${kind ? " " + kind : ""}"><span class="wx-i">${kind ? ico(WX_ICON[kind]) : ""}</span>` +
+      `<span class="wx-t"><small>${name}</small><b>${fin(kwh) ? nf(kwh, kwh < 10 ? 1 : 0) + "<small> kWh</small>" : "–"}</b><em>${kind ? WX_WORD[kind] : "dal sole"}</em></span></div>`;
+  }).join("");
+
+  // notti in grigio, mezzanotte con il nome del giorno, ore 6/12/18
+  let bg = "", i0 = -1;
+  fc.night.forEach((nt, i) => {
+    if (nt && i0 < 0) i0 = i;
+    if ((!nt || i === n - 1) && i0 >= 0) { const x1 = X(i0), x2 = X(nt ? i : i); bg += `<rect x="${x1.toFixed(1)}" y="${FTOP}" width="${Math.max(0, x2 - x1).toFixed(1)}" height="${FBASE + FAMP - FTOP}" fill="var(--line)" opacity=".38"/>`; i0 = -1; }
+  });
+  let ticks = "";
+  fc.t.forEach((t, i) => {
+    const d = new Date(t * 1000), hr = d.getHours(); if (hr % 6 || i === 0) return;
+    const x = X(i - d.getMinutes() / 60);
+    if (x < 14 || x > FW - 14) return;
+    ticks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE + FAMP}" stroke="var(--line)" stroke-dasharray="${hr ? "2 3" : "none"}"/>` +
+      `<text x="${x.toFixed(1)}" y="150" text-anchor="middle" font-size="9.5" fill="${hr ? "var(--muted)" : "var(--ink)"}" font-weight="${hr ? 400 : 600}">${hr ? String(hr).padStart(2, "0") : WD[d.getDay()].slice(0, 3)}</text>`;
+  });
+  const grid = [0, 50, 100].map(v => `<line x1="0" x2="${FW}" y1="${fy(v)}" y2="${fy(v)}" stroke="var(--line)"/><text x="2" y="${fy(v) - 3}" font-size="9" fill="var(--muted)">${v}%</text>`).join("");
+  const res = S.reserve ? `<line x1="0" x2="${FW}" y1="${fy(S.reserve)}" y2="${fy(S.reserve)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` : "";
+
+  // forchetta tra scenario pessimista e ottimista, linea dello scenario normale
+  const pts = a => a.map((s, i) => `${X(i).toFixed(1)},${fy(s).toFixed(1)}`);
+  const band = `<path d="M${pts(fc.hi).join(" L")} L${pts(fc.lo).reverse().join(" L")} Z" fill="var(--lith-tint)"/>`;
+  const line = `<polyline points="${pts(fc.mid).join(" ")}" fill="none" stroke="var(--lith)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+  // sole previsto sopra la base, consumi previsti sotto
+  const pmax = Math.max(500, ...fc.pv, ...fc.load), bw = FW / (n - 1) - 1.4;
+  let bars = "";
+  for (let i = 0; i < n - 1; i++) {
+    const up = fc.pv[i] / pmax * FAMP, dn = fc.load[i] / pmax * FAMP, x = (X(i) + .7).toFixed(1);
+    if (up > .4) bars += `<rect x="${x}" y="${(FBASE - up).toFixed(1)}" width="${bw.toFixed(1)}" height="${up.toFixed(1)}" rx="1" fill="var(--sun)"/>`;
+    if (dn > .4) bars += `<rect x="${x}" y="${FBASE}" width="${bw.toFixed(1)}" height="${dn.toFixed(1)}" rx="1" fill="var(--out)"/>`;
+  }
+
+  // segnaposti: prossimo minimo e prossimo pieno
+  const iMin = fc.mid.slice(0, 37).reduce((b, s, i, a) => s < a[b] ? i : b, 0), full = crossAt(fc.mid, s => s >= 99.5, 99.5);
+  const mark = (i, s, txt, below) => { const x = X(i), y = fy(s), anchor = x < 30 ? "start" : x > FW - 40 ? "end" : "middle";
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="var(--surface)" stroke="var(--lith)" stroke-width="2"/>` +
+      `<text x="${x.toFixed(1)}" y="${(below ? y + 14 : y - 7).toFixed(1)}" text-anchor="${anchor}" font-size="9.5" font-weight="600" fill="var(--ink)">${txt}</text>`; };
+  let marks = "";
+  if (iMin > 0 && fc.mid[iMin] < fc.mid[0] - 1) marks += mark(iMin, fc.mid[iMin], nf(fc.mid[iMin], 0) + "%", fc.mid[iMin] > 70);
+  if (full !== null) marks += mark(full, 100, "pieno " + hm(q15(now + full * HOUR)), true);
+
+  svg.innerHTML = bg + ticks + grid + res + band + line +
+    `<line x1="0" x2="${FW}" y1="${FBASE}" y2="${FBASE}" stroke="var(--line)"/>` + bars + marks +
+    `<circle cx="${X(0) + 3.5}" cy="${fy(fc.mid[0]).toFixed(1)}" r="3.5" fill="var(--lith)"/>`;
+
+  // in due righe: il prossimo minimo e come va domani
+  const at = i => hm(q15(now + i * HOUR)), hrMin = new Date((now + iMin * HOUR) * 1000).getHours();
+  const tomorrow = d0.getTime() / 1000 + DAY, ti = fc.t.map((t, i) => t >= tomorrow && t < tomorrow + DAY ? i : -1).filter(i => i >= 0);
+  let l1 = "", l2 = "";
+  if (iMin > 0 && fc.mid[iMin] < fc.mid[0] - 1) l1 = `${hrMin >= 18 || hrMin < 10 ? "Stanotte scendi" : "Scendi"} fino al <b>${nf(fc.mid[iMin], 0)}%</b> alle ${at(iMin)}.`;
+  else l1 = `Nelle prossime ore la carica non scende sotto il <b>${nf(Math.min(...fc.mid.slice(0, 13)), 0)}%</b>.`;
+  if (ti.length) {
+    const fT = ti.find(i => fc.mid[i] >= 99.5), iMax = ti.reduce((b, i) => fc.mid[i] > fc.mid[b] ? i : b, ti[0]);
+    l2 = fT !== undefined ? `Domani pieno verso le <b>${at(fT)}</b>.` : `Domani al massimo <b>${nf(fc.mid[iMax], 0)}%</b> verso le ${at(iMax)}.`;
+  }
+  read.innerHTML = l1 + "<br>" + l2;
+  note.textContent = (fc.kind === "meteo" ? `Meteo di Open-Meteo per ${S.loc.name}` : fc.kind === "demo" ? (S.loc ? `Meteo simulato per ${S.loc.name}` : "Meteo simulato: imposta la località nelle impostazioni")
+    : "Senza meteo: uso il sole medio delle ultime due settimane") + ` · consumi imparati in ${dur(model.span * 24).replace(/ e .*/, "")}.`;
+}
+
+/* ---------- pannello "Abitudini di consumo": mappa settimana × ore e consumi che ritornano ---------- */
+const HAB_ICON = {
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  cal:   '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  learn: '<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3.5 2"/>'
+};
+function drawHabits(){
+  const read = $("hab-read"), svg = $("heat"), list = $("habits"), note = $("hab-note");
+  if (!model || model.span < 7 || !fin(model.base)) {
+    const days = model ? Math.max(0, Math.floor(model.span)) : 0;
+    read.innerHTML = logSrc === "live" && !LOG.length
+      ? "La scheda non ha ancora un registro: lo storico parte appena il firmware salva la prima riga."
+      : `Sto imparando le tue abitudini: <b>${days} ${days === 1 ? "giorno" : "giorni"}</b> su 7.`;
+    svg.innerHTML = `<rect x="0" y="54" width="340" height="8" rx="4" fill="var(--line)"/><rect x="0" y="54" width="${(Math.min(1, days / 7) * 340).toFixed(1)}" height="8" rx="4" fill="var(--lith)"/>`;
+    svg.setAttribute("viewBox", "0 0 340 116");
+    list.innerHTML = ""; note.textContent = "";
+    return;
+  }
+  read.innerHTML = `In media <b>${nf(model.dailyKwh, 1)} kWh</b> al giorno, con un consumo di fondo di <b>${power(model.base)}</b>.`;
+
+  // mappa: righe da lunedì a domenica, colonne le 24 ore, più intensa dove si consuma di più
+  const order = [1, 2, 3, 4, 5, 6, 0], L = 20, cw = (340 - L) / 24, ch = 13, gap = 2;
+  const vals = model.prof.flat().filter(Boolean).map(p => p.med), top = Math.max(model.base + 300, quant(vals, .98));
+  let cells = "";
+  order.forEach((wd, r) => {
+    const y = r * (ch + gap);
+    cells += `<text x="0" y="${y + 9.8}" font-size="9" fill="var(--muted)">${WD[wd][0].toUpperCase()}</text>`;
+    for (let h = 0; h < 24; h++) {
+      const p = model.prof[wd][h], v = p ? Math.max(0, Math.min(1, (p.med - model.base) / (top - model.base))) : null;
+      cells += `<rect x="${(L + h * cw + .5).toFixed(1)}" y="${y}" width="${(cw - 1.5).toFixed(1)}" height="${ch}" rx="2.5" ` +
+        (v === null ? `fill="var(--line)" opacity=".35"` : `fill="var(--lith)" fill-opacity="${(.07 + .93 * Math.pow(v, .85)).toFixed(2)}"`) +
+        `><title>${WD[wd]} ${h}:00 · ${p ? power(p.med) : "nessun dato"}</title></rect>`;
+    }
+  });
+  const yb = 7 * (ch + gap) + 10;
+  [0, 6, 12, 18, 24].forEach(h => cells += `<text x="${(L + h * cw).toFixed(1)}" y="${yb}" text-anchor="${h === 0 ? "start" : h === 24 ? "end" : "middle"}" font-size="9" fill="var(--muted)">${h}</text>`);
+  svg.setAttribute("viewBox", `0 0 340 ${yb + 2}`);
+  svg.innerHTML = cells;
+
+  list.innerHTML = model.patterns.length ? model.patterns.map(p => {
+    const [who, tag, when] = ruleText(p);
+    return `<li class="hab"><span class="al-ico">${ico(HAB_ICON[/Settimanale|Mensile/.test(tag) ? "cal" : "clock"])}</span><span class="al-txt">` +
+      `<b>${who}, <span class="nw">${when}</span></b><span class="al-d">${tag} · ${p.seen} ${p.seen === 1 ? "volta" : "volte"} su ${p.tot}</span></span>` +
+      `<span class="hab-kwh">+${nf(p.kwh, 1)}<small>kWh</small></span></li>`;
+  }).join("") : `<li class="hab"><span class="al-ico">${ico(HAB_ICON.learn)}</span><span class="al-txt"><b>Nessuna abitudine ancora chiara</b><span class="al-d">I consumi non si ripetono abbastanza da prevederli: continuo a osservare.</span></span></li>`;
+  const weeks = model.span / 7;
+  note.textContent = `Imparato da ${weeks >= 2 ? nf(Math.floor(weeks)) + " settimane" : nf(Math.floor(model.span)) + " giorni"} di dati, una riga ogni ${model.step} minuti` +
+    (model.pvKnown ? "." : ". Senza i dati dei regolatori vedo i consumi solo quando non c'è sole.");
+}
 
 /* ---------- card del tempo stimato: icona per lo stato, durata grande, orario previsto ---------- */
 const ETA_ICON = {
@@ -1306,8 +1863,53 @@ function fillSettings(){
     return `<label>Indirizzo ${esc(k)}${k === "0" ? " · master" : ""}<input type="text" maxlength="24" data-k="${esc(k)}" value="${esc(S.names[k] || "")}" placeholder="${esc(b.name || "Batteria " + (i + 1))}" autocomplete="off" enterkeyhint="done"></label>`;
   }).join("") : `<p class="set-note">Compaiono appena la scheda risponde.</p>`;
 }
+const PIN = '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>';
+let locResults = null, locQ = "";
+function fillLoc(){
+  const el = $("set-loc");
+  if (S.loc) {
+    el.innerHTML = `<div class="loc-cur"><span class="loc-pin">${ico(PIN)}</span><span class="loc-n"><b>${esc(S.loc.name)}</b><small>${nf(S.loc.lat, 2)}, ${nf(S.loc.lon, 2)}${wx && wx.lat === S.loc.lat ? " · meteo aggiornato alle " + hm(wx.at / 1000) : ""}</small></span><button class="link-btn" id="loc-del" type="button">Rimuovi</button></div>`;
+    return;
+  }
+  el.innerHTML = `<form class="loc-f" id="loc-f"><input type="search" id="loc-q" value="${esc(locQ)}" placeholder="Comune, per esempio Bologna" autocomplete="off" enterkeyhint="search" aria-label="Comune"><button class="set-btn" type="submit">Cerca</button></form>` +
+    (navigator.geolocation && window.isSecureContext ? `<button class="set-btn" id="loc-gps" type="button">${ico(PIN)}Usa la mia posizione</button>` : "") +
+    (locResults ? `<div class="loc-res">${locResults.length ? locResults.map((r, i) => `<button type="button" data-i="${i}">${esc(r.name)}<small>${esc([r.admin1, r.country].filter(Boolean).join(", "))}</small></button>`).join("") : `<p class="set-note">Nessun comune trovato.</p>`}</div>` : "");
+}
+function setLoc(name, lat, lon){
+  S.loc = { name: String(name).slice(0, 60), lat: +(+lat).toFixed(2), lon: +(+lon).toFixed(2) };
+  locResults = null; saveSettings(); fillLoc();
+  if (logSrc === "demo") { LOG = demoLog(); relearn(); }
+  loadWx(true).then(fillLoc);
+}
+$("set-loc").addEventListener("submit", async e => {
+  e.preventDefault();
+  const q = locQ = $("loc-q").value.trim(); if (q.length < 2) return;
+  try {
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=it&format=json`);
+    const j = await r.json(); locResults = (j.results || []).filter(x => fin(x.latitude) && fin(x.longitude));
+  } catch (err) { locResults = []; }
+  fillLoc();
+});
+$("set-loc").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "loc-del") { S.loc = null; wx = null; saveSettings(); fillLoc(); fcAt = 0; fcNull = false; if (logSrc === "demo") { LOG = demoLog(); relearn(); } else if (data) render(mode); }
+  else if (b.id === "loc-gps") navigator.geolocation.getCurrentPosition(p => setLoc("Posizione attuale", p.coords.latitude, p.coords.longitude), () => {}, { timeout: 15000, maximumAge: 6e5 });
+  else if (b.dataset.i !== undefined && locResults) { const r = locResults[+b.dataset.i]; setLoc(r.name, r.latitude, r.longitude); }
+});
+$("set-csv").addEventListener("click", () => {
+  const p2 = n => String(n).padStart(2, "0"), num = v => fin(v) ? String(v).replace(".", ",") : "";
+  const fmt = t => { const d = new Date(t * 1000); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  const lines = ["inizio;durata_min;carica_%;entrata_Wh;uscita_Wh;pannelli_Wh;consumi_Wh",
+    ...LOG.map(([t, m, soc, c, d, pv]) => [fmt(t), m, num(soc), c, d, fin(pv) ? pv : "", fin(pv) ? Math.round(pv - c + d) : ""].join(";"))];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], {type: "text/csv"}));
+  a.download = `mybattery-storico${logSrc === "demo" ? "-demo" : ""}-${fmt(Date.now() / 1000).slice(0, 10)}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+
 $("open-set").addEventListener("click", () => {
-  fillSettings();
+  fillSettings(); fillLoc();
+  $("set-csv").disabled = !LOG.length;
   const d = $("settings"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
   d.querySelector(".sheet").scrollTop = 0;
 });
@@ -1319,6 +1921,10 @@ $("settings").addEventListener("change", e => {
   saveSettings();
   if (["theme", "palette", "style"].includes(t.name)) applyTheme();
   if (t.name === "poll") { schedule(); poll(); }
+  if (t.name === "log") {
+    if (logSrc === "demo") { LOG = demoLog(); relearn(); }
+    else if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({log_min: S.log})}).catch(() => {});
+  }
   if (data) render(mode);
 });
 $("set-names").addEventListener("input", e => {
@@ -1329,8 +1935,8 @@ $("set-names").addEventListener("input", e => {
 });
 $("set-names").addEventListener("keydown", e => { if (e.key === "Enter") e.target.blur(); });
 $("set-reset").addEventListener("click", () => {
-  S = { ...DEF, names: {} }; saveSettings();
-  applyTheme(); schedule(); fillSettings(); if (data) render(mode);
+  S = { ...DEF, names: {} }; saveSettings(); wx = null; fcAt = 0; fcNull = false;
+  applyTheme(); schedule(); fillSettings(); fillLoc(); if (logSrc === "demo") { LOG = demoLog(); relearn(); } else if (data) render(mode);
 });
 
 $("ver").textContent = APP_VERSION;
@@ -1374,6 +1980,8 @@ if (updatedFrom && updatedFrom !== APP_VERSION) toast(`MyBattery aggiornata alla
 applyTheme();
 poll();
 schedule();
+loadWx();
+setInterval(() => loadWx(), 3600e3);
 })();
 </script>
 </body>

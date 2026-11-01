@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ECECE8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Diagnosi del BMS delle batterie col cavo USB–RS485: riconosce il chip del cavo e prova il protocollo DR-1363 in sola lettura.">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<title>Diagnosi BMS</title>
+<script>/* stesso tema della app (impostazioni salvate sul telefono) */
+var r=document.documentElement;r.setAttribute("data-theme","dark");
+try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}");
+if(o.theme==="light"||o.style==="sole")r.setAttribute("data-theme","light");else if(o.theme==="auto"&&!o.style)r.removeAttribute("data-theme");}catch(e){}</script>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#ECECE8; --surface:#FAFAF7; --ink:#1F1F1D; --muted:#6A6963; --line:#D8D7D1;
+  --frame:#2B2B29; --lith:#F5B800; --lith-tint:rgba(245,184,0,.22); --lith-ink:#7A5B00; --logo-arc:#FFC929;
+  --alert:#C83A3A; --alert-tint:rgba(200,58,58,.12);
+  --good:#1E9E52; --good-tint:rgba(30,158,82,.12);
+  --warn:#C2410C; --warn-tint:rgba(194,65,12,.12);
+  --num: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#161615; --surface:#20201E; --ink:#EDEDE8; --muted:#A09F98; --line:#33332F;
+    --frame:#0E0E0D; --lith:#FFC929; --lith-tint:rgba(255,201,41,.18); --lith-ink:#FFC929;
+    --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
+    --good:#34C759; --good-tint:rgba(52,199,89,.16);
+    --warn:#FB923C; --warn-tint:rgba(251,146,60,.16);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#161615; --surface:#20201E; --ink:#EDEDE8; --muted:#A09F98; --line:#33332F;
+  --frame:#0E0E0D; --lith:#FFC929; --lith-tint:rgba(255,201,41,.18); --lith-ink:#FFC929;
+  --alert:#EF6262; --alert-tint:rgba(239,98,98,.16);
+  --good:#34C759; --good-tint:rgba(52,199,89,.16);
+  --warn:#FB923C; --warn-tint:rgba(251,146,60,.16);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);-webkit-text-size-adjust:100%}
+body{line-height:1.45;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+.app{max-width:480px;margin:0 auto;padding:18px 16px 32px}
+h1,h2,h3{margin:0;font-weight:600}
+.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-size:1.05rem}
+.logo{width:30px;height:30px;flex:none}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--muted);text-decoration:none;font-size:.9rem;font-weight:600;padding:6px 8px;border-radius:10px}
+.back:hover{background:var(--surface)}
+.back svg{width:16px;height:16px}
+.lead{margin:14px 2px 0;color:var(--muted);font-size:.92rem}
+.panel{background:var(--surface);border-radius:18px;padding:16px;margin-top:16px}
+.panel h2{font-size:1rem;display:flex;align-items:center;gap:8px}
+.panel h2 .n{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--lith-tint);color:var(--lith-ink);font-size:.78rem;font-family:var(--num);font-weight:700}
+.note{margin:8px 0 0;font-size:.84rem;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;font:inherit;font-weight:600;font-size:.93rem;
+  padding:11px 16px;border-radius:12px;cursor:pointer;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
+.btn svg{width:18px;height:18px;flex:none}
+.btn.primary{background:var(--lith);color:#1F1F1D}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible{outline:3px solid var(--lith);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.row .btn{flex:1 1 auto}
+.link{border:0;background:none;color:var(--muted);font:inherit;font-size:.85rem;text-decoration:underline;cursor:pointer;padding:4px}
+/* stato del collegamento */
+.chip{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;border-radius:14px;background:var(--bg)}
+.chip-ico{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--line);color:var(--muted)}
+.chip-ico svg{width:22px;height:22px}
+.chip.on .chip-ico{background:var(--good-tint);color:var(--good)}
+.chip.err .chip-ico{background:var(--alert-tint);color:var(--alert)}
+.chip b{display:block;font-size:.95rem}
+.chip small{display:block;color:var(--muted);font-size:.82rem}
+/* comandi */
+.lbl{display:block;margin:14px 0 0;font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;margin:6px 0 0;padding:3px;border:0;border-radius:11px;background:var(--bg)}
+.seg legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.seg label{position:relative;display:block;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.seg input{position:absolute;inset:0;margin:0;opacity:0;cursor:pointer}
+.seg span{display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;font-size:.9rem;color:var(--muted);transition:background .15s,color .15s}
+.seg input:checked+span{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.seg code{font-family:var(--mono);font-weight:700;margin-right:6px;color:var(--lith-ink)}
+.seg input:focus-visible+span{outline:3px solid var(--lith);outline-offset:-1px}
+.cmds{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.cmd{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:0;background:var(--bg);color:var(--ink);font:inherit;padding:11px 12px;border-radius:12px;cursor:pointer}
+.cmd b{font-size:.92rem}
+.cmd small{font-size:.76rem;color:var(--muted)}
+.cmd .code{font-family:var(--mono);font-size:.72rem;color:var(--lith-ink);background:var(--lith-tint);padding:1px 5px;border-radius:5px;margin-bottom:3px}
+.cmd:disabled{opacity:.45;cursor:default}
+.cmd:focus-visible{outline:3px solid var(--lith);outline-offset:2px}
+.cmd.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:12px;background:var(--lith-tint)}
+.cmd.wide svg{width:24px;height:24px;flex:none;color:var(--lith-ink)}
+.cmd.wide b,.cmd.wide small{display:block}
+.safe{display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:.8rem;color:var(--muted)}
+.safe svg{width:16px;height:16px;flex:none;margin-top:1px;color:var(--good)}
+/* avanzamento */
+.prog{margin-top:12px;height:6px;border-radius:3px;background:var(--bg);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--lith);border-radius:3px;transition:width .3s}
+.busy{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:.86rem;color:var(--muted)}
+.spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--lith);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* risultati */
+.scan{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.scan li{text-align:center;padding:8px 2px;border-radius:10px;background:var(--bg);font-size:.78rem;color:var(--muted)}
+.scan li b{display:block;font-family:var(--num);font-size:1.05rem;color:var(--ink)}
+.scan li.ok{background:var(--good-tint);color:var(--good)}
+.scan li.ok b{color:var(--good)}
+.scan li.wait{outline:2px solid var(--lith);outline-offset:-2px}
+.verdict{margin-top:12px;padding:12px 14px;border-radius:14px;font-size:.9rem;background:var(--bg)}
+.verdict.ok{background:var(--good-tint)}
+.verdict.bad{background:var(--alert-tint)}
+.verdict.warn{background:var(--warn-tint)}
+.verdict b{display:block;margin-bottom:2px}
+.bat{margin-top:12px;padding:14px;border-radius:16px;background:var(--bg)}
+.bat-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.bat-h h3{font-size:.95rem}
+.soc{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:2.1rem;font-weight:700;letter-spacing:-.02em;line-height:1}
+.soc small{font-size:1rem;color:var(--muted);font-weight:600;margin-left:2px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 0}
+.kv div{background:var(--surface);border-radius:10px;padding:8px 10px;min-width:0}
+.kv dt{font-size:.72rem;color:var(--muted)}
+.kv dd{margin:1px 0 0;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600;font-size:1rem;white-space:nowrap}
+.cells{display:block;width:100%;height:auto;margin-top:12px}
+.cells .b{fill:var(--lith);opacity:.75}
+.cells .b.lo{fill:var(--warn);opacity:1}
+.cells .b.hi{fill:var(--good);opacity:1}
+.cells .bal{fill:none;stroke:var(--ink);stroke-width:1.2;stroke-dasharray:2 2}
+.cells text{font-family:var(--num);font-size:9px;fill:var(--muted)}
+.cells .lbl-v{font-size:8.5px;fill:var(--ink)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font-size:.76rem;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--surface);color:var(--muted)}
+.tag.good{background:var(--good-tint);color:var(--good)}
+.tag.warn{background:var(--warn-tint);color:var(--warn)}
+.tag.bad{background:var(--alert-tint);color:var(--alert)}
+/* registro */
+.log{margin:12px 0 0;padding:10px;border-radius:12px;background:var(--bg);font-family:var(--mono);font-size:.72rem;line-height:1.5;
+  max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all;color:var(--muted)}
+.log .tx{color:var(--lith-ink)}
+.log .rx{color:var(--good)}
+.log .err{color:var(--alert)}
+.log .echo{opacity:.6}
+.log:empty::before{content:"Ancora niente: i pacchetti inviati e ricevuti compaiono qui."}
+.hidden{display:none !important}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}.prog i{transition:none}}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <h1 class="brand"><svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" style="fill:var(--frame)"/>
+      <circle cx="256" cy="268" r="150" fill="none" style="stroke:rgba(255,255,255,.14)" stroke-width="40" stroke-linecap="round" stroke-dasharray="706.9 942.5" transform="rotate(135 256 268)"/>
+      <circle cx="256" cy="268" r="150" fill="none" style="stroke:var(--logo-arc)" stroke-width="40" stroke-linecap="round" stroke-dasharray="480.7 942.5" transform="rotate(135 256 268)"/>
+      <path d="M270 192 L210 282 L252 282 L238 346 L302 252 L260 252 Z" fill="#F4F4EF"/></svg>Diagnosi BMS</h1>
+    <a class="back" href="./"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>App</a>
+  </header>
+  <p class="lead">Collega al telefono il cavo USB–RS485 delle batterie e infilalo nella porta RS485 libera della master (DIP tutti OFF).
+    La pagina riconosce il chip del cavo e prova il protocollo del BMS.</p>
+
+  <section class="panel" aria-labelledby="h-conn">
+    <h2 id="h-conn"><span class="n">1</span>Cavo USB</h2>
+    <div class="chip" id="chip">
+      <span class="chip-ico" id="chip-ico"></span>
+      <span><b id="chip-t">Nessun cavo collegato</b><small id="chip-s">Serve Chrome su Android (con adattatore OTG) o su computer.</small></span>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="connect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v10M8 7l4-4 4 4M7 13v3a5 5 0 0 0 10 0v-3"/></svg>Collega il cavo</button>
+      <button class="btn hidden" id="disconnect" type="button">Scollega</button>
+    </div>
+    <p class="note" id="api-note"></p>
+    <button class="link hidden" id="usb-alt" type="button">Il cavo non compare nell'elenco? Prova con WebUSB</button>
+    <button class="link" id="sim" type="button">Prova senza cavo (BMS simulato)</button>
+  </section>
+
+  <section class="panel" aria-labelledby="h-cmd">
+    <h2 id="h-cmd"><span class="n">2</span>Prova il protocollo</h2>
+    <div class="cmds">
+      <button class="cmd wide" id="auto" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20.5 20.5 16 16"/></svg>
+        <span><b>Prova automatica</b><small>Cerca chi risponde (indirizzi 0–4, inizio ~ e &gt;), poi legge i dati</small></span></button>
+    </div>
+    <span class="lbl">Indirizzo</span>
+    <fieldset class="seg" id="adr"><legend>Indirizzo</legend>
+      <label><input type="radio" name="adr" value="0" checked><span>0</span></label>
+      <label><input type="radio" name="adr" value="1"><span>1</span></label>
+      <label><input type="radio" name="adr" value="2"><span>2</span></label>
+      <label><input type="radio" name="adr" value="3"><span>3</span></label>
+      <label><input type="radio" name="adr" value="4"><span>4</span></label>
+    </fieldset>
+    <span class="lbl">Carattere iniziale</span>
+    <fieldset class="seg" id="soi"><legend>Carattere iniziale</legend>
+      <label><input type="radio" name="soi" value="~" checked><span><code>~</code>standard</span></label>
+      <label><input type="radio" name="soi" value="&gt;"><span><code>&gt;</code>manuale</span></label>
+    </fieldset>
+    <div class="cmds">
+      <button class="cmd" type="button" data-cid="4F" data-info="" disabled><span class="code">4FH</span><b>Versione</b><small>La risposta più corta</small></button>
+      <button class="cmd" type="button" data-cid="51" data-info="" disabled><span class="code">51H</span><b>Produttore</b><small>Nome e firmware</small></button>
+      <button class="cmd" type="button" data-cid="42" data-info="01" disabled><span class="code">42H · 01</span><b>Dati batteria</b><small>Celle, temperature, stato</small></button>
+      <button class="cmd" type="button" data-cid="42" data-info="FF" disabled><span class="code">42H · FF</span><b>Tutte le batterie</b><small>Arrivano tutte e 5?</small></button>
+    </div>
+    <div class="busy hidden" id="busy"><span class="spin"></span><span id="busy-t"></span></div>
+    <div class="prog hidden" id="prog"><i id="prog-i"></i></div>
+    <p class="safe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6L12 3z"/><path d="m8.8 12 2.2 2.2 4.2-4.4"/></svg>
+      Solo comandi di lettura (42H, 4FH, 51H): la pagina non è in grado di inviare altro. Una domanda al secondo al massimo.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-res">
+    <h2 id="h-res"><span class="n">3</span>Risultato</h2>
+    <div id="result"><p class="note">Collega il cavo e lancia la prova automatica.</p></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-log">
+    <h2 id="h-log"><span class="n">4</span>Registro</h2>
+    <div class="log" id="log" role="log" aria-live="polite"></div>
+    <div class="row">
+      <button class="btn" id="copy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span id="copy-t">Copia il registro</span></button>
+      <button class="btn" id="clear" type="button">Pulisci</button>
+    </div>
+    <p class="note">Il registro contiene i pacchetti grezzi: mandalo a Claude per verificare la decodifica.</p>
+  </section>
+</main>
+
+<script>
+(function(){
+"use strict";
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const hex = (n, w = 4) => n.toString(16).toUpperCase().padStart(w, "0");
+const fmt = (x, d = 2) => x.toLocaleString("it-IT", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+/* ================= Protocollo DR-1363 (come tools/frame.py) ================= */
+const VER = "22", CID1 = "4A";
+const READ_ONLY = new Set(["42", "4F", "51"]); // whitelist: la pagina non può costruire nient'altro
+const lchksum = (n) => (-(((n >> 8) & 15) + ((n >> 4) & 15) + (n & 15))) & 15;
+const chksum = (s) => hex((-[...s].reduce((a, c) => a + c.charCodeAt(0), 0)) & 0xFFFF);
+function build(cid2, adr, info, soi) {
+  if (!READ_ONLY.has(cid2)) throw new Error("comando " + cid2 + "H non ammesso");
+  if (!["~", ">"].includes(soi)) throw new Error("SOI non valido");
+  const len = info.length;
+  const body = VER + hex(adr, 2) + CID1 + cid2 + hex((lchksum(len) << 12) | len) + info;
+  return soi + body + chksum(body);
+}
+const RTN = { 0: "ok", 1: "VER errata", 2: "CHKSUM errato", 3: "LCHKSUM errato", 4: "comando non valido", 5: "formato errato", 6: "dati non validi" };
+function split(frame) {
+  const f = frame.replace(/\s+/g, "");
+  if (!/^[~>]/.test(f)) throw new Error("manca ~ o > all'inizio");
+  const s = f.slice(1);
+  if (s.length < 16) throw new Error("risposta troppo corta");
+  const body = s.slice(0, -4), got = s.slice(-4).toUpperCase();
+  if (!/^[0-9A-Fa-f]+$/.test(s)) throw new Error("caratteri non esadecimali");
+  if (chksum(body) !== got) throw new Error("CHKSUM errato (atteso " + chksum(body) + ")");
+  const length = parseInt(body.slice(8, 12), 16), lenid = length & 0xFFF;
+  if (length >> 12 !== lchksum(lenid)) throw new Error("LCHKSUM errato");
+  const info = body.slice(12);
+  if (info.length !== lenid) throw new Error("lunghezza INFO diversa da LENID");
+  const bytes = new Uint8Array(info.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(info.substr(i * 2, 2), 16);
+  return { ver: body.slice(0, 2), adr: parseInt(body.slice(2, 4), 16), cid1: body.slice(4, 6), rtn: parseInt(body.slice(6, 8), 16), info: bytes };
+}
+// Blocco 42H nell'ordine di docs/protocollo.md: da verificare sulle risposte vere
+function reader(b) {
+  let i = 0;
+  const need = (n) => { if (i + n > b.length) throw "eof"; };
+  return {
+    get pos() { return i; },
+    u8() { need(1); return b[i++]; },
+    u16() { need(2); const v = b[i] << 8 | b[i + 1]; i += 2; return v; },
+    s16() { const v = this.u16(); return v & 0x8000 ? v - 0x10000 : v; },
+  };
+}
+const temp = (raw) => raw > 1500 ? Math.round(raw - 2731) / 10 : (raw & 0x8000 ? raw - 0x10000 : raw) / 10;
+function block42(r) {
+  const d = {};
+  try {
+    d.soc = r.u16() / 100; d.v = r.u16() / 100;
+    const m = r.u8(); d.cells = []; for (let k = 0; k < m; k++) d.cells.push(r.u16());
+    d.tAmb = temp(r.u16()); d.tPack = temp(r.u16()); d.tMos = temp(r.u16());
+    const n = r.u8(); d.tCells = []; for (let k = 0; k < n; k++) d.tCells.push(temp(r.u16()));
+    const iRaw = r.s16(); d.rInt = r.u16(); d.soh = r.u16(); d.flag = r.u8();
+    d.i = iRaw / (d.flag & 1 ? 100 : 10);
+    d.full = r.u16() / 100; d.rem = r.u16() / 100; d.cycles = r.u16();
+    d.stV = r.u16(); d.stI = r.u16(); d.stT = r.u16(); d.stA = r.u16(); d.fet = r.u16();
+    d.pOv = r.u16(); d.pUv = r.u16(); d.aHi = r.u16(); d.aLo = r.u16(); d.bal = r.u16(); d.bal2 = r.u16();
+    for (let k = 0; k < 4; k++) r.u16();
+    d.machine = r.u8(); d.io = r.u16();
+  } catch (e) { if (e !== "eof") throw e; d.cut = true; }
+  return d;
+}
+const plausible = (d) => d.cells && d.cells.length >= 1 && d.cells.length <= 32 && d.cells.every((x) => x > 1500 && x < 4500)
+  && Math.abs(d.cells.reduce((a, x) => a + x, 0) / 1000 - d.v) < 3;
+function decode42(info) {
+  const tries = [true, false].map((withM) => {
+    const r = reader(info); r.u8();
+    const m = withM ? r.u8() : 1, blocks = [];
+    for (let k = 0; k < Math.max(1, Math.min(m, 16)) && r.pos < info.length; k++) blocks.push(block42(r));
+    return { ok: blocks.length > 0 && blocks.every(plausible), withM, blocks, left: info.length - r.pos };
+  });
+  return tries.find((t) => t.ok) || tries[0];
+}
+const BITS = {
+  stV: { 0: "sovratensione cella", 1: "sottotensione cella", 2: "sovratensione pacco", 3: "sottotensione pacco", 4: "allarme cella alta", 5: "allarme cella bassa", 6: "allarme pacco alto", 7: "allarme pacco basso", 8: "allarme sbilanciamento", 14: "protezione sbilanciamento", 15: "protezione carica piena" },
+  stI: { 2: "sovracorrente carica", 3: "corto", 4: "sovracorrente scarica", 5: "sovracorrente scarica 2", 6: "allarme corrente carica", 7: "allarme corrente scarica", 9: "inversione", 11: "limitazione attiva" },
+  stA: { 7: "carica bassa", 8: "MOS caldo", 11: "guasto campionamento", 12: "guasto cella", 13: "guasto NTC", 14: "MOS carica guasto", 15: "MOS scarica guasto" },
+};
+const MACHINE = { 0: "avvio", 1: "autotest", 2: "pronto", 3: "in scarica", 4: "in carica", 5: "guasto", 6: "spento" };
+const bitsOn = (w, t) => Object.keys(t).filter((b) => w >> b & 1).map((b) => t[b]);
+const ascii = (b) => [...b].map((c) => c >= 32 && c < 127 ? String.fromCharCode(c) : " ").join("").replace(/\s+/g, " ").trim();
+
+/* ================= Driver USB ================= */
+const CHIPS = {
+  "1a86": { name: "WCH CH340/CH341", kind: "ch34x" },
+  "10c4": { name: "Silicon Labs CP210x", kind: "cp210x" },
+  "0403": { name: "FTDI", kind: "ftdi" },
+  "067b": { name: "Prolific PL2303", kind: "pl2303" },
+};
+const vidpid = (v, p) => hex(v).toLowerCase() + ":" + hex(p).toLowerCase();
+
+// Web Serial (Chrome su computer, e su Android dove disponibile): il sistema fa da driver per ogni chip
+async function openWebSerial(onData) {
+  const port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 9600, dataBits: 8, parity: "none", stopBits: 1 });
+  const info = port.getInfo ? port.getInfo() : {};
+  const vid = info.usbVendorId != null ? hex(info.usbVendorId).toLowerCase() : null;
+  let reader, alive = true;
+  (async () => {
+    while (alive && port.readable) {
+      reader = port.readable.getReader();
+      try { for (;;) { const { value, done } = await reader.read(); if (done) break; if (value) onData(value); } }
+      catch (e) { if (alive) log("err", "lettura interrotta: " + e.message); }
+      finally { reader.releaseLock(); }
+    }
+  })();
+  return {
+    api: "Web Serial",
+    chip: vid ? (CHIPS[vid] ? CHIPS[vid].name : "chip " + vidpid(info.usbVendorId, info.usbProductId)) : "porta seriale",
+    detail: vid ? "USB " + vidpid(info.usbVendorId, info.usbProductId) : "",
+    async write(bytes) { const w = port.writable.getWriter(); try { await w.write(bytes); } finally { w.releaseLock(); } },
+    async close() { alive = false; try { await reader?.cancel(); } catch (e) {} try { await port.close(); } catch (e) {} },
+  };
+}
+
+// WebUSB (Chrome su Android): il driver del chip lo facciamo noi
+async function openWebUsb(onData) {
+  const dev = await navigator.usb.requestDevice({ filters: [] });
+  await dev.open();
+  if (dev.configuration === null) await dev.selectConfiguration(1);
+  const vid = hex(dev.vendorId).toLowerCase();
+  const ifaces = dev.configuration.interfaces;
+  const alt = (i) => i.alternate || i.alternates[0];
+  const bulk = (i, dir) => alt(i).endpoints.find((e) => e.type === "bulk" && e.direction === dir);
+  let kind = CHIPS[vid] ? CHIPS[vid].kind : null;
+  if (!kind && ifaces.some((i) => alt(i).interfaceClass === 0x0A)) kind = "cdc";
+  if (!kind) throw new Error("chip " + vidpid(dev.vendorId, dev.productId) + " non riconosciuto: mandami questo codice");
+  const data = kind === "cdc" ? ifaces.find((i) => alt(i).interfaceClass === 0x0A) : ifaces.find((i) => bulk(i, "in") && bulk(i, "out"));
+  const ctrl = kind === "cdc" ? ifaces.find((i) => alt(i).interfaceClass === 0x02) || data : data;
+  for (const i of new Set([ctrl, data])) await dev.claimInterface(i.interfaceNumber);
+  const epIn = bulk(data, "in"), epOut = bulk(data, "out");
+  const out = (o, buf) => dev.controlTransferOut(o, buf).then((r) => { if (r.status !== "ok") throw new Error("comando al chip rifiutato (" + r.status + ")"); });
+  const vin = (o, len) => dev.controlTransferIn(o, len);
+  let extra = "";
+  const lineCoding = () => { const b = new DataView(new ArrayBuffer(7)); b.setUint32(0, 9600, true); b.setUint8(4, 0); b.setUint8(5, 0); b.setUint8(6, 8); return b.buffer; };
+
+  if (kind === "ch34x") {
+    const w = (request, value, index) => out({ requestType: "vendor", recipient: "device", request, value, index });
+    try { const v = await vin({ requestType: "vendor", recipient: "device", request: 0x5F, value: 0, index: 0 }, 2); extra = "versione chip " + hex(v.data.getUint8(0), 2); } catch (e) {}
+    // 9600 baud: fattore 1532620800/9600 ridotto, come i driver Linux e usb-serial-for-android
+    let factor = Math.floor(1532620800 / 9600), div = 3;
+    while (factor > 0xFFF0 && div > 0) { factor >>= 3; div--; }
+    factor = 0x10000 - factor;
+    const baud = async () => { await w(0x9A, 0x1312, (factor & 0xFF00) | div | 0x80); await w(0x9A, 0x0F2C, factor & 0xFF); };
+    await w(0xA1, 0, 0);
+    await baud();
+    await w(0x9A, 0x2518, 0xC3);          // 8N1, ricezione e trasmissione attive
+    await w(0xA1, 0x501F, 0xD90A);
+    await baud();
+    await w(0xA4, ~0x60 & 0xFFFF, 0);     // DTR e RTS attivi
+  } else if (kind === "cp210x") {
+    const n = ctrl.interfaceNumber;
+    const w = (request, value, buf) => out({ requestType: "vendor", recipient: "interface", request, value, index: n }, buf);
+    await w(0x00, 0x0001);                // abilita l'interfaccia
+    const b = new DataView(new ArrayBuffer(4)); b.setUint32(0, 9600, true);
+    await w(0x1E, 0, b.buffer);           // baud
+    await w(0x03, 0x0800);                // 8N1
+    await w(0x07, 0x0303);                // DTR e RTS
+  } else if (kind === "ftdi") {
+    const w = (request, value, index) => out({ requestType: "vendor", recipient: "device", request, value, index });
+    await w(0x00, 0, 1);                  // reset
+    await w(0x03, 0x4138, 0);             // 9600 = 3 MHz / 312,5
+    await w(0x04, 0x0008, 1);             // 8N1
+    await w(0x01, 0x0303, 1);             // DTR e RTS
+  } else if (kind === "pl2303") {
+    const r1 = (value) => vin({ requestType: "vendor", recipient: "device", request: 0x01, value, index: 0 }, 1);
+    const w1 = (value, index) => out({ requestType: "vendor", recipient: "device", request: 0x01, value, index });
+    await r1(0x8484); await w1(0x0404, 0); await r1(0x8484); await r1(0x8383);
+    await r1(0x8484); await w1(0x0404, 1); await r1(0x8484); await r1(0x8383);
+    await w1(0, 1); await w1(1, 0); await w1(2, 0x44);
+    await out({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: 0 }, lineCoding());
+    await out({ requestType: "class", recipient: "interface", request: 0x22, value: 3, index: 0 });
+    extra = "i PL2303 recenti (GC/GS) potrebbero non funzionare";
+  } else {
+    const n = ctrl.interfaceNumber;
+    await out({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: n }, lineCoding());
+    await out({ requestType: "class", recipient: "interface", request: 0x22, value: 3, index: n });
+  }
+
+  let alive = true;
+  const pkt = epIn.packetSize || 64;
+  (async () => {
+    while (alive) {
+      try {
+        const r = await dev.transferIn(epIn.endpointNumber, pkt * 4);
+        if (r.data && r.data.byteLength) {
+          let b = new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
+          if (kind === "ftdi") { // l'FTDI mette 2 byte di stato in testa a ogni pacchetto
+            const parts = []; for (let o = 0; o < b.length; o += pkt) parts.push(...b.slice(o + 2, o + pkt));
+            b = new Uint8Array(parts);
+          }
+          if (b.length) onData(b);
+        }
+      } catch (e) { if (alive) { log("err", "lettura interrotta: " + e.message); setConn("err", "Cavo scollegato", e.message); } return; }
+    }
+  })();
+  return {
+    api: "WebUSB",
+    chip: CHIPS[vid] ? CHIPS[vid].name : "USB seriale standard (CDC)",
+    detail: ["USB " + vidpid(dev.vendorId, dev.productId), dev.productName, extra].filter(Boolean).join(" · "),
+    write: (bytes) => dev.transferOut(epOut.endpointNumber, bytes),
+    async close() { alive = false; try { await dev.close(); } catch (e) {} },
+  };
+}
+
+// BMS simulato: risponde solo all'indirizzo 0 con ~, e fa l'eco come certi cavi RS485
+function openSim(onData) {
+  const enc = (s) => new TextEncoder().encode(s);
+  const reply = (adr, info) => { const len = info.length, body = VER + hex(adr, 2) + CID1 + "00" + hex((lchksum(len) << 12) | len) + info; return "~" + body + chksum(body) + "\r"; };
+  const w = (v) => hex(v & 0xFFFF);
+  const block = (k) => {
+    const cells = Array.from({ length: 16 }, (_, j) => 3318 + Math.round(Math.sin(j * 1.7 + k) * 6) + (j === 5 + k ? -19 : 0) + (j === 11 ? 9 : 0));
+    const v = Math.round(cells.reduce((a, x) => a + x, 0) / 10);
+    return w(6420 - k * 35) + w(v) + "10" + cells.map(w).join("") + w(214) + w(226 + k * 4) + w(268) + "04" + [221, 224, 229, 226].map((t) => w(t + k * 3)).join("")
+      + w(-(1840 - k * 120)) + w(0) + w(100) + "01" + w(20000) + w(12840 - k * 70) + w(37 + k) + w(0) + w(2) + w(0) + w(0) + w(3)
+      + w(0) + w(0) + w(0) + w(0) + w(k === 2 ? 1 << 5 : 0) + w(0) + w(0).repeat(4) + "03" + w(0);
+  };
+  let open = true;
+  return {
+    api: "simulazione", chip: "BMS simulato", detail: "nessun cavo: risponde l'indirizzo 0 con ~",
+    async write(bytes) {
+      const s = new TextDecoder().decode(bytes).trim();
+      setTimeout(() => open && onData(enc(s + "\r")), 30);     // eco
+      const adr = parseInt(s.slice(3, 5), 16), cid = s.slice(7, 9), info = s.slice(13, -4);
+      if (s[0] !== "~" || adr !== 0) return;                  // gli altri tacciono
+      let out;
+      if (cid === "4F") out = reply(0, "");
+      else if (cid === "51") out = reply(0, [..."DR-JC03   "].map((c) => hex(c.charCodeAt(0), 2)).join("") + "0105" + [..."DR POWER            "].map((c) => hex(c.charCodeAt(0), 2)).join(""));
+      else if (cid === "42") out = reply(0, "00" + (info === "FF" ? "05" + [0, 1, 2, 3, 4].map(block).join("") : "01" + block(0)));
+      // la risposta arriva a pezzi, come sulla seriale vera
+      setTimeout(() => { if (!open) return; const b = enc(out); for (let o = 0; o < b.length; o += 64) onData(b.slice(o, o + 64)); }, 160);
+    },
+    async close() { open = false; },
+  };
+}
+
+/* ================= Collegamento e domande ================= */
+let link = null, rx = "", waiter = null, lastSent = "", lastAt = 0, busy = false;
+const ICON = {
+  off: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg>',
+  on: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>',
+  err: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 7v6M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>',
+};
+function setConn(state, title, sub) {
+  $("chip").className = "chip" + (state === "off" ? "" : " " + state);
+  $("chip-ico").innerHTML = ICON[state];
+  $("chip-t").textContent = title; $("chip-s").textContent = sub || "";
+  const on = state === "on";
+  $("connect").classList.toggle("hidden", on); $("disconnect").classList.toggle("hidden", !on);
+  document.querySelectorAll(".cmd").forEach((b) => b.disabled = !on || busy);
+}
+function log(cls, text) {
+  const el = $("log"), line = document.createElement("div"), t = new Date().toLocaleTimeString("it-IT");
+  line.className = cls; line.textContent = t + "  " + { tx: "→ ", rx: "← ", echo: "↺ ", err: "✕ ", info: "· " }[cls] + text;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+function onData(bytes) {
+  rx += new TextDecoder("latin1").decode(bytes);
+  for (;;) {
+    const cr = rx.indexOf("\r");
+    if (cr < 0) { if (rx.length > 4000) rx = rx.slice(-2000); return; }
+    let line = rx.slice(0, cr); rx = rx.slice(cr + 1);
+    const s = line.search(/[~>]/);
+    if (s < 0) { if (line.trim()) log("err", "ricevuto senza inizio: " + line.trim()); continue; }
+    line = line.slice(s).trim();
+    if (line === lastSent) { log("echo", line + "  (eco del cavo)"); continue; }
+    log("rx", line);
+    if (waiter) { const w = waiter; waiter = null; w(line); }
+  }
+}
+async function ask(cid, adr, info, soi, timeout = 1500) {
+  const wait = 1000 - (Date.now() - lastAt);     // al massimo una domanda al secondo
+  if (wait > 0) await sleep(wait);
+  const frame = build(cid, adr, info, soi);
+  lastSent = frame; lastAt = Date.now(); rx = "";
+  const got = new Promise((res) => { waiter = res; setTimeout(() => { if (waiter === res) { waiter = null; res(null); } }, timeout); });
+  log("tx", frame);
+  await link.write(new TextEncoder().encode(frame + "\r"));
+  const line = await got;
+  if (!line) { log("info", "nessuna risposta in " + timeout / 1000 + " s"); return null; }
+  try { return { raw: line, ...split(line) }; }
+  catch (e) { log("err", e.message); return { raw: line, bad: e.message }; }
+}
+
+async function connect(useSim, forceUsb) {
+  try {
+    if (link) await link.close();
+    if (useSim) link = openSim(onData);
+    else if ("serial" in navigator && !forceUsb) link = await openWebSerial(onData);
+    else link = await openWebUsb(onData);
+    setConn("on", link.chip, [link.detail, link.api + " · 9600 baud 8N1"].filter(Boolean).join(" · "));
+    log("info", "collegato: " + link.chip + (link.detail ? " (" + link.detail + ")" : "") + " via " + link.api);
+  } catch (e) {
+    link = null;
+    if (e.name === "NotFoundError") return setConn("off", "Nessun cavo scelto", "Tocca di nuovo e scegli il cavo dall'elenco.");
+    setConn("err", "Il cavo non si è aperto", e.message);
+    log("err", e.message);
+  }
+}
+
+/* ================= Disegno dei risultati ================= */
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function verdict(cls, title, text) { return `<div class="verdict ${cls}"><b>${esc(title)}</b>${text}</div>`; }
+function cellsSvg(d) {
+  const c = d.cells, W = 300, H = 92, lo = Math.min(...c), hi = Math.max(...c), span = Math.max(hi - lo, 20);
+  const bw = W / c.length;
+  return `<svg class="cells" viewBox="0 0 ${W} ${H + 14}" role="img" aria-label="Tensioni delle ${c.length} celle, da ${lo} a ${hi} millivolt">` + c.map((v, j) => {
+    const h = 14 + (v - lo) / span * (H - 30), x = j * bw + 2, y = H - h;
+    const cls = v === lo ? " lo" : v === hi ? " hi" : "";
+    return `<rect class="b${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw - 4).toFixed(1)}" height="${h.toFixed(1)}" rx="2"/>`
+      + (d.bal >> j & 1 ? `<rect class="bal" x="${(x - 1).toFixed(1)}" y="${(y - 1).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${(h + 2).toFixed(1)}" rx="3"/>` : "")
+      + (cls ? `<text class="lbl-v" x="${(x + (bw - 4) / 2).toFixed(1)}" y="${(y - 3).toFixed(1)}" text-anchor="middle">${v}</text>` : "")
+      + `<text x="${(x + (bw - 4) / 2).toFixed(1)}" y="${H + 11}" text-anchor="middle">${j + 1}</text>`;
+  }).join("") + "</svg>";
+}
+function batCard(d, k, n) {
+  if (!d.cells || !d.cells.length) return `<div class="bat"><p class="note">Blocco ${k + 1}: dati non leggibili.</p></div>`;
+  const lo = Math.min(...d.cells), hi = Math.max(...d.cells);
+  const tags = [];
+  if (d.machine != null) tags.push(`<span class="tag">${MACHINE[d.machine] || "stato " + d.machine}</span>`);
+  if (d.fet != null) tags.push(`<span class="tag ${d.fet & 1 ? "good" : "bad"}">MOS carica ${d.fet & 1 ? "acceso" : "spento"}</span>`, `<span class="tag ${d.fet & 2 ? "good" : "bad"}">MOS scarica ${d.fet & 2 ? "acceso" : "spento"}</span>`);
+  const warns = d.stV != null ? [...bitsOn(d.stV, BITS.stV), ...bitsOn(d.stI, BITS.stI), ...bitsOn(d.stA, BITS.stA)] : [];
+  if (d.stT) warns.push("temperature " + hex(d.stT) + "H");
+  tags.push(...warns.map((w) => `<span class="tag warn">${esc(w)}</span>`));
+  if (d.stV != null && !warns.length) tags.push('<span class="tag good">nessun allarme</span>');
+  const balCells = d.bal != null ? d.cells.map((_, j) => d.bal >> j & 1 ? j + 1 : 0).filter(Boolean) : [];
+  if (balCells.length) tags.push(`<span class="tag">bilancia cella ${balCells.join(", ")}</span>`);
+  if (d.cut) tags.push('<span class="tag warn">dati troncati</span>');
+  const pw = d.i != null ? d.i * d.v : null;
+  return `<div class="bat">
+    <div class="bat-h"><h3>${n > 1 ? "Batteria " + (k + 1) : "Batteria"}</h3><span class="soc">${fmt(d.soc, 1)}<small>%</small></span></div>
+    <dl class="kv">
+      <div><dt>Tensione</dt><dd>${fmt(d.v)} V</dd></div>
+      <div><dt>Corrente</dt><dd>${d.i != null ? fmt(d.i, 1) + " A" : "—"}</dd></div>
+      <div><dt>Potenza</dt><dd>${pw != null ? Math.round(pw).toLocaleString("it-IT") + " W" : "—"}</dd></div>
+      <div><dt>Scarto celle</dt><dd>${hi - lo} mV</dd></div>
+      <div><dt>Temp. max</dt><dd>${d.tCells && d.tCells.length ? fmt(Math.max(...d.tCells, d.tPack), 1) + " °C" : "—"}</dd></div>
+      <div><dt>MOS</dt><dd>${d.tMos != null ? fmt(d.tMos, 1) + " °C" : "—"}</dd></div>
+      <div><dt>Capacità</dt><dd>${d.full != null ? fmt(d.full, 0) + " Ah" : "—"}</dd></div>
+      <div><dt>Residua</dt><dd>${d.rem != null ? fmt(d.rem, 0) + " Ah" : "—"}</dd></div>
+      <div><dt>Cicli · SOH</dt><dd>${d.cycles != null ? d.cycles + " · " + d.soh + "%" : "—"}</dd></div>
+    </dl>
+    ${cellsSvg(d)}
+    <div class="tags">${tags.join("")}</div>
+  </div>`;
+}
+function showReply(cid, r, ctx) {
+  const el = $("result");
+  if (!r) { el.innerHTML = verdict("bad", "Nessuna risposta", ` da indirizzo ${ctx.adr} con ${esc(ctx.soi)}. Prova la prova automatica, oppure inverti i fili A e B.`); return; }
+  if (r.bad) { el.innerHTML = verdict("warn", "Risposta arrivata ma non valida", esc(r.bad) + ". Copia il registro e mandalo a Claude."); return; }
+  const head = `Indirizzo ${r.adr} · versione protocollo ${r.ver[0]}.${r.ver[1]} · esito ${hex(r.rtn, 2)}H (${RTN[r.rtn] || "sconosciuto"})`;
+  if (r.rtn !== 0) { el.innerHTML = verdict("warn", "Il BMS ha risposto con un errore", esc(head)); return; }
+  if (cid === "4F") { el.innerHTML = verdict("ok", "Il BMS risponde", esc(head)); return; }
+  if (cid === "51") { el.innerHTML = verdict("ok", "Informazioni del produttore", esc(head) + `<br><span class="mono">${esc(ascii(r.info) || "(vuoto)")}</span>`); return; }
+  const res = decode42(r.info);
+  const n = res.blocks.length;
+  el.innerHTML = verdict(res.ok ? "ok" : "warn", res.ok ? (n > 1 ? `Arrivano ${n} batterie` : "Dati letti") : "Struttura da verificare",
+      esc(head) + (res.ok ? "" : "<br>I valori non tornano con l'ordine dei campi previsto: copia il registro e mandalo a Claude.")
+      + (res.left ? `<br>${res.left} byte in fondo non interpretati.` : ""))
+    + res.blocks.map((d, k) => batCard(d, k, n)).join("");
+}
+
+async function run(fn) {
+  if (busy || !link) return;
+  busy = true; setConn("on", $("chip-t").textContent, $("chip-s").textContent);
+  $("busy").classList.remove("hidden");
+  try { await fn(); } catch (e) { log("err", e.message); }
+  busy = false; $("busy").classList.add("hidden"); $("prog").classList.add("hidden");
+  if (link) setConn("on", $("chip-t").textContent, $("chip-s").textContent);
+}
+const pick = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+async function single(cid, info) {
+  const adr = +pick("adr"), soi = pick("soi");
+  $("busy-t").textContent = `Chiedo ${cid}H all'indirizzo ${adr}…`;
+  showReply(cid, await ask(cid, adr, info, soi), { adr, soi });
+}
+async function auto() {
+  const el = $("result"), found = [];
+  const grid = (soi) => `<ul class="scan" id="scan-${soi === "~" ? "a" : "b"}">${[0, 1, 2, 3, 4].map((a) => `<li id="sc-${soi === "~" ? "a" : "b"}${a}"><b>${a}</b>${esc(soi)}</li>`).join("")}</ul>`;
+  el.innerHTML = `<p class="note">Chiedo la versione a ogni indirizzo, prima con ~ e poi con &gt;.</p>${grid("~")}${grid(">")}`;
+  $("prog").classList.remove("hidden");
+  let step = 0;
+  for (const soi of ["~", ">"]) for (let adr = 0; adr <= 4; adr++) {
+    const li = $("sc-" + (soi === "~" ? "a" : "b") + adr);
+    li.classList.add("wait");
+    $("busy-t").textContent = `Indirizzo ${adr} con ${soi}…`;
+    const r = await ask("4F", adr, "", soi, 1200);
+    li.classList.remove("wait");
+    if (r && !r.bad && r.rtn === 0) { li.classList.add("ok"); found.push({ adr, soi }); }
+    $("prog-i").style.width = (++step * 10) + "%";
+  }
+  if (!found.length) {
+    el.insertAdjacentHTML("beforeend", verdict("bad", "Nessun indirizzo risponde",
+      "Controlla che il cavo sia nella porta RS485 della master (non CAN) e prova a invertire A e B, se il cavo è fatto da te. Copia il registro: anche il silenzio è un'informazione."));
+    return;
+  }
+  const f = found[0], scan = el.innerHTML.replace(/<p class="note">.*?<\/p>/, "");
+  document.querySelector(`input[name="adr"][value="${f.adr}"]`).checked = true;
+  document.querySelector(`input[name="soi"][value="${f.soi}"]`).checked = true;
+  $("busy-t").textContent = "Leggo i dati di tutte le batterie (42H)…";
+  showReply("42", await ask("42", f.adr, "FF", f.soi, 2500), f);
+  el.insertAdjacentHTML("afterbegin", scan + verdict("ok", "Risponde " + found.map((x) => "l'indirizzo " + x.adr + " con " + x.soi).join(", "), ""));
+}
+
+/* ================= Avvio ================= */
+const hasSerial = "serial" in navigator, hasUsb = "usb" in navigator;
+$("api-note").textContent = hasSerial ? "Questo browser usa Web Serial: va bene con qualunque chip."
+  : hasUsb ? "Questo browser usa WebUSB: riconosco i chip CH340, CP210x, FTDI, PL2303 e i cavi USB standard."
+  : window.isSecureContext ? "Questo browser non può usare l'USB: apri la pagina con Chrome su Android o su computer."
+  : "L'USB funziona solo con la pagina in HTTPS: aprila dall'indirizzo GitHub Pages.";
+setConn("off", "Nessun cavo collegato", hasSerial || hasUsb ? "Collega il cavo e tocca il pulsante." : "Il pulsante non funzionerà in questo browser.");
+$("connect").disabled = !(hasSerial || hasUsb);
+$("connect").onclick = () => connect(false);
+$("sim").onclick = () => connect(true);
+$("usb-alt").onclick = () => connect(false, true);
+$("usb-alt").classList.toggle("hidden", !(hasSerial && hasUsb));
+$("disconnect").onclick = async () => { if (link) await link.close(); link = null; setConn("off", "Cavo scollegato", ""); log("info", "scollegato"); };
+$("auto").onclick = () => run(auto);
+document.querySelectorAll(".cmd[data-cid]").forEach((b) => b.onclick = () => run(() => single(b.dataset.cid, b.dataset.info)));
+$("clear").onclick = () => { $("log").textContent = ""; };
+$("copy").onclick = async () => {
+  const text = "MyBattery · diagnosi BMS · " + new Date().toLocaleString("it-IT") + "\n" + ($("chip-t").textContent + " · " + $("chip-s").textContent) + "\n\n"
+    + [...$("log").children].map((d) => d.textContent).join("\n");
+  try { await navigator.clipboard.writeText(text); $("copy-t").textContent = "Copiato"; }
+  catch (e) { if (navigator.share) navigator.share({ text }).catch(() => {}); else $("copy-t").textContent = "Copia non riuscita"; }
+  setTimeout(() => $("copy-t").textContent = "Copia il registro", 1800);
+};
+if ("usb" in navigator) navigator.usb.addEventListener("disconnect", () => { if (link && link.api === "WebUSB") { link = null; setConn("err", "Cavo scollegato", "Ricollegalo e tocca di nuovo."); log("err", "cavo scollegato"); } });
+window.__mb = { build, split, decode42, chksum, lchksum };
+})();
+</script>
+</body>
+</html>
