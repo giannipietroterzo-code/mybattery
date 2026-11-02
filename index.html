@@ -1296,7 +1296,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.25"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.26"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2938,12 +2938,21 @@ const HAB_ICON = {
 function drawHabits(){
   const read = $("hab-read"), svg = $("heat"), list = $("habits"), note = $("hab-note");
   if (!model || model.span < 7 || !fin(model.base)) {
-    const days = model ? Math.max(0, Math.floor(model.span)) : 0;
+    // 7 tacche, una per giorno: si riempiono col tempo passato dalla prima riga; sotto, le ore di dati davvero raccolte
+    const span = model ? Math.max(0, model.span) : 0, got = LOG.reduce((a, r) => a + r[1], 0) / 60, left = 7 - span;
     read.innerHTML = logSrc === "live" && !LOG.length
       ? (cable ? `Il registro parte adesso: la prima riga arriva entro ${S.log} minuti, finché il cavo resta collegato e la app aperta.` : "La scheda non ha ancora un registro: lo storico parte appena il firmware salva la prima riga.")
-      : `Sto imparando le tue abitudini: <b>${days} ${days === 1 ? "giorno" : "giorni"}</b> su 7.`;
-    svg.innerHTML = `<rect x="0" y="54" width="340" height="8" rx="4" fill="var(--line)"/><rect x="0" y="54" width="${(Math.min(1, days / 7) * 340).toFixed(1)}" height="8" rx="4" fill="var(--lith)"/>`;
-    svg.setAttribute("viewBox", "0 0 340 116");
+      : `Sto imparando le tue abitudini: registro di <b>${dur(span * 24) || "pochi minuti"}</b> su 7 giorni, con <b>${dur(got) || "0 min"}</b> di dati raccolti` +
+        ` (${LOG.length} ${LOG.length === 1 ? "riga" : "righe"}). Le abitudini compaiono tra ${left >= 1 ? "circa " + dur(left * 24).replace(/ e .*/, "") : "meno di un giorno"}` +
+        (!everLive && got < span * 24 * .6 ? ": più a lungo resta collegato il cavo, più saranno precise." : ".");
+    const sw = (340 - 6 * 5) / 7;
+    svg.innerHTML = Array.from({length: 7}, (_, d) => {
+      const x = d * (sw + 5), f = clamp(span - d, 0, 1), now = span >= d && span < d + 1;
+      return `<rect x="${x.toFixed(1)}" y="40" width="${sw.toFixed(1)}" height="12" rx="3" fill="var(--line)"/>` +
+        (f > 0 ? `<rect x="${x.toFixed(1)}" y="40" width="${(sw * f).toFixed(1)}" height="12" rx="3" fill="var(--lith)"${f < 1 ? ' opacity=".75"' : ""}/>` : "") +
+        `<text x="${(x + sw / 2).toFixed(1)}" y="70" text-anchor="middle" font-size="10" fill="${now ? "var(--lith)" : "var(--muted)"}"${now ? ' font-weight="700"' : ""}>${d + 1}° g</text>`;
+    }).join("") + `<text x="340" y="28" text-anchor="end" font-size="10" fill="var(--muted)">${Math.min(100, Math.round(span / 7 * 100))}%</text>`;
+    svg.setAttribute("viewBox", "0 0 340 80");
     list.innerHTML = ""; note.textContent = "";
     return;
   }
