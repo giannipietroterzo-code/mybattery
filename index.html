@@ -400,6 +400,11 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .vmax button+button{border-left:1px solid var(--line)}
 .vmax button.on{background:var(--lith);color:#111}
 .voc-note{margin:0;font-size:.74rem;color:var(--muted)}
+.voc .voc-fc{padding-top:7px;border-top:1px dashed color-mix(in srgb,var(--c) 35%,transparent);color:var(--muted)}
+.voc .voc-fc b{color:var(--alert)}
+.voc-rec{margin:8px 0 0;font-size:.74rem;color:var(--muted)}
+.voc-rec b{font-family:var(--mono);color:var(--ink)}
+.pv-tab small.hot{color:var(--alert);font-weight:600}
 .voc{--c:var(--good);--t:var(--good-tint);display:grid;gap:7px;padding:10px 12px;border-radius:10px;background:var(--t);border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
 .voc.near{--c:var(--lith);--t:var(--lith-tint)}
 .voc.over{--c:var(--alert);--t:var(--alert-tint)}
@@ -1265,7 +1270,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.19"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.20"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1361,21 +1366,93 @@ function strArr(c){
 // tensione a vuoto di una stringa nella mattina più fredda: la Voc sale di circa lo 0,3% per grado sotto i 25 °C,
 // e se supera il massimo del regolatore lo rompe. Tracer xx15 = 150 V, xx20 = 200 V, xx10 = 100 V.
 const VMAX = [100, 150, 200], T_MIN = -10, VOC_K = 0.003;
-function vocCheck(c){
-  if (!c.voc || !c.n || c.n % (c.s || 1)) return null;
-  const per = c.n / (c.s || 1), v = per * c.voc * (1 + VOC_K * (25 - T_MIN)), max = c.vmax || 150;
-  return { per, v, max, st: v > max ? "over" : v > max * .92 ? "near" : "ok" };
+// tensione letta dai pannelli: avviso dal 90% del massimo (135 V su 150, sotto i 138 V che Epever dà a 25 °C), pericolo dal 96% (144 V)
+const PV_WARN = .9, PV_DANGER = .96, PVMAX_KEY = "mybattery.pvmax.v1";
+// la prossima alba col meteo: la Voc è quasi piena già con poca luce, quindi conta l'ora più fredda tra quelle con un po' di sole.
+// Nelle notti serene i pannelli all'alba stanno un paio di gradi sotto l'aria.
+const PANEL_COLD = 2;
+function dawnCold(){
+  if (!S.loc && logSrc !== "demo") return null;
+  const now = nowOf(data), t0 = Math.floor(now / HOUR) * HOUR;
+  let best = null;
+  for (let t = t0; t < t0 + 36 * HOUR; t += HOUR) {
+    const ir = irrAt(t, true); if (!ir || !fin(ir.temp) || !(ir.ghi >= 15)) continue;
+    if (!best || ir.temp < best.air) best = { t, air: ir.temp };
+    else if (best && t - best.t > 10 * HOUR) break; // basta la prima mattina utile
+  }
+  return best && { ...best, panel: best.air - PANEL_COLD };
 }
-function vocBox(c){
-  const k = vocCheck(c);
-  if (!k) return `<p class="voc-note">${c.voc ? "Imposta pannelli e stringhe" : "Scrivi la Voc dalla targhetta del pannello"}: la app controlla che le stringhe non superino il limite del regolatore col freddo.</p>`;
+const vocRaw = (c, temp) => c.voc && c.n && !(c.n % (c.s || 1)) ? c.n / (c.s || 1) * c.voc * (1 + VOC_K * (25 - temp)) : NaN;
+const vocAt = (c, temp, a) => vocRaw(c, temp) * vcal(a).f;
+// autocorrezione: ogni alba, a pannelli fermi (il regolatore non sta ancora caricando) la tensione letta è la Voc vera.
+// Il rapporto tra letta e prevista, mediana delle ultime 14 albe, corregge in un colpo targhetta, gradi di raffreddamento e coefficiente.
+const VCAL_KEY = "mybattery.voccal.v1";
+let vcalSt = (() => { try { return JSON.parse(localStorage.getItem(VCAL_KEY) || "{}") || {}; } catch (e) { return {}; } })();
+function vcal(a){
+  const ds = (vcalSt[a] || []).filter(d => !d.x).slice(-14), n = ds.length;
+  if (n < 3) return { f: 1, n };
+  return { f: clamp(quant(ds.map(d => d.r), .5), .85, 1.15), n, last: ds[n - 1] };
+}
+// mediana delle albe buone già registrate (senza quella di oggi); null se sono meno di 3
+function vcalFrom(ds){ const ok = ds.filter(d => !d.x).slice(-14); return ok.length >= 3 ? quant(ok.map(d => d.r), .5) : null; }
+// pannelli che sembrano mancare: un diodo di bypass o un pannello in corto toglie circa 1/N della tensione di una stringa da N.
+// Con più stringhe in parallelo quella sana tiene su la tensione e il calo si vede meno, per questo la soglia è al 60% di un pannello.
+function panelGone(c, ds, r){
+  const base = vcalFrom(ds), per = c.n / (c.s || 1); if (!base || per < 2) return 0;
+  const drop = 1 - r / base;
+  return drop >= .6 / per ? Math.max(1, Math.round(drop * per)) : 0;
+}
+function vcalSample(g, now){
+  const c = S.pv[g.addr] || {}, t = Math.floor(now / HOUR) * HOUR, ir = irrAt(t, false), h = new Date(now * 1000).getHours();
+  if (!ir || !fin(ir.temp) || !(ir.ghi >= 15 && ir.ghi <= 400) || h >= 11 || !(g.w < 5) || g.v < 20) return;
+  const pred = vocRaw(c, ir.temp - PANEL_COLD), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
+  const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), last = ds[ds.length - 1];
+  if (last && last.d === dk) { if (g.v <= last.v) return; ds.pop(); } // della giornata tengo la lettura più alta
+  const row = { d: dk, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4) }, k = panelGone(c, ds, r);
+  if (k) { row.x = k; row.e = +(pred * vcalFrom(ds)).toFixed(1); } // alba anomala: fuori dalla correzione, così il guasto non diventa normale
+  ds.push(row);
+  vcalSt[g.addr] = ds.slice(-30);
+  try { localStorage.setItem(VCAL_KEY, JSON.stringify(vcalSt)); } catch (e) {}
+}
+const vmaxOf = a => (S.pv[a] && S.pv[a].vmax) || 150;
+// il picco di oggi e il record di ogni regolatore; in demo restano in memoria, così non sporcano quelli veri
+let pvPk = (() => { try { return JSON.parse(localStorage.getItem(PVMAX_KEY) || "{}") || {}; } catch (e) { return {}; } })(), pvPkDemo = {};
+function trackPv(pv){
+  if (!Array.isArray(pv)) return;
+  const real = isReal(), st = real ? pvPk : pvPkDemo, now = nowOf(data), dk = dkey(now);
+  let ch = false;
+  pv.forEach(g => { if (g.online === false || !fin(g.v) || g.v <= 0 || g.v > 400) return;
+    const o = st[g.addr] = st[g.addr] || {};
+    if (o.d !== dk || g.v > o.v) { o.d = dk; o.v = g.v; o.at = now; ch = true; }
+    if (!(o.rv >= g.v)) { o.rv = g.v; o.rat = now; ch = true; }
+    if (real && S.loc && wx) vcalSample(g, now); });
+  if (ch && real) try { localStorage.setItem(PVMAX_KEY, JSON.stringify(pvPk)); } catch (e) {}
+}
+const dayWord = t => { const d = dkey(t) - dkey(nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
+const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d === dkey(nowOf(data)) ? o : null; };
+const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
+function vocCheck(c, a){
+  if (!c.voc || !c.n || c.n % (c.s || 1)) return null;
+  const per = c.n / (c.s || 1), v = per * c.voc * (1 + VOC_K * (25 - T_MIN)) * vcal(a).f, max = c.vmax || 150;
+  return { per, v, max, st: v > max ? "over" : v > max * PV_WARN ? "near" : "ok" };
+}
+function vocBox(c, a){
+  const k = vocCheck(c, a), r = pvRec(a), vc = vcal(a), rec = r ? `<p class="voc-rec">Il più alto letto dal regolatore: <b>${nf(r.rv, 1)} V</b> il ${new Date(r.rat * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}${r.rv >= (c.vmax || 150) * PV_WARN ? " · troppo vicino al limite" : ""}</p>` : "";
+  if (!k) return rec + `<p class="voc-note">${c.voc ? "Imposta pannelli e stringhe" : "Scrivi la Voc dalla targhetta del pannello"}: la app controlla che le stringhe non superino il limite del regolatore col freddo.</p>`;
   const top = Math.max(k.max, k.v) * 1.08, f = x => (x / top * 100).toFixed(1);
   const msg = k.st === "over" ? `Oltre i ${k.max} V: con il freddo il regolatore si può rompere. Metti meno pannelli in serie per stringa.`
     : k.st === "near" ? `Vicino al limite di ${k.max} V: va bene, ma senza margine nelle mattine più gelide.`
     : `Margine di ${nf(k.max - k.v, 0)} V sotto il limite di ${k.max} V.`;
+  const dc = dawnCold(), dv = dc ? vocAt(c, dc.panel, a) : NaN;
+  const bad = (vcalSt[a] || []).filter(d => d.x).slice(-1)[0];
+  const badTxt = bad ? `<p class="voc-fc"><b>Alba anomala il ${new Date(Math.floor(bad.d / 10000), Math.floor(bad.d / 100) % 100 - 1, bad.d % 100).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}: ${nf(bad.v, 0)} V invece di ${nf(bad.e, 0)}</b>, come se mancasse${bad.x > 1 ? "ro " + bad.x + " pannelli" : " un pannello"}.</p>` : "";
+  const cal = vc.n >= 3 ? `<p class="voc-fc">Corretta su ${vc.n} albe lette: i tuoi pannelli danno il ${nf(Math.abs(vc.f - 1) * 100, 0)}% ${vc.f >= 1 ? "in più" : "in meno"} del calcolo di targa.</p>`
+    : `<p class="voc-fc">Si corregge da sola: ${vc.n ? `${vc.n} ${vc.n > 1 ? "albe lette" : "alba letta"} su 3` : "dopo 3 albe lette dal regolatore"}, poi la previsione usa le tensioni vere.</p>`;
+  const dawn = fin(dv) ? `<p class="voc-fc">Prossima alba (${dayWord(dc.t)} alle ${hm(dc.t)}): ${nf(dc.air, 0).replace("-", "−")} °C di aria, pannelli verso ${nf(dv, 0)} V${dv >= k.max ? " · <b>oltre il limite</b>" : dv >= k.max * PV_WARN ? " · <b>vicino al limite</b>" : ""}</p>`
+    : `<p class="voc-fc">${S.loc ? "Il meteo della prossima alba non è ancora arrivato." : "Imposta la località: la app ti avvisa la sera prima delle albe troppo fredde."}</p>`;
   return `<div class="voc ${k.st}"><div class="voc-h"><span>Tensione a vuoto a ${String(T_MIN).replace("-", "−")} °C</span><b>${nf(k.v, 0)} V</b></div>` +
     `<div class="voc-bar" role="img" aria-label="${nf(k.v, 0)} volt su ${k.max} massimi"><i style="width:${f(k.v)}%"></i><u style="left:${f(k.max)}%"></u></div>` +
-    `<p>${k.per} × ${nf(c.voc, 1)} V × ${nf(1 + VOC_K * (25 - T_MIN), 3)}. ${msg}</p></div>`;
+    `<p>${k.per} × ${nf(c.voc, 1)} V × ${nf(1 + VOC_K * (25 - T_MIN), 3)}${vc.f !== 1 ? ` × ${nf(vc.f, 3)}` : ""}. ${msg}</p>${dawn}${cal}${badTxt}</div>` + rec;
 }
 const totTxt = (g, c, p) => (c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp` : "–") +
   (strTxt(c) || !(c.wp && c.n) && fin(g.kwp) && g.kwp > 0 ? `<small>${strTxt(c) || "dalla scheda"}</small>` : "");
@@ -1601,6 +1678,7 @@ function render(m){
   drawCabinet(bs, lowSoc);
 
   // avvisi: prima le protezioni, poi gli allarmi
+  trackPv(data.pv);
   const items = [];
   bs.forEach((b,i) => {
     const who = nameOf(b, i);
@@ -2525,7 +2603,21 @@ function myAlarms(bs, k, f){
     if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
       out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
-  if (S.alPv && Array.isArray(data.pv)) data.pv.forEach(g => { const k = vocCheck(S.pv[g.addr] || {});
+  // tensione dei pannelli vicina al massimo del regolatore: sempre attivo, è una protezione dell'impianto
+  if (Array.isArray(data.pv)) data.pv.forEach(g => {
+    const max = vmaxOf(g.addr), pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
+    if (cur >= max * PV_DANGER) out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= max ? "Oltre i" : "Quasi ai"} ${max} V che il regolatore regge: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` });
+    else if (pk && pk.v >= max * PV_WARN) out.push({ id: "pvv" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi pannelli a ${nf(pk.v, 0)} V`, d: `Alle ${hm(pk.at)}, vicino ai ${max} V del regolatore. Con il freddo la tensione sale ancora: valuta un pannello in meno per stringa.` });
+  });
+  if (Array.isArray(data.pv)) data.pv.forEach(g => { const ds = vcalSt[g.addr] || [], l = ds[ds.length - 1], c = S.pv[g.addr] || {};
+    if (l && l.x && l.d === dkey(now)) out.push({ id: "pvdiode" + g.addr + "-" + l.d, sev: "alarm", who: pvName(g),
+      t: `All'alba ${nf(l.v, 0)} V invece di ${nf(l.e, 0)}`, d: `Manca ${l.x > 1 ? "la tensione di circa " + l.x + " pannelli" : "circa un pannello"} su ${c.n / (c.s || 1)} in serie: un diodo di bypass o un pannello in corto. Misura col tester la Voc dei pannelli di questo gruppo.` }); });
+  const dc = Array.isArray(data.pv) ? dawnCold() : null;
+  if (dc) data.pv.forEach(g => { const c = S.pv[g.addr] || {}, v = vocAt(c, dc.panel, g.addr), max = vmaxOf(g.addr);
+    if (fin(v) && v >= max * PV_WARN) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
+      t: `${dayWord(dc.t)[0].toUpperCase() + dayWord(dc.t).slice(1)} all'alba pannelli verso ${nf(v, 0)} V`,
+      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}: ${v >= max ? "oltre i" : "vicino ai"} ${max} V del regolatore. ${v >= max ? "Stasera apri il sezionatore di questo gruppo e richiudilo a sole alto." : "Tienilo d'occhio: se scende ancora la temperatura, togli un pannello per stringa."}` }); });
+  if (S.alPv && Array.isArray(data.pv)) data.pv.forEach(g => { const k = vocCheck(S.pv[g.addr] || {}, g.addr);
     if (k && k.st === "over") out.push({ id: "pvvoc" + g.addr, sev: "alarm", who: pvName(g), t: `Stringhe fino a ${nf(k.v, 0)} V col freddo`, d: `Il regolatore regge ${k.max} V: d'inverno, a pannelli freddi e scollegati, si può rompere. Riduci i pannelli in serie.` }); });
   if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
     const gs = data.pv.filter(g => g.online !== false && fin(dayRatio(g))), rs = gs.map(dayRatio), best = Math.max(0, ...rs);
@@ -2593,11 +2685,13 @@ function scheduleOnClose(){
     const seq = "mb-" + a.id;
     if (sched[seq] && sched[seq] <= now) return;                // già arrivata: non la ripete
     const d = new Date(); d.setHours(a.sev === "tip" ? 9 : a.id.startsWith("fclow") ? 20 : 19, 0, 0, 0);
-    const at = Math.round(Math.max(d.getTime() / 1000, now + 600));
+    const pvfc = a.id.startsWith("pvfc"); // tensione all'alba: alle 19 della sera prima, e comunque almeno 3 ore prima
+    const at = Math.round(Math.max(pvfc ? Math.min(d.getTime() / 1000, a.at - 3 * HOUR) : d.getTime() / 1000, now + 600));
+    if (pvfc && at > a.at) return;
     if (at < muteUntil) return;                                 // silenziati: questa salta
     sched[seq] = at;
     ntfyPub({ topic: S.ntfy, sequence_id: seq, delay: String(at), title: a.sev === "tip" ? "MyBattery · consiglio" : "MyBattery · previsione",
-      message: `${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : 4, click: APP_URL }, true).catch(() => {});
+      message: `${a.who ? a.who + ": " : ""}${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : pvfc ? "warning" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : pvfc ? 5 : 4, click: APP_URL }, true).catch(() => {});
   });
   writeSched(sched);
 }
@@ -2893,7 +2987,7 @@ function drawPv(pv, k){
       `<span class="pv-rb"><i style="width:${qBest && fin(d.q) ? Math.min(100, d.q / qBest * 100).toFixed(1) : 0}%"></i></span>` +
       `<span class="pv-rv">${nf(d.r, 2)} <small>kWh/kWp</small></span></div>`).join("")}</div>` : "") +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
-    pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}</td>` +
+    pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= vmaxOf(g.addr) * PV_WARN ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${vmaxOf(g.addr)}</small>` : ""}</td>` +
       `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
 }
 
@@ -3469,7 +3563,7 @@ $("set-cab").addEventListener("click", e => {
 $("notice").addEventListener("click", e => { if (e.target.closest("#notice-cab")) cabStart(); });
 
 /* ---------- backup completo: impostazioni, registro, previsioni archiviate, cronologia degli allarmi, quello che ha imparato ---------- */
-const BK_LS = [ALH_KEY, UHIST_KEY, "mybattery.page"]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
+const BK_LS = [ALH_KEY, UHIST_KEY, "mybattery.page", PVMAX_KEY, VCAL_KEY]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
 const LEARN_SKIP = new Set(["H", "Hmap", "days", "socT", "socV", "lblocks"]); // si ricalcolano dal registro
 let bkPending = null;
 async function backupOut(){
@@ -3521,6 +3615,8 @@ async function backupApply(){
   }
   const H = st[UHIST_KEY], mine = lsGet(UHIST_KEY);
   if (H && Array.isArray(H.soc) && H.soc.length === 288 && (!mine || H.t > mine.t)) lsSet(UHIST_KEY, H);
+  [PVMAX_KEY, VCAL_KEY].forEach(k => { const o = st[k], m = lsGet(k); // picchi e albe dei regolatori: se qui non ce ne sono
+    if (o && typeof o === "object" && !Array.isArray(o) && (!m || !Object.keys(m).length)) lsSet(k, o); });
   location.reload();
 }
 $("bk-out").addEventListener("click", backupOut);
@@ -3648,7 +3744,7 @@ function pvCard(g){
         `<input type="number" inputmode="numeric" min="1" max="50" data-f="s" value="${c.s || ""}" placeholder="1" aria-label="Numero di stringhe"><button type="button" data-st="s" data-d="1" aria-label="Una stringa in più">+</button></div>` +
     `</div></div><div class="pvc-v"><div class="pvc-vr"><span class="pvc-l">Voc di un pannello</span><div class="step"><input type="number" inputmode="decimal" min="5" max="120" step="0.1" data-f="voc" value="${c.voc || ""}" placeholder="49,5" aria-label="Tensione a vuoto di un pannello"><small>V</small></div></div>` +
       `<div class="pvc-vr"><span class="pvc-l">Massimo del regolatore</span><div class="vmax" role="group" aria-label="Tensione massima dei pannelli sul regolatore">${VMAX.map(m => `<button type="button" data-vmax="${m}" class="${(c.vmax || 150) === m ? "on" : ""}" aria-pressed="${(c.vmax || 150) === m}">${m} V</button>`).join("")}</div></div>` +
-      `<div data-voc>${vocBox(c)}</div></div><div class="pvc-tot"><span>Potenza del gruppo<span data-arr>${strArr(c)}</span></span><b data-tot>${totTxt(g, c, p)}</b></div></div>`;
+      `<div data-voc>${vocBox(c, g.addr)}</div></div><div class="pvc-tot"><span>Potenza del gruppo<span data-arr>${strArr(c)}</span></span><b data-tot>${totTxt(g, c, p)}</b></div></div>`;
 }
 // dopo una modifica: salva, e quando smetti di toccare manda tutto alla scheda e rifà meteo e previsioni
 function pvSaved(){
@@ -3680,7 +3776,7 @@ $("set-pvnames").addEventListener("input", e => {
   if (f === "n") { if (t.value && Number.isInteger(v) && v >= 1 && v <= 200) c.n = v; else delete c.n; }
   if (f === "s") { if (t.value && Number.isInteger(v) && v >= 1 && v <= 50) c.s = v; else delete c.s; }
   if (f === "voc") { if (t.value && v >= 5 && v <= 120) c.voc = Math.round(v * 10) / 10; else delete c.voc; }
-  card.querySelector("[data-voc]").innerHTML = vocBox(c);
+  card.querySelector("[data-voc]").innerHTML = vocBox(c, a);
   card.querySelector("[data-tot]").innerHTML = totTxt(g, c, planeOf(g));
   card.querySelector("[data-arr]").innerHTML = strArr(c);
   pvSaved();
