@@ -274,7 +274,7 @@ function reader(b) {
     s16() { const v = this.u16(); return v & 0x8000 ? v - 0x10000 : v; },
   };
 }
-const temp = (raw) => raw > 1500 ? Math.round(raw - 2731) / 10 : (raw & 0x8000 ? raw - 0x10000 : raw) / 10;
+const temp = (raw) => (raw & 0x8000 ? raw - 0x10000 : raw > 1500 ? raw - 2731 : raw) / 10; // sotto zero in complemento a due, non Kelvin
 function block42(r) {
   const d = {};
   try {

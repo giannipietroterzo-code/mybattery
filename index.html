@@ -405,8 +405,24 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .ntfy-on{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--bg)}
 .ntfy-on code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font:500 .82rem var(--mono)}
 .ntfy-row{display:flex;flex-wrap:wrap;gap:8px}
+.ntfy-row .link-btn{margin-top:10px}
 .set-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:14px;border-top:1px solid var(--line)}
 .link-btn{border:0;background:none;padding:6px 0;font:inherit;font-size:.9rem;color:var(--alert);cursor:pointer}
+.link-btn.plain{color:var(--muted)}
+.conn.usb .dot{background:var(--good);box-shadow:0 0 0 0 var(--good);animation:pulse 2.4s ease-out infinite}
+.notice .set-btn{display:flex;margin-top:10px}
+.usb-card{display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;border-radius:12px;background:var(--bg)}
+.usb-ico{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
+.usb-ico svg{width:20px;height:20px}
+.usb-card.on .usb-ico{background:var(--good-tint);color:var(--good)}
+.usb-card.err .usb-ico{background:var(--warn-tint);color:var(--warn)}
+.usb-t{flex:1;min-width:0}
+.usb-t b{display:block;font-size:.92rem}
+.usb-t small{display:block;margin-top:1px;font-size:.8rem;color:var(--muted)}
+.usb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0 0}
+.usb-stats div{padding:8px 10px;border-radius:10px;background:var(--bg)}
+.usb-stats dt{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.usb-stats dd{margin:2px 0 0;font:700 1.05rem var(--num);font-variant-numeric:tabular-nums}
 .link-btn:focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:4px}
 
 /* ---------- stile v1.1: grafico circolare, riquadri e pillole (ritocca le regole sopra) ---------- */
@@ -770,7 +786,7 @@ footer{border-top:0;padding-top:0}
 [data-style] .set-foot{border-top-color:color-mix(in srgb,var(--lith) 25%,transparent)}
 /* forme: angoli vivi e smussati (Mecha, Terminale, Plancia), appena arrotondati (Hi-Tech), morbidi e luminosi (Cyber, Reattore) */
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) dialog{border-radius:0;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input,.loc-res button,.loc-cur,.temps span,.cell){border-radius:0}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input,.loc-res button,.loc-cur,.temps span,.cell,.usb-card,.usb-stats div){border-radius:0}
 [data-style="mecha"] .seg input:checked+span,[data-style="mecha"] .close{clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
 [data-style="mecha"] .close{background:var(--lith);color:#111;border:0;font-weight:700;padding:8px 18px}
 :is([data-mecha],[data-style="reattore"],[data-style="plancia"]) :is(.sheet-head h2,.sheet h3,.seg span,.close,.set-btn,.stats dt,.stats dd){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
@@ -1171,6 +1187,15 @@ footer{border-top:0;padding-top:0}
     <p class="set-note">La scheda salva carica, energia entrata e uscita e, se legge i regolatori, la produzione dei pannelli. Non cancella mai niente: a 30 minuti sono circa 300 KB l'anno.</p>
     <button class="set-btn" id="set-csv" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 19.5h16"/></svg>Esporta lo storico (CSV)</button>
 
+    <h3>Backup completo</h3>
+    <div class="ntfy-row">
+      <button class="set-btn" id="bk-out" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 19.5h16"/></svg>Esporta tutto</button>
+      <button class="set-btn" id="bk-in" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 19.5h16"/></svg>Importa</button>
+    </div>
+    <input type="file" id="bk-file" accept=".json,application/json" hidden>
+    <div id="bk-prev"></div>
+    <p class="set-note">Un solo file con impostazioni, registro, previsioni archiviate, cronologia degli allarmi, grafico delle 24 ore e quello che la app ha imparato. Ogni indirizzo ha la sua memoria: serve a passare a un altro telefono, o dalla versione di prova col cavo USB a quella servita dalla scheda.</p>
+
     <h3>Meteo per le previsioni</h3>
     <div id="set-loc"></div>
     <p class="set-note">Il meteo arriva da Open-Meteo, gratis e senza registrazione: riceve solo le coordinate arrotondate a circa 1 km.</p>
@@ -1187,6 +1212,10 @@ footer{border-top:0;padding-top:0}
     </fieldset>
     <p class="set-note">Pannelli rivolti a sud: serve a chiedere il sole sul loro piano. Ombre e piccoli errori li impara la app confrontando la produzione vera.</p>
     </div>
+
+    <h3>Cavo USB delle batterie</h3>
+    <div id="set-cab"></div>
+    <p class="set-note">Senza la scheda la app legge da sola il BMS col cavo USB–RS485 delle batterie (Chrome su Android con adattatore OTG, o su computer) e tiene il registro su questo dispositivo: impara consumi e abitudini anche prima degli Epever. Solo domande di lettura, una al secondo. Registra finché la app resta aperta: col cavo collegato lo schermo non si spegne.</p>
 
     <h3>Diagnosi</h3>
     <a class="set-btn" href="diagnosi.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg>Diagnosi BMS col cavo USB</a>
@@ -1211,7 +1240,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.17"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.18"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1365,7 +1394,7 @@ let openIdx = null, selCell = null, scrubI = null, scrubTimer = 0, hist = null;
 const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
 
 async function poll(){
-  if (busy || document.hidden) return;
+  if (busy || document.hidden || cable) return;
   if (DEMO_ONLY) { data = simulate(); render("demo"); return; }
   busy = true;
   try {
@@ -1421,18 +1450,22 @@ function render(m){
   // connessione
   $("conn").className = "conn " + mode;
   document.querySelector(".app").classList.toggle("stale", mode === "stale");
-  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "demo" ? "Demo" : "Connessione persa";
+  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "usb" ? (cable && !cable.real ? "Cavo simulato" : "Cavo USB") : mode === "demo" ? "Demo" : "Connessione persa";
   const n = $("notice");
-  if (mode === "demo") { n.hidden = false; n.className = "notice"; n.textContent = DEMO_ONLY
-    ? "Versione di prova: mostra sempre dati simulati. Quella collegata alle batterie si apre dall'indirizzo della scheda, in rete di casa."
-    : "Stai vedendo dati dimostrativi: la pagina non raggiunge ancora la scheda."; }
+  if (mode === "demo") {
+    const k = DEMO_ONLY ? "pages" : "demo";
+    if (n.dataset.k !== k + CAB_OK) { n.dataset.k = k + CAB_OK; n.className = "notice";
+      n.innerHTML = (DEMO_ONLY ? "Versione di prova: senza la scheda mostra dati simulati. Quella collegata alle batterie si apre dall'indirizzo della scheda, in rete di casa."
+        : "Stai vedendo dati dimostrativi: la pagina non raggiunge ancora la scheda.") +
+        (CAB_OK ? ` Oppure collega al telefono il cavo USB delle batterie.<button class="set-btn" id="notice-cab" type="button">${ico(CAB_ICON)}Collega il cavo</button>` : ""); }
+    n.hidden = false; }
   else if (mode === "stale") {
     const min = Math.round((Date.now() - lastOk) / 60000);
-    n.hidden = false; n.className = "notice lost";
+    n.hidden = false; n.className = "notice lost"; n.dataset.k = "";
     const ago = min < 1 ? "" : min < 60 ? ` da ${min} min` : ` da ${dur(min / 60)}`;
-    n.textContent = `La scheda non risponde${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
+    n.textContent = `${cable ? "Il BMS non risponde dal cavo" : "La scheda non risponde"}${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
   }
-  else n.hidden = true;
+  else { n.hidden = true; n.dataset.k = ""; }
 
   // hero
   countTo($("soc"), !k.on || !fin(k.soc) ? null : introPhase ? 100 : k.soc); // autotest: prima 100, poi il valore
@@ -1687,11 +1720,18 @@ const db = (() => {
 })();
 const validRow = r => Array.isArray(r) && r.length >= 5 && fin(r[0]) && fin(r[1]) && r[1] > 0 && fin(r[3]) && fin(r[4]);
 
+// il registro salvato sul telefono (righe della scheda, del cavo USB o di un backup), in ordine e senza sovrapposizioni
+async function realLog(){
+  if (logSrc === "live") return;
+  const rows = ((await db.all()) || []).filter(validRow).sort((a, b) => a[0] - b[0]);
+  LOG = []; rows.forEach(r => { const p = LOG[LOG.length - 1]; if (!p || r[0] >= p[0] + p[1] * 60 - 60) LOG.push(r); });
+  logSrc = "live"; await loadArchive();
+}
 // scarica solo le righe che mancano al telefono
 async function syncLog(){
   if (Date.now() - lastLogSync < 5 * 60e3 && logSrc === "live") return;
   lastLogSync = Date.now();
-  if (logSrc !== "live") { LOG = ((await db.all()) || []).filter(validRow); logSrc = "live"; await loadArchive(); }
+  await realLog();
   let from = LOG.length ? LOG[LOG.length - 1][0] + 1 : 0;
   const added = [];
   try {
@@ -2474,7 +2514,7 @@ function fillNtfy(){
       `<p class="set-note">Prima installa sul telefono l'app gratuita ntfy. Qui si crea un canale privato con un nome casuale: chi non lo conosce non può leggerlo.</p>`;
 }
 function scheduleOnClose(){
-  if (!S.ntfy || mode !== "live" || !fc || !data) return;
+  if (!S.ntfy || !isReal() || !fc || !data) return;
   const now = Date.now() / 1000, sched = readSched();
   Object.keys(sched).forEach(q => { if (sched[q] < now - 2 * DAY) delete sched[q]; });
   myAlarms(data.batteries || [], bank(data.batteries || []), fc).filter(a => a.sev === "fc" || a.sev === "tip").forEach(a => {
@@ -2522,7 +2562,7 @@ const ALH_KEY = "mybattery.alh.v1", alKey = a => a.id || a.sev + (a.i ?? "") + a
 let alh = (() => { try { const o = JSON.parse(localStorage.getItem(ALH_KEY) || "{}"); return Array.isArray(o.ev) ? o : { seen: 0, ev: [] }; } catch (e) { return { seen: 0, ev: [] }; } })();
 const saveAlh = () => { try { localStorage.setItem(ALH_KEY, JSON.stringify(alh)); } catch (e) {} };
 function recordAl(items){
-  if (mode !== "live") return;
+  if (!isReal() || mode === "stale") return;
   const now = Math.round(Date.now() / 1000), gone = now - alh.seen > 600 ? alh.seen : now, cur = new Map();
   items.filter(a => a.sev === "prot" || a.sev === "alarm" || a.sev === "mute").forEach(a => cur.set(alKey(a), a));
   let ch = false;
@@ -2532,7 +2572,7 @@ function recordAl(items){
   alh.seen = now;
   if (ch) saveAlh();
 }
-document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "live") saveAlh(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && isReal()) saveAlh(); });
 function demoAlh(){
   const d0 = Math.floor(Date.now() / 1000 / 900) * 900;
   return [["alarm", "Celle sbilanciate di 92 mV", "Batteria 3", 3.2, 50], ["mute", "Regolatore non raggiungibile", "Pollaio", 9.6, 6],
@@ -2560,7 +2600,7 @@ function drawAlHist(){
     if (soc < thr) { mins += m; if (!under) { n++; under = true; } } else if (soc >= thr + 2) under = false;
   });
   if (!rows.length) {
-    read.innerHTML = logSrc === "live" ? "Lo storico parte appena la scheda salva le prime righe del registro." : "In attesa dello storico.";
+    read.innerHTML = logSrc === "live" ? (cable ? `Lo storico parte con la prima riga del registro, tra ${S.log} minuti col cavo collegato.` : "Lo storico parte appena la scheda salva le prime righe del registro.") : "In attesa dello storico.";
     svg.innerHTML = "";
   } else {
     const ore = mins / 60, oreTxt = ore < 1 ? `${Math.round(mins)} minuti` : `${nf(ore, ore < 10 ? 1 : 0)} ore`;
@@ -2673,14 +2713,16 @@ function drawHabits(){
   if (!model || model.span < 7 || !fin(model.base)) {
     const days = model ? Math.max(0, Math.floor(model.span)) : 0;
     read.innerHTML = logSrc === "live" && !LOG.length
-      ? "La scheda non ha ancora un registro: lo storico parte appena il firmware salva la prima riga."
+      ? (cable ? `Il registro parte adesso: la prima riga arriva entro ${S.log} minuti, finché il cavo resta collegato e la app aperta.` : "La scheda non ha ancora un registro: lo storico parte appena il firmware salva la prima riga.")
       : `Sto imparando le tue abitudini: <b>${days} ${days === 1 ? "giorno" : "giorni"}</b> su 7.`;
     svg.innerHTML = `<rect x="0" y="54" width="340" height="8" rx="4" fill="var(--line)"/><rect x="0" y="54" width="${(Math.min(1, days / 7) * 340).toFixed(1)}" height="8" rx="4" fill="var(--lith)"/>`;
     svg.setAttribute("viewBox", "0 0 340 116");
     list.innerHTML = ""; note.textContent = "";
     return;
   }
-  read.innerHTML = `In media <b>${nf(model.dailyKwh, 1)} kWh</b> al giorno, con un consumo di fondo di <b>${power(model.base)}</b>.`;
+  const night = model.H.filter(o => o.load !== null && o.t >= model.last - 14 * DAY).map(o => o.load); // senza regolatori: solo col sole giù
+  read.innerHTML = fin(model.dailyKwh) ? `In media <b>${nf(model.dailyKwh, 1)} kWh</b> al giorno, con un consumo di fondo di <b>${power(model.base)}</b>.`
+    : `Di notte consumi in media <b>${power(night.reduce((x, y) => x + y, 0) / Math.max(1, night.length))}</b>, con un consumo di fondo di <b>${power(model.base)}</b>.`;
 
   // mappa: righe da lunedì a domenica, colonne le 24 ore, più intensa dove si consuma di più
   const order = [1, 2, 3, 4, 5, 6, 0], L = 20, cw = (340 - L) / 24, ch = 13, gap = 2;
@@ -2995,6 +3037,429 @@ $("tabs").addEventListener("keydown", e => {
 addEventListener("resize", () => pagesEl.scrollTo({ left: pageIdx * pagesEl.clientWidth }));
 { let p0 = 0; try { p0 = +localStorage.getItem("mybattery.page") || 0; } catch (e) {} requestAnimationFrame(() => goPage(p0, false)); }
 
+/* ---------- cavo USB–RS485 delle batterie: la app legge da sola il BMS, senza la scheda, e tiene il registro sul telefono ---------- */
+// Stesso protocollo di diagnosi.html e tools/frame.py (docs/protocollo.md). Whitelist: solo 42H (dati) e 4FH (versione).
+const BMS_READ = new Set(["42", "4F"]), BMS_ADRS = [0, 1, 2, 3, 4];
+const CAB_KEY = "mybattery.cable.v1", UHIST_KEY = "mybattery.usbhist.v1", UACC_KEY = "mybattery.usbacc.v1";
+const SIM_REC = location.hash === "#simrec"; // solo per le prove: il cavo simulato scrive nel registro vero
+const CAB_OK = window.isSecureContext && ("serial" in navigator || "usb" in navigator);
+const pause = ms => new Promise(r => setTimeout(r, ms));
+const hx = (n, w = 4) => (n >>> 0).toString(16).toUpperCase().padStart(w, "0").slice(-w);
+const lchk = n => (-(((n >> 8) & 15) + ((n >> 4) & 15) + (n & 15))) & 15;
+const chk = s => hx((-[...s].reduce((a, c) => a + c.charCodeAt(0), 0)) & 0xFFFF);
+function bmsFrame(cid2, adr, info = ""){
+  if (!BMS_READ.has(cid2)) throw new Error("comando " + cid2 + "H non ammesso");
+  const body = "22" + hx(adr, 2) + "4A" + cid2 + hx((lchk(info.length) << 12) | info.length) + info;
+  return "~" + body + chk(body);
+}
+function bmsSplit(line){ // null se il pacchetto non torna (checksum, lunghezza)
+  const s = line.slice(1);
+  if (s.length < 16 || !/^[0-9A-Fa-f]+$/.test(s)) return null;
+  const body = s.slice(0, -4); if (chk(body) !== s.slice(-4).toUpperCase()) return null;
+  const len = parseInt(body.slice(8, 12), 16), n = len & 0xFFF, info = body.slice(12);
+  if (len >> 12 !== lchk(n) || info.length !== n) return null;
+  const b = new Uint8Array(n / 2); for (let i = 0; i < b.length; i++) b[i] = parseInt(info.substr(i * 2, 2), 16);
+  return { adr: parseInt(body.slice(2, 4), 16), rtn: parseInt(body.slice(6, 8), 16), info: b };
+}
+// blocco del 42H, campo per campo come docs/protocollo.md (verificato sulle 5 batterie: corrente in 0,01 A)
+const bmsTemp = raw => (raw & 0x8000 ? raw - 0x10000 : raw > 1500 ? raw - 2731 : raw) / 10; // 0,1 °C; Kelvin×10 su certi firmware
+function bmsBlock(b, at){
+  let i = at; const d = {};
+  const u8 = () => { if (i >= b.length) throw "eof"; return b[i++]; };
+  const u16 = () => { if (i + 2 > b.length) throw "eof"; const v = b[i] << 8 | b[i + 1]; i += 2; return v; };
+  try {
+    d.soc = u16() / 100; d.v = u16() / 100;
+    const m = u8(); d.cells = []; for (let k = 0; k < m; k++) d.cells.push(u16());
+    d.tAmb = bmsTemp(u16()); d.tPack = bmsTemp(u16()); d.tMos = bmsTemp(u16());
+    const n = u8(); d.tCells = []; for (let k = 0; k < n; k++) d.tCells.push(bmsTemp(u16()));
+    let iRaw = u16(); if (iRaw & 0x8000) iRaw -= 0x10000;
+    u16(); d.soh = u16(); const flag = u8(); d.i = iRaw / (flag & 1 ? 10 : 100);
+    d.full = u16() / 100; d.rem = u16() / 100; d.cycles = u16();
+    d.stV = u16(); d.stI = u16(); d.stT = u16(); d.stA = u16(); u16();
+    for (let k = 0; k < 4; k++) u16();
+    d.bal = u16();
+  } catch (e) { if (e !== "eof") throw e; }
+  return d;
+}
+function bmsDecode(info){ // con gruppo 01 manca il byte M, con FF c'è: provo le due forme
+  for (const at of [1, 2]) {
+    const d = bmsBlock(info, at);
+    if (d.cells && d.cells.length >= 4 && d.cells.length <= 32 && d.cells.every(x => x > 1500 && x < 4500) && fin(d.full)
+      && Math.abs(d.cells.reduce((a, x) => a + x, 0) / 1000 - d.v) < 3) return d;
+  }
+  return null;
+}
+const bitOn = (w, b) => fin(w) && (w >> b & 1) === 1;
+function bmsBattery(adr, d){
+  const prot = [], alarms = [], add = (a, c) => { if (!a.includes(c)) a.push(c); };
+  [[0, "CELL_OV"], [1, "CELL_UV"], [2, "PACK_OV"], [3, "PACK_UV"]].forEach(([b, c]) => bitOn(d.stV, b) && add(prot, c));
+  [[4, "CELL_HIGH"], [5, "CELL_LOW"], [8, "CELL_DIFF"]].forEach(([b, c]) => bitOn(d.stV, b) && add(alarms, c));
+  [[2, "CHG_OC"], [3, "SHORT"], [4, "DSG_OC"], [5, "DSG_OC"]].forEach(([b, c]) => bitOn(d.stI, b) && add(prot, c));
+  [[6, "CHG_OC"], [7, "DSG_OC"]].forEach(([b, c]) => bitOn(d.stI, b) && add(alarms, c));
+  // temperature: bit 0–7 protezioni, 8–15 allarmi; l'ordine carica alta/bassa, scarica alta/bassa è da verificare sul BMS vero
+  ["CHG_OT", "CHG_UT", "DSG_OT", "DSG_UT"].forEach((c, b) => { if (bitOn(d.stT, b)) add(prot, c); else if (bitOn(d.stT, b + 8)) add(alarms, c); });
+  if (bitOn(d.stA, 7)) add(alarms, "LOW_SOC");
+  if (bitOn(d.stA, 8)) add(alarms, "MOS_OT");
+  if ([11, 12, 13, 14, 15].some(b => bitOn(d.stA, b))) add(prot, "FAULT");
+  return { addr: adr, name: adr === 0 ? "Master" : "Batteria " + (adr + 1), online: true,
+    soc: d.soc, soh: d.soh, v: d.v, i: +d.i.toFixed(2), rem_ah: d.rem, full_ah: d.full, cycles: d.cycles,
+    cells: d.cells, bal: d.cells.map((_, j) => bitOn(d.bal, j) ? 1 : 0), t_cells: d.tCells, t_mos: d.tMos, t_env: d.tAmb, alarms, prot };
+}
+
+/* driver: Web Serial (Chrome su computer) o WebUSB (Chrome su Android, il driver del chip lo facciamo noi), come diagnosi.html */
+const CHIPS = { "1a86": ["WCH CH340", "ch34x"], "10c4": ["Silicon Labs CP210x", "cp210x"], "0403": ["FTDI", "ftdi"], "067b": ["Prolific PL2303", "pl2303"] };
+async function serialLink(port, onData, onLost){
+  await port.open({ baudRate: 9600, dataBits: 8, parity: "none", stopBits: 1 });
+  const inf = port.getInfo ? port.getInfo() : {}, vid = inf.usbVendorId != null ? hx(inf.usbVendorId).toLowerCase() : "";
+  let rd = null, alive = true;
+  (async () => {
+    while (alive && port.readable) {
+      rd = port.readable.getReader();
+      try { for (;;) { const { value, done } = await rd.read(); if (done) break; if (value) onData(value); } }
+      catch (e) { if (alive) { alive = false; onLost("lettura interrotta"); } }
+      finally { rd.releaseLock(); }
+    }
+    if (alive) { alive = false; onLost("cavo scollegato"); }
+  })();
+  return { chip: CHIPS[vid] ? CHIPS[vid][0] : "porta seriale", api: "Web Serial", port,
+    async write(b){ const w = port.writable.getWriter(); try { await w.write(b); } finally { w.releaseLock(); } },
+    async close(){ alive = false; try { await rd?.cancel(); } catch (e) {} try { await port.close(); } catch (e) {} } };
+}
+async function usbLink(dev, onData, onLost){
+  await dev.open();
+  if (dev.configuration === null) await dev.selectConfiguration(1);
+  const vid = hx(dev.vendorId).toLowerCase(), ifs = dev.configuration.interfaces;
+  const alt = i => i.alternate || i.alternates[0], bulk = (i, dir) => alt(i).endpoints.find(e => e.type === "bulk" && e.direction === dir);
+  let kind = CHIPS[vid] ? CHIPS[vid][1] : ifs.some(i => alt(i).interfaceClass === 0x0A) ? "cdc" : null;
+  if (!kind) throw new Error(`chip USB ${hx(dev.vendorId).toLowerCase()}:${hx(dev.productId).toLowerCase()} non riconosciuto`);
+  const dat = kind === "cdc" ? ifs.find(i => alt(i).interfaceClass === 0x0A) : ifs.find(i => bulk(i, "in") && bulk(i, "out"));
+  const ctl = kind === "cdc" ? ifs.find(i => alt(i).interfaceClass === 0x02) || dat : dat;
+  for (const i of new Set([ctl, dat])) await dev.claimInterface(i.interfaceNumber);
+  const epIn = bulk(dat, "in"), epOut = bulk(dat, "out");
+  const out = (o, buf) => dev.controlTransferOut(o, buf).then(r => { if (r.status !== "ok") throw new Error("il chip rifiuta la configurazione"); });
+  const vin = (o, len) => dev.controlTransferIn(o, len);
+  const coding = () => { const b = new DataView(new ArrayBuffer(7)); b.setUint32(0, 9600, true); b.setUint8(6, 8); return b.buffer; };
+  if (kind === "ch34x") {
+    const w = (request, value, index) => out({ requestType: "vendor", recipient: "device", request, value, index });
+    let f = Math.floor(1532620800 / 9600), dv = 3;
+    while (f > 0xFFF0 && dv > 0) { f >>= 3; dv--; }
+    f = 0x10000 - f;
+    const baud = async () => { await w(0x9A, 0x1312, (f & 0xFF00) | dv | 0x80); await w(0x9A, 0x0F2C, f & 0xFF); };
+    await w(0xA1, 0, 0); await baud(); await w(0x9A, 0x2518, 0xC3); await w(0xA1, 0x501F, 0xD90A); await baud();
+    await w(0xA4, ~0x60 & 0xFFFF, 0);
+  } else if (kind === "cp210x") {
+    const n = ctl.interfaceNumber, w = (request, value, buf) => out({ requestType: "vendor", recipient: "interface", request, value, index: n }, buf);
+    const b = new DataView(new ArrayBuffer(4)); b.setUint32(0, 9600, true);
+    await w(0x00, 1); await w(0x1E, 0, b.buffer); await w(0x03, 0x0800); await w(0x07, 0x0303);
+  } else if (kind === "ftdi") {
+    const w = (request, value, index) => out({ requestType: "vendor", recipient: "device", request, value, index });
+    await w(0x00, 0, 1); await w(0x03, 0x4138, 0); await w(0x04, 0x0008, 1); await w(0x01, 0x0303, 1);
+  } else if (kind === "pl2303") {
+    const r1 = v => vin({ requestType: "vendor", recipient: "device", request: 1, value: v, index: 0 }, 1);
+    const w1 = (v, i) => out({ requestType: "vendor", recipient: "device", request: 1, value: v, index: i });
+    await r1(0x8484); await w1(0x0404, 0); await r1(0x8484); await r1(0x8383);
+    await r1(0x8484); await w1(0x0404, 1); await r1(0x8484); await r1(0x8383);
+    await w1(0, 1); await w1(1, 0); await w1(2, 0x44);
+    await out({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: 0 }, coding());
+    await out({ requestType: "class", recipient: "interface", request: 0x22, value: 3, index: 0 });
+  } else {
+    const n = ctl.interfaceNumber;
+    await out({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: n }, coding());
+    await out({ requestType: "class", recipient: "interface", request: 0x22, value: 3, index: n });
+  }
+  let alive = true; const pkt = epIn.packetSize || 64;
+  (async () => {
+    while (alive) {
+      try {
+        const r = await dev.transferIn(epIn.endpointNumber, pkt * 4);
+        if (!r.data || !r.data.byteLength) continue;
+        let b = new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
+        if (kind === "ftdi") { const p = []; for (let o = 0; o < b.length; o += pkt) p.push(...b.slice(o + 2, o + pkt)); b = new Uint8Array(p); } // 2 byte di stato per pacchetto
+        if (b.length) onData(b);
+      } catch (e) { if (alive) { alive = false; onLost("cavo scollegato"); } return; }
+    }
+  })();
+  return { chip: CHIPS[vid] ? CHIPS[vid][0] : "USB seriale standard", api: "WebUSB", dev,
+    write: b => dev.transferOut(epOut.endpointNumber, b),
+    async close(){ alive = false; try { await dev.close(); } catch (e) {} } };
+}
+// cavo simulato: un BMS finto per indirizzo che risponde al 42H con i dati del simulatore della demo, a pezzi e con l'eco come i cavi veri
+function simLink(onData){
+  const enc = s => new TextEncoder().encode(s), w = v => hx(Math.round(v) & 0xFFFF), tc = c => w(c * 10);
+  const reply = (adr, info) => { const body = "22" + hx(adr, 2) + "4A00" + hx((lchk(info.length) << 12) | info.length) + info; return "~" + body + chk(body) + "\r"; };
+  const block = b => {
+    const bal = (b.bal || []).reduce((m, x, j) => m | (x ? 1 << j : 0), 0), stV = (b.alarms || []).includes("CELL_DIFF") ? 1 << 8 : 0;
+    return w(b.soc * 100) + w(b.v * 100) + hx(b.cells.length, 2) + b.cells.map(w).join("") + tc(b.t_env) + tc(b.t_cells[0]) + tc(b.t_mos)
+      + hx(b.t_cells.length, 2) + b.t_cells.map(tc).join("") + w(b.i * 100) + w(0) + w(b.soh) + "00" + w(b.full_ah * 100) + w(b.rem_ah * 100)
+      + w(b.cycles) + w(stV) + w(b.i > 0 ? 1 : 2) + w(0) + w(0) + w(3) + w(0).repeat(4) + w(bal) + w(0) + w(0).repeat(4) + "00" + w(0);
+  };
+  let open = true, st = null, stAt = 0;
+  return { chip: "BMS simulato", api: "simulazione",
+    async write(bytes){
+      const s = new TextDecoder().decode(bytes).trim(), adr = parseInt(s.slice(3, 5), 16), cid = s.slice(7, 9);
+      setTimeout(() => open && onData(enc(s + "\r")), 30);
+      if (Date.now() - stAt > 900) { st = simulate(); stAt = Date.now(); }
+      const b = st.batteries.find(x => x.addr === adr);
+      if (!b) return;
+      const out = enc(cid === "42" ? reply(adr, "01" + block(b)) : reply(adr, ""));
+      setTimeout(() => { if (open) for (let o = 0; o < out.length; o += 64) onData(out.slice(o, o + 64)); }, 160);
+    },
+    async close(){ open = false; } };
+}
+
+/* sessione: una domanda al secondo, giro sulle 5 batterie, poi registro e disegno */
+let cable = null, cabErr = "", wakeLock = null;
+const isReal = () => mode === "live" || (mode === "usb" && cable && cable.real) || (mode === "stale" && (!cable || cable.real));
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+function cabRx(c, bytes){
+  c.rx += new TextDecoder("latin1").decode(bytes);
+  for (;;) {
+    const cr = c.rx.indexOf("\r");
+    if (cr < 0) { if (c.rx.length > 4000) c.rx = c.rx.slice(-2000); return; }
+    let line = c.rx.slice(0, cr); c.rx = c.rx.slice(cr + 1);
+    const s = line.search(/[~>]/); if (s < 0) continue;
+    line = line.slice(s).trim();
+    if (line === c.sent) continue; // eco del cavo
+    if (c.waiter) { const w = c.waiter; c.waiter = null; w(line); }
+  }
+}
+async function cabAsk(c, cid, adr, info){
+  const wait = 1000 - (Date.now() - c.lastAt); if (wait > 0) await pause(wait);
+  if (cable !== c) return null;
+  const frame = bmsFrame(cid, adr, info);
+  c.sent = frame; c.lastAt = Date.now(); c.rx = "";
+  const got = new Promise(res => { c.waiter = res; setTimeout(() => { if (c.waiter === res) { c.waiter = null; res(null); } }, 1500); });
+  await c.link.write(new TextEncoder().encode(frame + "\r"));
+  const line = await got;
+  return line ? bmsSplit(line) : null;
+}
+async function cabLoop(c){
+  while (cable === c) {
+    const t0 = Date.now();
+    for (const adr of BMS_ADRS) {
+      let r;
+      try { r = await cabAsk(c, "42", adr, "01"); } catch (e) { return cabLost(c, "scrittura sul cavo non riuscita"); }
+      if (cable !== c) return;
+      const d = r && r.rtn === 0 && r.adr === adr ? bmsDecode(r.info) : null;
+      if (d) { c.bs[adr] = bmsBattery(adr, d); c.miss[adr] = 0; c.lastOk = Date.now(); }
+      else if (c.bs[adr] && ++c.miss[adr] >= 3) c.bs[adr].online = false; // tre giri senza risposta: non raggiungibile
+    }
+    cabSweep(c);
+    const rest = S.poll * 1000 - (Date.now() - t0); if (rest > 0) await pause(rest);
+  }
+}
+function cabSweep(c){
+  const now = Date.now() / 1000, bs = Object.values(c.bs).sort((a, b) => a.addr - b.addr);
+  c.sweeps++;
+  if (!bs.length) { cabErr = c.sweeps >= 2 ? "Il BMS non risponde: il cavo va nella porta RS485 della master (non CAN). Se l'hai fatto tu, prova a invertire A e B." : ""; fillCab(); return; }
+  cabErr = "";
+  const k = bank(bs);
+  cabHist(c, now, k);
+  if (c.real) cabLog(c, now, k);
+  data = { time: Math.round(now), log_min: S.log, batteries: bs.map(b => ({ ...b })), history: { step: 300, soc: [...c.hist.soc], p: [...c.hist.p] } };
+  lastOk = c.lastOk;
+  render(Date.now() - c.lastOk > 30e3 ? "stale" : "usb");
+  if ($("settings").open) fillCab();
+}
+// grafico delle 24 ore: un punto ogni 5 minuti, l'ultimo è adesso; i buchi restano vuoti
+function cabHist(c, now, k){
+  const H = c.hist, slot = Math.floor(now / 300) * 300;
+  if (!H.t || slot - H.t >= 288 * 300) { H.t = slot; H.soc = Array(288).fill(null); H.p = Array(288).fill(null); }
+  while (H.t < slot) { H.t += 300; H.soc.push(null); H.p.push(null); H.soc.shift(); H.p.shift(); }
+  H.soc[287] = fin(k.soc) ? +k.soc.toFixed(1) : null; H.p[287] = k.on ? Math.round(k.p) : null;
+  if (c.real && now - (c.histSaved || 0) > 60) { c.histSaved = now; lsSet(UHIST_KEY, H); }
+}
+// registro: una riga ogni S.log minuti con l'energia entrata e uscita; senza regolatori i pannelli restano null
+// Se la app si ferma (schermo spento, cavo staccato) la riga si chiude dove arrivano i dati: niente energia inventata nei buchi.
+function cabLog(c, now, k){
+  const ok = k.on > 0 && fin(k.p) && fin(k.soc), step = S.log * 60;
+  const add = (A, t, p) => { const wh = (A.p + p) / 2 * (t - A.last) / 3600; if (wh > 0) A.chg += wh; else A.dsg -= wh; A.last = t; A.p = p; };
+  const fresh = (t, p, soc) => ({ t, last: t, end: (Math.floor(t / step) + 1) * step, p, soc, chg: 0, dsg: 0 });
+  let A = c.acc;
+  if (A && (!ok || now - A.last > 120)) { cabRow(c, A); A = c.acc = null; }
+  if (!ok) { lsSet(UACC_KEY, null); return; }
+  if (!A) A = c.acc = fresh(now, k.p, k.soc);
+  else {
+    if (now >= A.end) { add(A, A.end, k.p); A.soc = k.soc; cabRow(c, A); A = c.acc = fresh(A.end, k.p, k.soc); }
+    add(A, now, k.p); A.soc = k.soc;
+  }
+  lsSet(UACC_KEY, A); // ricaricando la pagina la riga a metà non va persa
+}
+function cabRow(c, A){
+  const min = (A.last - A.t) / 60;
+  if (min < 5) return; // pezzi troppo corti: più rumore che dato
+  const row = [Math.round(A.t), Math.round(min), +A.soc.toFixed(1), Math.round(A.chg), Math.round(A.dsg), null];
+  if (LOG.length && row[0] < LOG[LOG.length - 1][0] + LOG[LOG.length - 1][1] * 60 - 60) return; // si sovrappone a righe già presenti
+  LOG.push(row); db.put([row]); c.rows++;
+  relearn();
+}
+async function cabOpen(kind, dev){
+  if (cable) await cabClose(true);
+  cabErr = "";
+  const c = { kind, real: kind !== "sim" || SIM_REC, rx: "", sent: "", waiter: null, lastAt: 0, bs: {}, miss: {}, lastOk: 0, sweeps: 0, rows: 0, since: Date.now() };
+  const lost = msg => cabLost(c, msg);
+  try {
+    c.link = kind === "sim" ? simLink(b => cabRx(c, b))
+      : kind === "serial" ? await serialLink(dev || await navigator.serial.requestPort(), b => cabRx(c, b), lost)
+      : await usbLink(dev || await navigator.usb.requestDevice({ filters: [] }), b => cabRx(c, b), lost);
+  } catch (e) {
+    cabErr = e.name === "NotFoundError" ? "" : "Il cavo non si è aperto: " + e.message;
+    fillCab(); return;
+  }
+  const H = c.real && lsGet(UHIST_KEY);
+  c.hist = H && Array.isArray(H.soc) && H.soc.length === 288 && Array.isArray(H.p) && H.p.length === 288 ? H : { t: 0, soc: [], p: [] };
+  cable = c; clearInterval(pollTimer); // da qui la demo e la scheda si fermano: comanda il cavo
+  if (c.real) {
+    lsSet(CAB_KEY, kind);
+    await realLog();
+    const A = lsGet(UACC_KEY); // riga lasciata a metà: se è di pochi minuti fa si continua, se no si chiude lì
+    if (A && fin(A.t) && fin(A.last) && fin(A.end) && S.log * 60 === A.end - Math.floor(A.t / (S.log * 60)) * (S.log * 60)) {
+      if (nowS() - A.last <= 120) c.acc = A; else cabRow(c, A);
+    }
+    lsSet(UACC_KEY, c.acc || null);
+  }
+  cabWake(); fillCab();
+  toast(kind === "sim" ? "Cavo simulato: dati di prova, il registro non si tocca" : `Cavo collegato: ${c.link.chip}`);
+  cabLoop(c);
+}
+async function cabClose(keep){
+  const c = cable; if (!c) return;
+  cable = null;
+  if (c.acc) { cabRow(c, c.acc); lsSet(UACC_KEY, null); }
+  if (c.real) lsSet(UHIST_KEY, c.hist);
+  if (!keep) lsSet(CAB_KEY, null);
+  try { await c.link.close(); } catch (e) {}
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  if (!keep) { lastOk = 0; schedule(); poll(); fillCab(); }
+}
+function cabLost(c, why){
+  if (cable !== c) return;
+  cabClose(true).then(() => { cabErr = "Cavo scollegato (" + why + "). Lo ricollego da solo appena lo rimetti."; lastOk = 0; schedule(); poll(); fillCab(); });
+}
+// rimesso il cavo (o riaperta la app) riparte da solo, se il browser se lo ricorda già autorizzato
+async function cabAuto(){
+  const kind = lsGet(CAB_KEY);
+  if (cable || !kind || !CAB_OK) return;
+  try {
+    if (kind === "serial" && navigator.serial) { const [p] = await navigator.serial.getPorts(); if (p) await cabOpen("serial", p); }
+    else if (kind === "usb" && navigator.usb) { const [d] = await navigator.usb.getDevices(); if (d) await cabOpen("usb", d); }
+  } catch (e) {}
+}
+// col cavo la app è la scheda: lo schermo resta acceso, se no il telefono la addormenta e il registro si ferma
+async function cabWake(){
+  if (!cable || document.hidden || wakeLock || !navigator.wakeLock) return;
+  try { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } catch (e) {}
+}
+document.addEventListener("visibilitychange", cabWake);
+if (CAB_OK) {
+  if (navigator.serial) navigator.serial.addEventListener("connect", cabAuto);
+  if (navigator.usb) {
+    navigator.usb.addEventListener("connect", cabAuto);
+    navigator.usb.addEventListener("disconnect", e => { if (cable && cable.link.dev === e.device) cabLost(cable, "cavo scollegato"); });
+  }
+}
+const CAB_ICON = '<path d="M9 2.5v4M15 2.5v4M7 6.5h10v4a5 5 0 0 1-10 0v-4zM12 15.5v3a3 3 0 0 0 3 3h2"/>';
+function fillCab(){
+  const el = $("set-cab"); if (!el) return;
+  const c = cable, days = LOG.length && logSrc === "live" ? (LOG[LOG.length - 1][0] - LOG[0][0]) / DAY : 0;
+  let html;
+  if (c) {
+    const bs = Object.values(c.bs), on = bs.filter(b => b.online).length, last = c.lastOk ? new Date(c.lastOk).toLocaleTimeString("it-IT") : "–";
+    const next = c.acc ? hm(c.acc.end) : "–";
+    html = `<div class="usb-card on"><span class="usb-ico">${ico(CAB_ICON)}</span><span class="usb-t"><b>${esc(c.link.chip)}</b>` +
+      `<small>${c.lastOk ? `${on} ${on === 1 ? "batteria" : "batterie"} · ultima lettura ${last}` : "Chiedo i dati al BMS…"} · ${esc(c.link.api)}</small></span></div>` +
+      (c.real ? `<dl class="usb-stats"><div><dt>Nuove righe</dt><dd>${c.rows}</dd></div><div><dt>Registro</dt><dd>${days >= 1 ? nf(days, 0) + " gg" : LOG.length + " righe"}</dd></div>` +
+        `<div><dt>Prossima</dt><dd>${next}</dd></div></dl>` : `<p class="set-note">Simulazione: si vede tutto come col cavo vero, ma il registro e la cronologia restano intatti.</p>`) +
+      `<div class="ntfy-row"><button class="set-btn" id="cab-off" type="button">Scollega</button></div>`;
+  } else if (!CAB_OK) {
+    html = `<div class="usb-card"><span class="usb-ico">${ico(CAB_ICON)}</span><span class="usb-t"><b>Qui l'USB non si può usare</b>` +
+      `<small>${window.isSecureContext ? "Serve Chrome su Android (con adattatore OTG) o su computer." : "Serve la pagina in HTTPS: aprila dall'indirizzo GitHub Pages."}</small></span></div>` +
+      `<div class="ntfy-row"><button class="set-btn" id="cab-sim" type="button">Prova senza cavo</button></div>`;
+  } else {
+    const was = lsGet(CAB_KEY);
+    html = `<div class="usb-card${cabErr ? " err" : ""}"><span class="usb-ico">${ico(cabErr ? AL_ICON.alarm : CAB_ICON)}</span><span class="usb-t"><b>${cabErr ? "Cavo non collegato" : "Nessun cavo collegato"}</b>` +
+      `<small>${esc(cabErr || (was ? "Lo ricollego da solo appena lo rimetti, oppure tocca qui sotto." : "Il cavo va nella porta RS485 libera della master."))}</small></span></div>` +
+      `<div class="ntfy-row"><button class="set-btn" id="cab-on" type="button">${ico(CAB_ICON)}Collega il cavo</button>` +
+      `<button class="set-btn" id="cab-sim" type="button">Prova senza cavo</button>` +
+      ("serial" in navigator && "usb" in navigator ? `<button class="link-btn plain" id="cab-usb" type="button">Non lo trova? Usa WebUSB</button>` : "") + `</div>`;
+  }
+  el.innerHTML = html;
+}
+const cabStart = () => cabOpen("serial" in navigator ? "serial" : "usb");
+$("set-cab").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "cab-on") cabStart();
+  else if (b.id === "cab-usb") cabOpen("usb");
+  else if (b.id === "cab-sim") cabOpen("sim");
+  else if (b.id === "cab-off") cabClose(false);
+});
+$("notice").addEventListener("click", e => { if (e.target.closest("#notice-cab")) cabStart(); });
+
+/* ---------- backup completo: impostazioni, registro, previsioni archiviate, cronologia degli allarmi, quello che ha imparato ---------- */
+const BK_LS = [ALH_KEY, UHIST_KEY, "mybattery.page"]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
+const LEARN_SKIP = new Set(["H", "Hmap", "days", "socT", "socV", "lblocks"]); // si ricalcolano dal registro
+let bkPending = null;
+async function backupOut(){
+  const log = ((await db.all()) || []).filter(validRow).sort((a, b) => a[0] - b[0]);
+  const fcs = ((await db.all("fc")) || []).filter(r => r && fin(r.t0));
+  const storage = {}; BK_LS.forEach(k => { const v = lsGet(k); if (v !== null) storage[k] = v; });
+  const learned = logSrc === "live" && model ? JSON.parse(JSON.stringify(model, (k, v) => LEARN_SKIP.has(k) || v instanceof Map ? undefined : v)) : null;
+  const out = { app: "MyBattery", kind: "backup", format: 1, version: APP_VERSION, created: Math.round(nowS()), from: location.host || "file",
+    settings: S, storage, log, forecasts: fcs, learned };
+  const d = new Date(), p2 = n => String(n).padStart(2, "0");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: "application/json" }));
+  a.download = `mybattery-backup-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.json`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast(log.length ? `Backup salvato: ${log.length} righe di registro` : "Backup salvato: impostazioni (il registro è ancora vuoto)");
+}
+const dShort = t => new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
+function bkShow(err){
+  const el = $("bk-prev"), p = bkPending;
+  if (err) { el.innerHTML = `<div class="usb-card err"><span class="usb-ico">${ico(AL_ICON.alarm)}</span><span class="usb-t"><b>File non valido</b><small>${esc(err)}</small></span></div>`; return; }
+  if (!p) { el.innerHTML = ""; return; }
+  const j = p.j, al = j.storage && j.storage[ALH_KEY] && Array.isArray(j.storage[ALH_KEY].ev) ? j.storage[ALH_KEY].ev.length : 0;
+  const span = p.log.length ? `${dShort(p.log[0][0])} – ${dShort(p.log[p.log.length - 1][0])}` : "vuoto";
+  el.innerHTML = `<div class="usb-card on"><span class="usb-ico">${ico(AL_ICON.ok)}</span><span class="usb-t"><b>Backup del ${esc(fin(j.created) ? new Date(j.created * 1000).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" }) : "?")}</b>` +
+    `<small>da ${esc(String(j.from || "?"))} · versione ${esc(String(j.version || "?"))}</small></span></div>` +
+    `<dl class="usb-stats"><div><dt>Registro</dt><dd>${p.log.length}</dd></div><div><dt>Previsioni</dt><dd>${p.fcs.length}</dd></div><div><dt>Allarmi</dt><dd>${al}</dd></div></dl>` +
+    `<p class="set-note">Registro: ${esc(span)}. Le impostazioni di questo telefono vengono sostituite; registro, previsioni e allarmi si uniscono a quelli che ci sono già. Quello che la app ha imparato si ricalcola dal registro.</p>` +
+    `<div class="ntfy-row"><button class="set-btn" id="bk-go" type="button">Importa e riavvia</button><button class="link-btn plain" id="bk-no" type="button">Annulla</button></div>`;
+}
+async function backupIn(file){
+  let j;
+  try { j = JSON.parse(await file.text()); } catch (e) { bkPending = null; return bkShow("Non è un file JSON."); }
+  if (!j || j.app !== "MyBattery" || j.kind !== "backup") { bkPending = null; return bkShow("Non è un backup di MyBattery."); }
+  bkPending = { j, log: (Array.isArray(j.log) ? j.log : []).filter(validRow).sort((a, b) => a[0] - b[0]),
+    fcs: (Array.isArray(j.forecasts) ? j.forecasts : []).filter(r => r && fin(r.t0) && Array.isArray(r.s)) };
+  bkShow();
+}
+async function backupApply(){
+  const p = bkPending; if (!p) return;
+  if (cable) await cabClose(false);
+  if (p.log.length) await db.put(p.log);
+  if (p.fcs.length) await db.put(p.fcs, "fc", r => r.t0);
+  if (p.j.settings && typeof p.j.settings === "object") lsSet(SKEY, p.j.settings); // loadSettings la ricontrolla al riavvio
+  const st = p.j.storage || {}, A = st[ALH_KEY];
+  if (A && Array.isArray(A.ev)) { // cronologia degli allarmi: unione, senza doppioni
+    const seen = new Set(alh.ev.map(e => e.k + "@" + e.s));
+    A.ev.filter(e => e && typeof e.k === "string" && fin(e.s) && !seen.has(e.k + "@" + e.s)).forEach(e => alh.ev.push(e));
+    alh.ev.sort((a, b) => a.s - b.s); alh.ev = alh.ev.slice(-300); saveAlh();
+  }
+  const H = st[UHIST_KEY], mine = lsGet(UHIST_KEY);
+  if (H && Array.isArray(H.soc) && H.soc.length === 288 && (!mine || H.t > mine.t)) lsSet(UHIST_KEY, H);
+  location.reload();
+}
+$("bk-out").addEventListener("click", backupOut);
+$("bk-in").addEventListener("click", () => $("bk-file").click());
+$("bk-file").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; if (f) backupIn(f); });
+$("bk-prev").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "bk-go") backupApply();
+  if (b.id === "bk-no") { bkPending = null; bkShow(); }
+});
+
 /* ---------- simulatore per la modalità demo ---------- */
 let sim = null;
 // i tre gruppi dell'impianto (docs: Tettoia 12 × 500 W, Pollaio 12 × 490 W, Pannellini 16 × 120 W)
@@ -3185,7 +3650,7 @@ $("set-csv").addEventListener("click", () => {
 });
 
 $("open-set").addEventListener("click", () => {
-  fillSettings(); fillLoc();
+  fillSettings(); fillLoc(); fillCab(); bkShow();
   $("set-csv").disabled = !LOG.length;
   const d = $("settings"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
   d.querySelector(".sheet").scrollTop = 0;
@@ -3268,6 +3733,7 @@ if (updatedFrom && updatedFrom !== APP_VERSION) toast(`MyBattery aggiornata alla
 applyTheme();
 poll();
 schedule();
+cabAuto();
 loadWx();
 setInterval(() => loadWx(), 3600e3);
 })();
