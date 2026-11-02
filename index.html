@@ -875,10 +875,16 @@ footer{border-top:0;padding-top:0}
 .eta:empty{display:none}
 /* tensione del banco: scala LiFePO4 16S da 44,8 V (2,80 V a cella, il BMS stacca) a 58,4 V (3,65 V, pieno) */
 .volt:not(:empty)+.eta{margin-top:8px}
-.volt .eta-ico{background:var(--lith-tint);color:var(--lith)}
-.volt.warn .eta-ico{background:var(--warn-tint);color:var(--warn)}
-.volt-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.volt-h b{font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.volt{padding:14px 14px 10px}
+.volt .volt-h{margin:6px 0 4px}
+.volt .eta-txt>small{text-align:center}
+.volt-h{display:flex;align-items:baseline;justify-content:center;gap:8px}
+.volt .volt-h b{margin:0;font-size:2.1rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.volt.warn .volt-h b,.volt.warn .volt-h b u{color:var(--warn)}
+/* sotto i 48 V rosso, come la zona bassa della barra (in Mecha --warn è giallo e non si distingue) */
+.volt.low .volt-h b,.volt.low .volt-h b u{color:var(--alert)}
+.volt.low .volt-bar i{background:linear-gradient(90deg,color-mix(in srgb,var(--alert) 35%,transparent),var(--alert))}
+.volt.low .volt-bar em{border-color:var(--alert);box-shadow:0 0 10px -1px var(--alert)}
 .volt-h b u{text-decoration:none;font-size:.72em;font-weight:500;color:var(--muted);margin-left:2px}
 .volt-bar{position:relative;height:6px;margin:8px 0 2px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent)}
 .volt-bar .lo{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;background:color-mix(in srgb,var(--alert) 45%,transparent)}
@@ -1290,7 +1296,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.23"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.24"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1581,16 +1587,15 @@ async function poll(){
 function tHot(b){ const t = (b.t_cells || []).filter(fin); return t.length ? Math.max(...t) : fin(b.t_mos) ? b.t_mos : NaN; }
 // tensione del banco (le batterie sono in parallelo: è la stessa per tutte, faccio la media) su una scala da vuoto a pieno
 const V_LO = 44.8, V_HI = 58.4, V_WARN = 48, V_BOOST = 56; // 2,80 · 3,65 · 3,00 · 3,50 V a cella
-const BOLT = '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/>';
 function drawVolt(k){
   const el = $("volt");
   if (!k.on || !fin(k.v) || k.v < 30) { el.innerHTML = ""; el.removeAttribute("aria-label"); return; }
   const v = k.v, x = u => (clamp((u - V_LO) / (V_HI - V_LO), 0, 1) * 100).toFixed(1) + "%";
-  const warn = v < V_WARN || v > 57.6;
-  el.classList.toggle("warn", warn);
+  el.classList.toggle("low", v < V_WARN);
+  el.classList.toggle("warn", v > 57.6);
   el.setAttribute("aria-label", `Tensione del banco ${nf(v, 2)} volt`);
   const tag = v < V_WARN ? "quasi vuoto" : v >= V_BOOST - .05 ? "in boost" : k.i > .5 ? "in carica" : k.i < -.5 ? "in scarica" : "a riposo";
-  el.innerHTML = `<span class="eta-ico">${ico(BOLT)}</span><span class="eta-txt"><small>Tensione del banco · ${tag}</small>` +
+  el.innerHTML = `<span class="eta-txt"><small>Tensione del banco · ${tag}</small>` +
     `<span class="volt-h"><b>${nf(v, 2)}<u>V</u></b></span>` +
     `<span class="volt-bar"><span class="lo" style="width:${x(V_WARN)}"></span><span class="bo" style="left:${x(V_BOOST)}"></span><i style="width:${x(v)}"></i><em style="left:${x(v)}"></em></span>` +
     `<span class="volt-sc"><span style="left:0">${nf(V_LO, 1)}</span><span style="left:${x(V_WARN)}">48</span><span style="left:${x(52)}">52</span><span style="left:${x(V_BOOST)}">56</span><span style="left:100%">${nf(V_HI, 1)}</span></span></span>`;
