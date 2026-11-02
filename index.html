@@ -1296,7 +1296,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.24"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.25"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1562,7 +1562,7 @@ const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
 
 async function poll(){
   if (busy || document.hidden || cable) return;
-  if (DEMO_ONLY) { data = simulate(); render("demo"); return; }
+  if (DEMO_ONLY) { offline(); return; }
   busy = true;
   try {
     const ctrl = new AbortController();
@@ -1578,8 +1578,23 @@ async function poll(){
     syncLog();
   } catch (e) {
     if (everLive) render("stale");
-    else { data = simulate(); render("demo"); }
+    else offline();
   } finally { busy = false; }
+}
+// Né scheda né cavo: se il telefono ha già letto le batterie col cavo mostra l'ultima lettura e il registro vero, se no la demo
+let unplugged = 0; // ora (s) dell'ultima lettura del cavo, mentre la mostro
+function offline(){
+  const L = lsGet(ULAST_KEY);
+  if (!L || !fin(L.t) || !Array.isArray(L.batteries) || !L.batteries.length) { unplugged = 0; data = simulate(); render("demo"); return; }
+  const now = Math.round(nowS()), H = lsGet(UHIST_KEY), soc = Array(288).fill(null), p = Array(288).fill(null);
+  if (H && fin(H.t) && Array.isArray(H.soc) && Array.isArray(H.p)) { // il grafico delle 24 ore spostato ad adesso: dopo lo scollegamento resta vuoto
+    const sh = Math.round((Math.floor(now / 300) * 300 - H.t) / 300);
+    for (let i = 0; i < 288; i++) { const j = i + sh; if (j >= 0 && j < 288) { soc[i] = H.soc[j]; p[i] = H.p[j]; } }
+  }
+  data = { time: now, log_min: S.log, batteries: L.batteries, history: { step: 300, soc, p } };
+  unplugged = L.t; lastOk = L.t * 1000;
+  render("stale");
+  if (logSrc !== "live") realLog().then(relearn); // relearn ridisegna in "stale": la demo non rimette il suo registro
 }
 
 /* ---------- calcoli sul banco ---------- */
@@ -1632,7 +1647,7 @@ function render(m){
   // connessione
   $("conn").className = "conn " + mode;
   document.querySelector(".app").classList.toggle("stale", mode === "stale");
-  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "usb" ? (cable && !cable.real ? "Cavo simulato" : "Cavo USB") : mode === "demo" ? "Demo" : "Connessione persa";
+  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "usb" ? (cable && !cable.real ? "Cavo simulato" : "Cavo USB") : mode === "demo" ? "Demo" : !cable && unplugged ? "Cavo scollegato" : "Connessione persa";
   const n = $("notice");
   if (mode === "demo") {
     const k = DEMO_ONLY ? "pages" : "demo";
@@ -1645,7 +1660,11 @@ function render(m){
     const min = Math.round((Date.now() - lastOk) / 60000);
     n.hidden = false; n.className = "notice lost"; n.dataset.k = "";
     const ago = min < 1 ? "" : min < 60 ? ` da ${min} min` : ` da ${dur(min / 60)}`;
-    n.textContent = `${cable ? "Il BMS non risponde dal cavo" : "La scheda non risponde"}${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
+    if (!cable && unplugged) {
+      const t = new Date(unplugged * 1000), when = dkey(unplugged) === dkey(nowS()) ? "alle " + hm(unplugged) : t.toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(unplugged);
+      n.innerHTML = `Cavo scollegato${ago}: vedi l'ultima lettura delle batterie (${when}), il tuo registro e il grafico. I dati raccolti sono salvati nel telefono.` +
+        (CAB_OK ? `<button class="set-btn" id="notice-cab" type="button">${ico(CAB_ICON)}Ricollega il cavo</button>` : "");
+    } else n.textContent = `${cable ? "Il BMS non risponde dal cavo" : "La scheda non risponde"}${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
   }
   else { n.hidden = true; n.dataset.k = ""; }
 
@@ -3248,7 +3267,7 @@ addEventListener("resize", () => pagesEl.scrollTo({ left: pageIdx * pagesEl.clie
 /* ---------- cavo USB–RS485 delle batterie: la app legge da sola il BMS, senza la scheda, e tiene il registro sul telefono ---------- */
 // Stesso protocollo di diagnosi.html e tools/frame.py (docs/protocollo.md). Whitelist: solo 42H (dati) e 4FH (versione).
 const BMS_READ = new Set(["42", "4F"]), BMS_ADRS = [0, 1, 2, 3, 4];
-const CAB_KEY = "mybattery.cable.v1", UHIST_KEY = "mybattery.usbhist.v1", UACC_KEY = "mybattery.usbacc.v1";
+const CAB_KEY = "mybattery.cable.v1", UHIST_KEY = "mybattery.usbhist.v1", UACC_KEY = "mybattery.usbacc.v1", ULAST_KEY = "mybattery.usblast.v1";
 const SIM_REC = location.hash === "#simrec"; // solo per le prove: il cavo simulato scrive nel registro vero
 // Sul telefono WebUSB coi nostri driver (così ha funzionato la diagnosi col CH340); Web Serial solo sul computer
 const MOBILE = /Android|Mobi/i.test(navigator.userAgent) || !!(navigator.userAgentData && navigator.userAgentData.mobile);
@@ -3478,7 +3497,7 @@ function cabHist(c, now, k){
   if (!H.t || slot - H.t >= 288 * 300) { H.t = slot; H.soc = Array(288).fill(null); H.p = Array(288).fill(null); }
   while (H.t < slot) { H.t += 300; H.soc.push(null); H.p.push(null); H.soc.shift(); H.p.shift(); }
   H.soc[287] = fin(k.soc) ? +k.soc.toFixed(1) : null; H.p[287] = k.on ? Math.round(k.p) : null;
-  if (c.real && now - (c.histSaved || 0) > 60) { c.histSaved = now; lsSet(UHIST_KEY, H); }
+  if (c.real && now - (c.histSaved || 0) > 60) { c.histSaved = now; lsSet(UHIST_KEY, H); cabKeepLast(c); }
 }
 // registro: una riga ogni S.log minuti con l'energia entrata e uscita; senza regolatori i pannelli restano null
 // Se la app si ferma (schermo spento, cavo staccato) la riga si chiude dove arrivano i dati: niente energia inventata nei buchi.
@@ -3495,6 +3514,11 @@ function cabLog(c, now, k){
     add(A, now, k.p); A.soc = k.soc;
   }
   lsSet(UACC_KEY, A); // ricaricando la pagina la riga a metà non va persa
+}
+// l'ultima lettura vera del cavo: a cavo scollegato la app mostra questa (e il registro vero) invece della demo
+function cabKeepLast(c){
+  const bs = Object.values(c.bs).sort((a, b) => a.addr - b.addr);
+  if (c.real && c.lastOk && bs.some(b => b.online)) lsSet(ULAST_KEY, { t: Math.round(c.lastOk / 1000), batteries: bs });
 }
 function cabRow(c, A){
   const min = (A.last - A.t) / 60;
@@ -3541,7 +3565,7 @@ async function cabClose(keep){
   const c = cable; if (!c) return;
   cable = null;
   if (c.acc) { cabRow(c, c.acc); lsSet(UACC_KEY, null); }
-  if (c.real) lsSet(UHIST_KEY, c.hist);
+  if (c.real) { lsSet(UHIST_KEY, c.hist); cabKeepLast(c); }
   if (!keep) lsSet(CAB_KEY, null);
   try { await c.link.close(); } catch (e) {}
   if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
@@ -3612,7 +3636,7 @@ $("set-cab").addEventListener("click", e => {
 $("notice").addEventListener("click", e => { if (e.target.closest("#notice-cab")) cabStart(); });
 
 /* ---------- backup completo: impostazioni, registro, previsioni archiviate, cronologia degli allarmi, quello che ha imparato ---------- */
-const BK_LS = [ALH_KEY, UHIST_KEY, "mybattery.page", PVMAX_KEY, VCAL_KEY]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
+const BK_LS = [ALH_KEY, UHIST_KEY, ULAST_KEY, "mybattery.page", PVMAX_KEY, VCAL_KEY]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
 const LEARN_SKIP = new Set(["H", "Hmap", "days", "socT", "socV", "lblocks"]); // si ricalcolano dal registro
 let bkPending = null;
 async function backupOut(){
