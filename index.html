@@ -873,6 +873,26 @@ footer{border-top:0;padding-top:0}
 .eta{display:flex;align-items:center;gap:12px;margin:12px auto 0;max-width:340px;padding:9px 14px 9px 9px;border-radius:18px;
   background:color-mix(in srgb,var(--ink) 6%,transparent);text-align:left;color:var(--ink)}
 .eta:empty{display:none}
+/* tensione del banco: scala LiFePO4 16S da 44,8 V (2,80 V a cella, il BMS stacca) a 58,4 V (3,65 V, pieno) */
+.volt:not(:empty)+.eta{margin-top:8px}
+.volt .eta-ico{background:var(--lith-tint);color:var(--lith)}
+.volt.warn .eta-ico{background:var(--warn-tint);color:var(--warn)}
+.volt-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.volt-h b{font-variant-numeric:tabular-nums}
+.volt-h b u{text-decoration:none;font-size:.72em;font-weight:500;color:var(--muted);margin-left:2px}
+.volt-h span{font:600 .74rem var(--mono);color:var(--muted);white-space:nowrap}
+.volt-bar{position:relative;height:6px;margin:8px 0 2px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.volt-bar .lo{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;background:color-mix(in srgb,var(--alert) 45%,transparent)}
+.volt-bar .bo{position:absolute;top:0;bottom:0;right:0;border-radius:0 3px 3px 0;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--lith) 45%,transparent) 0 3px,transparent 3px 6px)}
+.volt-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 35%,transparent),var(--lith));transition:width .6s}
+.volt.warn .volt-bar i{background:linear-gradient(90deg,color-mix(in srgb,var(--warn) 35%,transparent),var(--warn))}
+.volt-bar em{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--surface,#111);border:2.5px solid var(--lith);box-shadow:0 0 10px -1px var(--lith);transition:left .6s}
+.volt.warn .volt-bar em{border-color:var(--warn);box-shadow:0 0 10px -1px var(--warn)}
+.volt-sc{position:relative;height:12px;font:500 .62rem var(--mono);color:var(--muted)}
+.volt-sc span{position:absolute;transform:translateX(-50%)}
+.volt-sc span:first-child{transform:none}.volt-sc span:last-child{transform:translateX(-100%)}
+:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.volt-bar,.volt-bar i,.volt-bar .lo,.volt-bar .bo){border-radius:0}
+:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) .volt-bar em{border-radius:0;transform:rotate(45deg)}
 .eta-ico{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--sun-tint);color:var(--sun)}
 .eta.dsg .eta-ico{background:var(--out-tint);color:var(--out)}
 .eta.warn .eta-ico{background:var(--warn-tint);color:var(--warn)}
@@ -1011,6 +1031,7 @@ footer{border-top:0;padding-top:0}
         <p class="g-sub" id="g-sub"></p>
       </div>
       <p class="state idle" id="state">In attesa dei dati</p>
+      <div class="eta volt" id="volt" role="img"></div>
       <div class="eta" id="eta"></div>
       </div>
       </section>
@@ -1270,7 +1291,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.21"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.22"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1559,6 +1580,22 @@ async function poll(){
 /* ---------- calcoli sul banco ---------- */
 // la cella più calda di una batteria (o l'elettronica, se il BMS non manda le celle)
 function tHot(b){ const t = (b.t_cells || []).filter(fin); return t.length ? Math.max(...t) : fin(b.t_mos) ? b.t_mos : NaN; }
+// tensione del banco (le batterie sono in parallelo: è la stessa per tutte, faccio la media) su una scala da vuoto a pieno
+const V_LO = 44.8, V_HI = 58.4, V_WARN = 48, V_BOOST = 56; // 2,80 · 3,65 · 3,00 · 3,50 V a cella
+const BOLT = '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/>';
+function drawVolt(k){
+  const el = $("volt");
+  if (!k.on || !fin(k.v) || k.v < 30) { el.innerHTML = ""; el.removeAttribute("aria-label"); return; }
+  const v = k.v, cell = v / 16, x = u => (clamp((u - V_LO) / (V_HI - V_LO), 0, 1) * 100).toFixed(1) + "%";
+  const warn = v < V_WARN || v > 57.6;
+  el.classList.toggle("warn", warn);
+  el.setAttribute("aria-label", `Tensione del banco ${nf(v, 2)} volt, ${nf(cell, 3)} volt a cella`);
+  const tag = v < V_WARN ? "quasi vuoto" : v >= V_BOOST - .05 ? "in boost" : k.i > .5 ? "in carica" : k.i < -.5 ? "in scarica" : "a riposo";
+  el.innerHTML = `<span class="eta-ico">${ico(BOLT)}</span><span class="eta-txt"><small>Tensione del banco · ${tag}</small>` +
+    `<span class="volt-h"><b>${nf(v, 2)}<u>V</u></b><span>${nf(cell, 3)} V/cella</span></span>` +
+    `<span class="volt-bar"><span class="lo" style="width:${x(V_WARN)}"></span><span class="bo" style="left:${x(V_BOOST)}"></span><i style="width:${x(v)}"></i><em style="left:${x(v)}"></em></span>` +
+    `<span class="volt-sc"><span style="left:0">${nf(V_LO, 1)}</span><span style="left:${x(V_WARN)}">48</span><span style="left:${x(52)}">52</span><span style="left:${x(V_BOOST)}">56</span><span style="left:100%">${nf(V_HI, 1)}</span></span></span>`;
+}
 function bank(bs){
   const on = bs.filter(b => b.online);
   const sum = f => on.reduce((s,b) => s + (fin(f(b)) ? f(b) : 0), 0);
@@ -1661,6 +1698,7 @@ function render(m){
   $("gauge").classList.toggle("chg", k.on > 0 && k.i > 0.5);
   $("gauge").classList.toggle("dsg", k.on > 0 && k.i < -0.5);
   $("g-sub").innerHTML = k.on ? `<b>${nf(k.kwh, 1)} kWh</b> disponibili` : "";
+  drawVolt(k);
   setVal($("k-d"), fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–");
   $("k-d").className = k.dmax > 50 ? "warn" : "";
   let dI = -1, dV = -1; // la batteria con le celle più distanti
@@ -3873,7 +3911,7 @@ $("settings").addEventListener("change", e => {
   $(id).addEventListener("keydown", e => { if (e.key === "Enter") e.target.blur(); });
 });
 $("set-reset").addEventListener("click", () => {
-  S = { ...DEF, names: {} }; saveSettings(); wx = null; fcAt = 0; fcNull = false;
+  S = { ...DEF, names: {}, pv: {} }; saveSettings(); wx = null; fcAt = 0; fcNull = false;
   applyTheme(); schedule(); fillSettings(); fillLoc(); if (logSrc === "demo") { LOG = demoLog(); relearn(); } else if (data) render(mode);
 });
 
