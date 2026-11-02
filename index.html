@@ -46,7 +46,8 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "kwh_today": 3.42,             // energia prodotta oggi (330CH)
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
       "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
-      "az": 0, "tilt": 30            // facoltativi: falda del gruppo, azimut da sud (−90 est, 90 ovest, 180 nord) e inclinazione
+      "az": 0, "tilt": 30,           // facoltativi: falda del gruppo, azimut da sud (−90 est, 90 ovest, 180 nord) e inclinazione
+      "strings": 2                   // facoltativo: stringhe in parallelo (la app lo imposta con POST /api/config)
     }],
     "limits": {                      // facoltativo: soglie lette con 80H dalla master
       "bal_start": 3400,             // mV, tensione di avvio bilanciamento (voce 102)
@@ -389,6 +390,30 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .pvc-tot{margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-top:10px;border-top:1px dashed var(--line);font-size:.8rem;color:var(--muted)}
 .pvc-tot b{font:700 1.05rem var(--mono);color:var(--lith);text-align:right}
 .pvc-tot b small{display:block;font:500 .7rem var(--mono);color:var(--muted);letter-spacing:.02em}
+.pvc-tot b small em{font-style:normal;color:var(--warn,#e0a030)}
+.pvc-tot>span{display:grid;gap:8px}
+.pvc-v{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.pvc-vr{display:grid;gap:4px;min-width:0}
+.pvc-v [data-voc]{grid-column:1/-1}
+.vmax{display:grid;grid-template-columns:repeat(3,1fr);height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface);overflow:hidden}
+.vmax button{border:0;background:transparent;color:var(--muted);font:600 .74rem var(--mono);cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}
+.vmax button+button{border-left:1px solid var(--line)}
+.vmax button.on{background:var(--lith);color:#111}
+.voc-note{margin:0;font-size:.74rem;color:var(--muted)}
+.voc{--c:var(--good);--t:var(--good-tint);display:grid;gap:7px;padding:10px 12px;border-radius:10px;background:var(--t);border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+.voc.near{--c:var(--lith);--t:var(--lith-tint)}
+.voc.over{--c:var(--alert);--t:var(--alert-tint)}
+.voc-h{display:flex;justify-content:space-between;align-items:baseline;font-size:.78rem;color:var(--muted)}
+.voc-h b{font:700 1.15rem var(--mono);color:var(--c)}
+.voc-bar{position:relative;height:8px;border-radius:4px;background:var(--surface)}
+.voc-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--c);transition:width .3s}
+.voc-bar u{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px}
+.voc p{margin:0;font-size:.74rem;color:var(--ink);line-height:1.4}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.voc,.vmax,.voc-bar,.voc-bar i){border-radius:0}
+.pvc-arr{display:block;max-width:100%;height:auto}
+.pvc-arr rect{fill:var(--lith-tint);stroke:var(--lith);stroke-width:1.1}
+.pvc-arr .wire{stroke:var(--line);stroke-width:1.2}
+.pvc-arr .bus{stroke:var(--lith);stroke-width:2;stroke-linecap:round}
 .names .pvc .step input{border:0;border-radius:0;background:transparent;padding:0;outline:none}
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.pvc,.step){border-radius:0}
 [data-style] .pvc{border-color:color-mix(in srgb,var(--lith) 22%,transparent)}
@@ -1240,7 +1265,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.18"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.19"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1318,6 +1343,42 @@ function planeOf(g){
   const tilt = fin(c.tilt) ? c.tilt : fin(g.tilt) ? clamp(Math.round(g.tilt), 0, 90) : S.tilt;
   return { addr: g.addr, kwp, az, tilt, key: az + "|" + tilt };
 }
+// stringhe di un gruppo (1 se non impostate) e il testo che le descrive
+const strOf = a => (S.pv[a] && S.pv[a].s) || 1;
+function strTxt(c){
+  if (!c.s) return "";
+  if (!c.n) return `${c.s} ${c.s > 1 ? "stringhe" : "stringa"}`;
+  return c.n % c.s ? `<em>${c.n} pannelli non fanno ${c.s} stringhe uguali</em>` : `${c.s > 1 ? c.s + " stringhe" : "1 stringa"} da ${c.n / c.s}`;
+}
+// disegnino della disposizione: una riga per stringa, un rettangolo per pannello
+function strArr(c){
+  if (!c.n || !c.s || c.n % c.s || c.n > 80) return "";
+  const per = c.n / c.s, w = 9, h = 13, gx = 3, gy = 5, W = per * (w + gx) + 14, H = c.s * (h + gy) - gy;
+  const rows = Array.from({ length: c.s }, (_, r) => { const y = r * (h + gy);
+    return `<path d="M0 ${y + h / 2}h${W}" class="wire"/>` + Array.from({ length: per }, (_, i) => `<rect x="${14 + i * (w + gx)}" y="${y}" width="${w}" height="${h}" rx="1.5"/>`).join(""); }).join("");
+  return `<svg class="pvc-arr" viewBox="-2 -2 ${W + 4} ${H + 4}" width="${Math.min(W + 4, 260)}" aria-hidden="true"><path d="M2 0V${H}" class="bus"/>${rows}</svg>`;
+}
+// tensione a vuoto di una stringa nella mattina più fredda: la Voc sale di circa lo 0,3% per grado sotto i 25 °C,
+// e se supera il massimo del regolatore lo rompe. Tracer xx15 = 150 V, xx20 = 200 V, xx10 = 100 V.
+const VMAX = [100, 150, 200], T_MIN = -10, VOC_K = 0.003;
+function vocCheck(c){
+  if (!c.voc || !c.n || c.n % (c.s || 1)) return null;
+  const per = c.n / (c.s || 1), v = per * c.voc * (1 + VOC_K * (25 - T_MIN)), max = c.vmax || 150;
+  return { per, v, max, st: v > max ? "over" : v > max * .92 ? "near" : "ok" };
+}
+function vocBox(c){
+  const k = vocCheck(c);
+  if (!k) return `<p class="voc-note">${c.voc ? "Imposta pannelli e stringhe" : "Scrivi la Voc dalla targhetta del pannello"}: la app controlla che le stringhe non superino il limite del regolatore col freddo.</p>`;
+  const top = Math.max(k.max, k.v) * 1.08, f = x => (x / top * 100).toFixed(1);
+  const msg = k.st === "over" ? `Oltre i ${k.max} V: con il freddo il regolatore si può rompere. Metti meno pannelli in serie per stringa.`
+    : k.st === "near" ? `Vicino al limite di ${k.max} V: va bene, ma senza margine nelle mattine più gelide.`
+    : `Margine di ${nf(k.max - k.v, 0)} V sotto il limite di ${k.max} V.`;
+  return `<div class="voc ${k.st}"><div class="voc-h"><span>Tensione a vuoto a ${String(T_MIN).replace("-", "−")} °C</span><b>${nf(k.v, 0)} V</b></div>` +
+    `<div class="voc-bar" role="img" aria-label="${nf(k.v, 0)} volt su ${k.max} massimi"><i style="width:${f(k.v)}%"></i><u style="left:${f(k.max)}%"></u></div>` +
+    `<p>${k.per} × ${nf(c.voc, 1)} V × ${nf(1 + VOC_K * (25 - T_MIN), 3)}. ${msg}</p></div>`;
+}
+const totTxt = (g, c, p) => (c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp` : "–") +
+  (strTxt(c) || !(c.wp && c.n) && fin(g.kwp) && g.kwp > 0 ? `<small>${strTxt(c) || "dalla scheda"}</small>` : "");
 // tutte le falde, con il peso dei kWp; senza regolatori una sola falda a sud
 let planeMemo = { ref: undefined, ver: -1, v: null }, pvVer = 0;
 function planes(){
@@ -1354,6 +1415,9 @@ function loadSettings(){
     if (Number.isInteger(c.tilt) && c.tilt >= 0 && c.tilt <= 90) v.tilt = c.tilt;
     if (fin(c.wp) && c.wp >= 10 && c.wp <= 1000) v.wp = Math.round(c.wp);
     if (Number.isInteger(c.n) && c.n >= 1 && c.n <= 200) v.n = c.n;
+    if (Number.isInteger(c.s) && c.s >= 1 && c.s <= 50 && !(v.n < c.s)) v.s = c.s; // stringhe in parallelo
+    if (fin(c.voc) && c.voc >= 5 && c.voc <= 120) v.voc = Math.round(c.voc * 10) / 10; // Voc di un pannello (targhetta)
+    if (VMAX.includes(c.vmax)) v.vmax = c.vmax; // tensione massima dei pannelli sul regolatore
     if (Object.keys(v).length) o.pv[a] = v;
   });
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
@@ -2461,12 +2525,20 @@ function myAlarms(bs, k, f){
     if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
       out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
+  if (S.alPv && Array.isArray(data.pv)) data.pv.forEach(g => { const k = vocCheck(S.pv[g.addr] || {});
+    if (k && k.st === "over") out.push({ id: "pvvoc" + g.addr, sev: "alarm", who: pvName(g), t: `Stringhe fino a ${nf(k.v, 0)} V col freddo`, d: `Il regolatore regge ${k.max} V: d'inverno, a pannelli freddi e scollegati, si può rompere. Riduci i pannelli in serie.` }); });
   if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
     const gs = data.pv.filter(g => g.online !== false && fin(dayRatio(g))), rs = gs.map(dayRatio), best = Math.max(0, ...rs);
     if (gs.length > 1 && best >= .25) gs.forEach((g, j) => { if (rs[j] < best * .7)
-      out.push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
+      out.push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: strGone(g, 1 - rs[j] / best) || "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
   }
   return out;
+}
+// con più stringhe, un calo vicino a 1/n (o 2/n…) fa pensare a stringhe staccate più che a sporco o ombre
+function strGone(g, loss){
+  const n = strOf(g.addr), k = Math.round(loss * n);
+  if (n < 2 || k < 1 || k >= n || Math.abs(loss - k / n) > .07) return "";
+  return `Il calo vale ${k === 1 ? "una stringa" : k + " stringhe"} su ${n}: controlla fusibili, sezionatore e connettori MC4 di quel gruppo.`;
 }
 // resa di oggi di un gruppo: kWh per kWp diviso il sole caduto sulla sua falda (senza meteo, solo kWh per kWp)
 function dayRatio(g){
@@ -2822,7 +2894,7 @@ function drawPv(pv, k){
       `<span class="pv-rv">${nf(d.r, 2)} <small>kWh/kWp</small></span></div>`).join("")}</div>` : "") +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}</td>` +
-      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
+      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
 }
 
 function drawCabinet(bs, lowSoc){
@@ -3558,7 +3630,6 @@ function pvCard(g){
   const dial = AZ8.map(([t, az]) => { const b = (180 + az) * RAD;
     return `<button type="button" class="cmp-b${az === p.az ? " on" : ""}" data-az="${az}" style="left:${(50 + 39 * Math.sin(b)).toFixed(1)}%;top:${(50 - 39 * Math.cos(b)).toFixed(1)}%" aria-pressed="${az === p.az}" aria-label="${AZ_NAME[t]}">${t}</button>`; }).join("");
   const ticks = Array.from({ length: 24 }, (_, i) => i % 3 ? `<line x1="50" y1="${i % 3 ? 22 : 20}" x2="50" y2="25" transform="rotate(${i * 15} 50 50)"/>` : "").join("");
-  const kwpTxt = c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp <small>dalla scheda</small>` : "–";
   return `<div class="pvc" data-a="${esc(g.addr)}">` +
     `<label class="pvc-name">Indirizzo ${esc(g.addr)} · Epever<input type="text" maxlength="24" data-k="${esc(k)}" value="${esc(S.names[k] || "")}" placeholder="${esc(g.name || "Regolatore " + g.addr)}" autocomplete="off" enterkeyhint="done"></label>` +
     `<div class="pvc-grid"><div class="cmp" role="group" aria-label="Verso dove guardano i pannelli">` +
@@ -3573,14 +3644,18 @@ function pvCard(g){
       `<span class="pvc-l">Potenza di un pannello</span><div class="step"><input type="number" inputmode="numeric" min="10" max="1000" step="5" data-f="wp" value="${c.wp || ""}" placeholder="400" aria-label="Watt di picco di un pannello"><small>Wp</small></div>` +
       `<span class="pvc-l">Quanti pannelli</span><div class="step"><button type="button" data-st="n" data-d="-1" aria-label="Un pannello in meno">−</button>` +
         `<input type="number" inputmode="numeric" min="1" max="200" data-f="n" value="${c.n || ""}" placeholder="–" aria-label="Numero di pannelli"><button type="button" data-st="n" data-d="1" aria-label="Un pannello in più">+</button></div>` +
-    `</div></div><p class="pvc-tot"><span>Potenza del gruppo</span><b data-tot>${kwpTxt}</b></p></div>`;
+      `<span class="pvc-l">Stringhe in parallelo</span><div class="step"><button type="button" data-st="s" data-d="-1" aria-label="Una stringa in meno">−</button>` +
+        `<input type="number" inputmode="numeric" min="1" max="50" data-f="s" value="${c.s || ""}" placeholder="1" aria-label="Numero di stringhe"><button type="button" data-st="s" data-d="1" aria-label="Una stringa in più">+</button></div>` +
+    `</div></div><div class="pvc-v"><div class="pvc-vr"><span class="pvc-l">Voc di un pannello</span><div class="step"><input type="number" inputmode="decimal" min="5" max="120" step="0.1" data-f="voc" value="${c.voc || ""}" placeholder="49,5" aria-label="Tensione a vuoto di un pannello"><small>V</small></div></div>` +
+      `<div class="pvc-vr"><span class="pvc-l">Massimo del regolatore</span><div class="vmax" role="group" aria-label="Tensione massima dei pannelli sul regolatore">${VMAX.map(m => `<button type="button" data-vmax="${m}" class="${(c.vmax || 150) === m ? "on" : ""}" aria-pressed="${(c.vmax || 150) === m}">${m} V</button>`).join("")}</div></div>` +
+      `<div data-voc>${vocBox(c)}</div></div><div class="pvc-tot"><span>Potenza del gruppo<span data-arr>${strArr(c)}</span></span><b data-tot>${totTxt(g, c, p)}</b></div></div>`;
 }
 // dopo una modifica: salva, e quando smetti di toccare manda tutto alla scheda e rifà meteo e previsioni
 function pvSaved(){
   pvVer++; saveSettings(); pvEditAt = Date.now(); clearTimeout(pvT);
   pvT = setTimeout(() => {
     if (mode === "live" && data && Array.isArray(data.pv)) fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ pv: data.pv.map(g => { const p = planeOf(g); return { addr: g.addr, kwp: p.kwp, az: p.az, tilt: p.tilt }; }) })}).catch(() => {});
+      body: JSON.stringify({ pv: data.pv.map(g => { const p = planeOf(g); return { addr: g.addr, kwp: p.kwp, az: p.az, tilt: p.tilt, strings: strOf(g.addr) }; }) })}).catch(() => {});
     pvEditAt = 0; if (data) render(mode);
   }, 1300);
 }
@@ -3588,10 +3663,12 @@ $("set-pvnames").addEventListener("click", e => {
   const b = e.target.closest("button"), card = b && b.closest(".pvc"); if (!card) return;
   const a = card.dataset.a, g = ((data && data.pv) || []).find(x => String(x.addr) === a) || { addr: +a }, c = S.pv[a] = S.pv[a] || {};
   if (b.dataset.az) c.az = +b.dataset.az;
+  else if (b.dataset.vmax) c.vmax = +b.dataset.vmax;
   else if (b.dataset.st === "tilt") c.tilt = clamp(planeOf(g).tilt + +b.dataset.d, 0, 90);
-  else if (b.dataset.st === "n") c.n = clamp((c.n || 0) + +b.dataset.d, 1, 200);
+  else if (b.dataset.st === "n") { c.n = clamp((c.n || 0) + +b.dataset.d, 1, 200); if (c.s > c.n) c.s = c.n; }
+  else if (b.dataset.st === "s") c.s = clamp((c.s || 1) + +b.dataset.d, 1, Math.min(50, c.n || 50));
   else return;
-  const sel = b.dataset.az ? `[data-az="${b.dataset.az}"]` : `[data-st="${b.dataset.st}"][data-d="${b.dataset.d}"]`;
+  const sel = b.dataset.az ? `[data-az="${b.dataset.az}"]` : b.dataset.vmax ? `[data-vmax="${b.dataset.vmax}"]` : `[data-st="${b.dataset.st}"][data-d="${b.dataset.d}"]`;
   card.outerHTML = pvCard(g);
   const nb = $("set-pvnames").querySelector(`.pvc[data-a="${a}"] ${sel}`); if (nb) nb.focus({ preventScroll: true });
   pvSaved();
@@ -3601,8 +3678,11 @@ $("set-pvnames").addEventListener("input", e => {
   const a = card.dataset.a, g = ((data && data.pv) || []).find(x => String(x.addr) === a) || { addr: +a }, c = S.pv[a] = S.pv[a] || {}, v = +t.value;
   if (f === "wp") { if (t.value && v >= 10 && v <= 1000) c.wp = Math.round(v); else delete c.wp; }
   if (f === "n") { if (t.value && Number.isInteger(v) && v >= 1 && v <= 200) c.n = v; else delete c.n; }
-  const p = planeOf(g);
-  card.querySelector("[data-tot]").innerHTML = c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp <small>dalla scheda</small>` : "–";
+  if (f === "s") { if (t.value && Number.isInteger(v) && v >= 1 && v <= 50) c.s = v; else delete c.s; }
+  if (f === "voc") { if (t.value && v >= 5 && v <= 120) c.voc = Math.round(v * 10) / 10; else delete c.voc; }
+  card.querySelector("[data-voc]").innerHTML = vocBox(c);
+  card.querySelector("[data-tot]").innerHTML = totTxt(g, c, planeOf(g));
+  card.querySelector("[data-arr]").innerHTML = strArr(c);
   pvSaved();
 });
 const PIN = '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>';
