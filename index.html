@@ -1270,7 +1270,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.20"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.21"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3208,6 +3208,8 @@ addEventListener("resize", () => pagesEl.scrollTo({ left: pageIdx * pagesEl.clie
 const BMS_READ = new Set(["42", "4F"]), BMS_ADRS = [0, 1, 2, 3, 4];
 const CAB_KEY = "mybattery.cable.v1", UHIST_KEY = "mybattery.usbhist.v1", UACC_KEY = "mybattery.usbacc.v1";
 const SIM_REC = location.hash === "#simrec"; // solo per le prove: il cavo simulato scrive nel registro vero
+// Sul telefono WebUSB coi nostri driver (così ha funzionato la diagnosi col CH340); Web Serial solo sul computer
+const MOBILE = /Android|Mobi/i.test(navigator.userAgent) || !!(navigator.userAgentData && navigator.userAgentData.mobile);
 const CAB_OK = window.isSecureContext && ("serial" in navigator || "usb" in navigator);
 const pause = ms => new Promise(r => setTimeout(r, ms));
 const hx = (n, w = 4) => (n >>> 0).toString(16).toUpperCase().padStart(w, "0").slice(-w);
@@ -3470,8 +3472,12 @@ async function cabOpen(kind, dev){
       : kind === "serial" ? await serialLink(dev || await navigator.serial.requestPort(), b => cabRx(c, b), lost)
       : await usbLink(dev || await navigator.usb.requestDevice({ filters: [] }), b => cabRx(c, b), lost);
   } catch (e) {
-    cabErr = e.name === "NotFoundError" ? "" : "Il cavo non si è aperto: " + e.message;
-    fillCab(); return;
+    // NotFoundError = elenco chiuso senza scegliere: spesso perché il cavo non c'era
+    cabErr = e.name !== "NotFoundError" ? "Il cavo non si è aperto: " + e.message
+      : kind === "serial" && navigator.usb && !MOBILE ? "Il cavo non era nell'elenco? Tocca «Non lo trova? Usa WebUSB»: ha i driver dei chip CH340, CP210x, FTDI e PL2303."
+      : kind === "serial" ? "Il cavo non era nell'elenco? Riprova con «Collega il cavo», che usa WebUSB."
+      : "Nessun cavo scelto. Se l'elenco era vuoto: adattatore OTG inserito bene, cavo nella porta USB del telefono, e se Android chiede di aprire l'USB con un'app, rispondi annulla.";
+    toast(cabErr.split(":")[0].split("?")[0].replace(/\.$/, "")); fillCab(); return;
   }
   const H = c.real && lsGet(UHIST_KEY);
   c.hist = H && Array.isArray(H.soc) && H.soc.length === 288 && Array.isArray(H.p) && H.p.length === 288 ? H : { t: 0, soc: [], p: [] };
@@ -3548,15 +3554,16 @@ function fillCab(){
       `<small>${esc(cabErr || (was ? "Lo ricollego da solo appena lo rimetti, oppure tocca qui sotto." : "Il cavo va nella porta RS485 libera della master."))}</small></span></div>` +
       `<div class="ntfy-row"><button class="set-btn" id="cab-on" type="button">${ico(CAB_ICON)}Collega il cavo</button>` +
       `<button class="set-btn" id="cab-sim" type="button">Prova senza cavo</button>` +
-      ("serial" in navigator && "usb" in navigator ? `<button class="link-btn plain" id="cab-usb" type="button">Non lo trova? Usa WebUSB</button>` : "") + `</div>`;
+      ("serial" in navigator && "usb" in navigator ? `<button class="link-btn plain" id="${MOBILE ? "cab-ser" : "cab-usb"}" type="button">${MOBILE ? "Non lo trova? Usa Web Serial" : "Non lo trova? Usa WebUSB"}</button>` : "") + `</div>`;
   }
   el.innerHTML = html;
 }
-const cabStart = () => cabOpen("serial" in navigator ? "serial" : "usb");
+const cabStart = () => cabOpen("usb" in navigator && (MOBILE || !("serial" in navigator)) ? "usb" : "serial");
 $("set-cab").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "cab-on") cabStart();
   else if (b.id === "cab-usb") cabOpen("usb");
+  else if (b.id === "cab-ser") cabOpen("serial");
   else if (b.id === "cab-sim") cabOpen("sim");
   else if (b.id === "cab-off") cabClose(false);
 });
