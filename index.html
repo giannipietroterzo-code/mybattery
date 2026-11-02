@@ -878,9 +878,8 @@ footer{border-top:0;padding-top:0}
 .volt .eta-ico{background:var(--lith-tint);color:var(--lith)}
 .volt.warn .eta-ico{background:var(--warn-tint);color:var(--warn)}
 .volt-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.volt-h b{font-variant-numeric:tabular-nums}
+.volt-h b{font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums}
 .volt-h b u{text-decoration:none;font-size:.72em;font-weight:500;color:var(--muted);margin-left:2px}
-.volt-h span{font:600 .74rem var(--mono);color:var(--muted);white-space:nowrap}
 .volt-bar{position:relative;height:6px;margin:8px 0 2px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent)}
 .volt-bar .lo{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;background:color-mix(in srgb,var(--alert) 45%,transparent)}
 .volt-bar .bo{position:absolute;top:0;bottom:0;right:0;border-radius:0 3px 3px 0;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--lith) 45%,transparent) 0 3px,transparent 3px 6px)}
@@ -1291,7 +1290,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.22"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.23"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1586,13 +1585,13 @@ const BOLT = '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/>';
 function drawVolt(k){
   const el = $("volt");
   if (!k.on || !fin(k.v) || k.v < 30) { el.innerHTML = ""; el.removeAttribute("aria-label"); return; }
-  const v = k.v, cell = v / 16, x = u => (clamp((u - V_LO) / (V_HI - V_LO), 0, 1) * 100).toFixed(1) + "%";
+  const v = k.v, x = u => (clamp((u - V_LO) / (V_HI - V_LO), 0, 1) * 100).toFixed(1) + "%";
   const warn = v < V_WARN || v > 57.6;
   el.classList.toggle("warn", warn);
-  el.setAttribute("aria-label", `Tensione del banco ${nf(v, 2)} volt, ${nf(cell, 3)} volt a cella`);
+  el.setAttribute("aria-label", `Tensione del banco ${nf(v, 2)} volt`);
   const tag = v < V_WARN ? "quasi vuoto" : v >= V_BOOST - .05 ? "in boost" : k.i > .5 ? "in carica" : k.i < -.5 ? "in scarica" : "a riposo";
   el.innerHTML = `<span class="eta-ico">${ico(BOLT)}</span><span class="eta-txt"><small>Tensione del banco · ${tag}</small>` +
-    `<span class="volt-h"><b>${nf(v, 2)}<u>V</u></b><span>${nf(cell, 3)} V/cella</span></span>` +
+    `<span class="volt-h"><b>${nf(v, 2)}<u>V</u></b></span>` +
     `<span class="volt-bar"><span class="lo" style="width:${x(V_WARN)}"></span><span class="bo" style="left:${x(V_BOOST)}"></span><i style="width:${x(v)}"></i><em style="left:${x(v)}"></em></span>` +
     `<span class="volt-sc"><span style="left:0">${nf(V_LO, 1)}</span><span style="left:${x(V_WARN)}">48</span><span style="left:${x(52)}">52</span><span style="left:${x(V_BOOST)}">56</span><span style="left:100%">${nf(V_HI, 1)}</span></span></span>`;
 }
