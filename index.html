@@ -45,7 +45,8 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "w": 2410, "v": 112.4, "a": 21.4,   // pannelli: W, V, A (registri 3100H–3103H)
       "kwh_today": 3.42,             // energia prodotta oggi (330CH)
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
-      "kwp": 6.0                     // potenza installata del gruppo (configurata sulla scheda), fondo scala della barra
+      "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
+      "az": 0, "tilt": 30            // facoltativi: falda del gruppo, azimut da sud (−90 est, 90 ovest, 180 nord) e inclinazione
     }],
     "limits": {                      // facoltativo: soglie lette con 80H dalla master
       "bal_start": 3400,             // mV, tensione di avvio bilanciamento (voce 102)
@@ -302,6 +303,7 @@ a.set-btn{text-decoration:none}
 .hist-read{margin:0 0 8px;min-height:2.9em;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .hist-read b{color:var(--ink);font-weight:600}
 .hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
+.pv-tab small{display:block;color:var(--muted);font-size:.72rem;font-weight:400}
 .legend{margin:8px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
 .legend span{white-space:nowrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 5px 0 0;vertical-align:-1px}
@@ -359,6 +361,37 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .seg input:checked+span{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .seg input:focus-visible+span{outline:3px solid var(--sun);outline-offset:-1px}
 .names{display:grid;gap:10px;margin-top:8px}
+/* regolatori e pannelli: bussola, inclinazione, potenza */
+.pvc{display:grid;gap:12px;padding:12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.pvc .pvc-name{display:grid;gap:3px;font-size:.8rem;color:var(--muted)}
+.pvc .pvc-name input{background:var(--surface)}
+.pvc-grid{display:grid;grid-template-columns:136px 1fr;gap:14px;align-items:start}
+.cmp{position:relative;width:136px;height:136px}
+.cmp-r{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.cmp-b{position:absolute;transform:translate(-50%,-50%);width:31px;height:31px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);
+  color:var(--muted);font:700 .64rem/1 var(--mono);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s,border-color .15s}
+.cmp-b.on{background:var(--lith);border-color:var(--lith);color:#111;box-shadow:0 0 12px -2px var(--lith)}
+.cmp-b:focus-visible{outline:2px solid var(--lith);outline-offset:2px}
+.pvc-f{display:grid;gap:4px;min-width:0}
+.pvc-l{font-size:.74rem;color:var(--muted);margin-top:4px}
+.pvc-l b{color:var(--ink);font-weight:600}
+.pvc-f .pvc-l:first-child{margin-top:0}
+.step{display:flex;align-items:center;height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface);overflow:hidden}
+.step button{flex:none;width:34px;height:100%;border:0;background:transparent;color:var(--lith);font-size:1.15rem;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.step button:active{background:var(--lith-tint)}
+.step output,.step input{flex:1;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;gap:6px;padding:0;border:0;background:transparent;
+  color:var(--ink);font:600 .92rem var(--mono);text-align:center;-moz-appearance:textfield}
+.step input::-webkit-inner-spin-button,.step input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.step input:focus{outline:none}
+.step:focus-within{border-color:var(--lith)}
+.step output svg{width:20px;height:14px;flex:none;color:var(--lith)}
+.step small{color:var(--muted);font:600 .72rem var(--mono);padding-right:10px}
+.pvc-tot{margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-top:10px;border-top:1px dashed var(--line);font-size:.8rem;color:var(--muted)}
+.pvc-tot b{font:700 1.05rem var(--mono);color:var(--lith);text-align:right}
+.pvc-tot b small{display:block;font:500 .7rem var(--mono);color:var(--muted);letter-spacing:.02em}
+.names .pvc .step input{border:0;border-radius:0;background:transparent;padding:0;outline:none}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.pvc,.step){border-radius:0}
+[data-style] .pvc{border-color:color-mix(in srgb,var(--lith) 22%,transparent)}
 .names label{display:grid;gap:3px;font-size:.8rem;color:var(--muted)}
 .names input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
 .names input::placeholder{color:var(--muted);opacity:.6}
@@ -1142,6 +1175,7 @@ footer{border-top:0;padding-top:0}
     <div id="set-loc"></div>
     <p class="set-note">Il meteo arriva da Open-Meteo, gratis e senza registrazione: riceve solo le coordinate arrotondate a circa 1 km.</p>
 
+    <div id="set-tilt-box">
     <h3>Inclinazione dei pannelli</h3>
     <fieldset class="seg" id="set-tilt">
       <legend>Inclinazione dei pannelli</legend>
@@ -1152,6 +1186,7 @@ footer{border-top:0;padding-top:0}
       <label><input type="radio" name="tilt" value="50"><span>50°</span></label>
     </fieldset>
     <p class="set-note">Pannelli rivolti a sud: serve a chiedere il sole sul loro piano. Ombre e piccoli errori li impara la app confrontando la produzione vera.</p>
+    </div>
 
     <h3>Diagnosi</h3>
     <a class="set-btn" href="diagnosi.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg>Diagnosi BMS col cavo USB</a>
@@ -1160,9 +1195,9 @@ footer{border-top:0;padding-top:0}
     <h3>Nomi delle batterie</h3>
     <div class="names" id="set-names"></div>
 
-    <h3>Nomi dei regolatori</h3>
+    <h3>Regolatori e pannelli</h3>
     <div class="names" id="set-pvnames"></div>
-    <p class="set-note">I regolatori Epever che la scheda trova sulla linea RS485, con il loro indirizzo Modbus.</p>
+    <p class="set-note">I regolatori Epever che la scheda trova sulla linea RS485. Per ognuno: verso dove guardano i pannelli, quanto sono inclinati e quanti sono. Le previsioni chiedono il sole falda per falda, e il confronto tra gruppi tiene conto dell'orientamento.</p>
 
     <div class="set-foot">
       <span class="set-note" style="margin:0">Versione <span id="ver"></span> · impostazioni salvate solo su questo dispositivo.</span>
@@ -1176,7 +1211,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.16"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.17"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1244,22 +1279,54 @@ const $ = id => document.getElementById(id);
 const keyOf = (b, i) => String(fin(b.addr) ? b.addr : i);
 const nameOf = (b, i) => S.names[keyOf(b, i)] || b.name || "Batteria " + (i + 1);
 const pvName = g => S.names["pv" + g.addr] || g.name || "Regolatore " + g.addr; // chiave "pv1": non si confonde con le batterie
+const AZ_NAME = { N: "Nord", NE: "Nord-est", E: "Est", SE: "Sud-est", S: "Sud", SO: "Sud-ovest", O: "Ovest", NO: "Nord-ovest" };
+const azTag = az => (AZ8.find(x => x[1] === az) || AZ8[4])[0];
+// la falda di un gruppo: quello che hai impostato nella app, se no quello che dice la scheda, se no sud con l'inclinazione generale
+function planeOf(g){
+  const c = S.pv[g.addr] || {};
+  const kwp = c.wp && c.n ? c.wp * c.n / 1000 : fin(g.kwp) && g.kwp > 0 ? g.kwp : null;
+  const az = fin(c.az) ? c.az : AZ8.some(x => x[1] === g.az) ? g.az : 0;
+  const tilt = fin(c.tilt) ? c.tilt : fin(g.tilt) ? clamp(Math.round(g.tilt), 0, 90) : S.tilt;
+  return { addr: g.addr, kwp, az, tilt, key: az + "|" + tilt };
+}
+// tutte le falde, con il peso dei kWp; senza regolatori una sola falda a sud
+let planeMemo = { ref: undefined, ver: -1, v: null }, pvVer = 0;
+function planes(){
+  const ref = data && Array.isArray(data.pv) ? data.pv : null;
+  if (planeMemo.ref === ref && planeMemo.ver === pvVer) return planeMemo.v;
+  let ps = (ref || Object.keys(S.pv).map(a => ({ addr: +a }))).map(planeOf);
+  if (!ps.length) ps = [{ addr: 0, kwp: 1, az: 0, tilt: S.tilt, key: "0|" + S.tilt }];
+  else if (ps.some(p => p.kwp)) ps = ps.filter(p => p.kwp); else ps = ps.map(p => ({ ...p, kwp: 1 }));
+  planeMemo = { ref, ver: pvVer, v: ps };
+  return ps;
+}
+const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(",");
 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
+const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, loc: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
   try { s = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
-  const o = { ...DEF, names: {} };
+  const o = { ...DEF, names: {}, pv: {} };
   Object.keys(OPT).forEach(k => { if (OPT[k].includes(s[k])) o[k] = s[k]; });
   const l = s.loc; // località del meteo: nome e coordinate arrotondate a ~1 km
   if (l && typeof l.name === "string" && fin(l.lat) && fin(l.lon)) o.loc = { name: l.name.slice(0, 60), lat: +l.lat.toFixed(2), lon: +l.lon.toFixed(2) };
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
+  if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
+    if (!/^\d{1,3}$/.test(a) || !c || typeof c !== "object") return;
+    const v = {};
+    if (AZ8.some(x => x[1] === c.az)) v.az = c.az;
+    if (Number.isInteger(c.tilt) && c.tilt >= 0 && c.tilt <= 90) v.tilt = c.tilt;
+    if (fin(c.wp) && c.wp >= 10 && c.wp <= 1000) v.wp = Math.round(c.wp);
+    if (Number.isInteger(c.n) && c.n >= 1 && c.n <= 200) v.n = c.n;
+    if (Object.keys(v).length) o.pv[a] = v;
+  });
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
   return o;
 }
@@ -1346,7 +1413,9 @@ function render(m){
   const lim = data.limits || {};
   const k = bank(bs);
   if (bs.length) intro();
+  if (Array.isArray(data.pv)) data.pv.forEach(g => { const p = planeOf(g); if (p.kwp) g.kwp = p.kwp; }); // i kWp impostati nella app valgono subito
   if (m === "demo" && logSrc !== "demo") { LOG = demoLog(); logSrc = "demo"; model = learn(LOG); fc = null; fcNull = false; drawHabits(); drawReliab(); }
+  if (logSrc && Date.now() - pvEditAt > 1200 && planeSig() !== learnSig) { learnSig = planeSig(); if (S.loc) loadWx(true); else { relearn(); return; } } // falde cambiate
   const f = currentForecast(k);
 
   // connessione
@@ -1597,6 +1666,7 @@ hsvg.addEventListener("pointercancel", () => { scrubI = null; updateScrub(); });
 // La scheda la scrive in flash; il telefono ne tiene una copia (IndexedDB) e fa qui tutti i calcoli. Vedi docs/storico-e-previsioni.md
 const LOG_API = "/api/log", WX_KEY = "mybattery.meteo", HOUR = 3600, NOMV = 51.2;
 const DEMO_LOC = { lat: 42.0, lon: 12.5 }, DEMO_KWP = 3.1; // demo: W prodotti per ogni W/m² di sole sul piano dei pannelli
+let learnSig = "", pvEditAt = 0, pvT = 0;
 let LOG = [], logSrc = "", model = null, wx = null, fc = null, fcAt = 0, fcNull = false, lastLogSync = 0;
 
 const db = (() => {
@@ -1653,12 +1723,12 @@ function sunPos(t, lat, lon){
 const sinElev = (t, lat, lon) => sunPos(t, lat, lon).se;
 const clearSky = (t, lat, lon) => { const z = sinElev(t, lat, lon); return z > .01 ? 1098 * z * Math.exp(-.057 / z) : 0; }; // W/m², Haurwitz
 const here = () => S.loc || DEMO_LOC;
-// sole sul piano dei pannelli rivolti a sud: diretta trasposta più diffusa isotropa (per la demo e se manca il dato di Open-Meteo)
-function tilted(t, lat, lon, ghi, tilt){
+// sole sul piano dei pannelli (az = azimut della falda da sud): diretta trasposta più diffusa isotropa (per la demo e se manca il dato di Open-Meteo)
+function tilted(t, lat, lon, ghi, tilt, az = 0){
   const p = sunPos(t, lat, lon); if (p.se <= .02 || !(ghi > 0)) return 0;
   const cs = clearSky(t, lat, lon), kt = cs > 0 ? Math.min(1, ghi / cs) : 0;
   const dfr = kt > .75 ? .15 : kt < .25 ? .95 : 1.1 - 1.2 * kt, b = tilt * RAD, el = p.el * RAD;
-  const cosi = Math.sin(el) * Math.cos(b) + Math.cos(el) * Math.sin(b) * Math.cos(p.az * RAD);
+  const cosi = Math.sin(el) * Math.cos(b) + Math.cos(el) * Math.sin(b) * Math.cos((p.az - az) * RAD);
   return ghi * (1 - dfr) * Math.max(0, cosi) / Math.max(.05, Math.sin(el)) + ghi * dfr * (1 + Math.cos(b)) / 2 + ghi * .2 * (1 - Math.cos(b)) / 2;
 }
 
@@ -1740,30 +1810,49 @@ function demoLog(){
 function irrAt(t, asFc){
   if (logSrc === "demo") {
     const m = t + HOUR / 2, L = here(), fcst = asFc || m > nowS(), ghi = demoGhi(m, fcst);
-    return { ghi, gti: tilted(m, L.lat, L.lon, ghi, S.tilt), temp: demoTemp(m) + (fcst ? .8 : 0) };
+    return { ghi, gp: null, temp: demoTemp(m) + (fcst ? .8 : 0) };
   }
   const m = wxMap(); if (!m) return null;
   return m.get(Math.floor(t / HOUR) * HOUR) || null;
 }
 // Open-Meteo dà la media dell'ora precedente: il valore delle 13 vale per 12–13
 const wxMap = () => wx && (wx.map || (wx.map = new Map(wx.ht.map((t, i) => [t - HOUR,
-  { ghi: wx.rad[i], gti: wx.gti ? wx.gti[i] : null, temp: wx.temp ? wx.temp[i] : null }]))));
+  { ghi: wx.rad[i], gp: wx.gp ? Object.fromEntries(Object.entries(wx.gp).map(([k, a]) => [k, a[i]])) : null, temp: wx.temp ? wx.temp[i] : null }]))));
+// sole sulla falda p nell'ora che inizia a t: il dato di Open-Meteo per quella falda, se no lo calcolo dal sole orizzontale
+function planeGti(ir, p, t){
+  const v = ir.gp ? ir.gp[p.key] : null; if (fin(v)) return v;
+  const L = here(); return tilted(t + HOUR / 2, L.lat, L.lon, ir.ghi, p.tilt, p.az);
+}
+// sole "medio" dell'impianto: le falde pesate con i loro kWp
+function effIrr(ir, t){
+  let s = 0, w = 0; planes().forEach(p => { s += p.kwp * planeGti(ir, p, t); w += p.kwp; });
+  return w ? s / w : ir.ghi;
+}
+// sole caduto oggi sulla falda fino a "now" (Wh/m², cioè circa kWh per kWp), null senza meteo
+function dayIrr(p, now){
+  const d = new Date(now * 1000); d.setHours(0, 0, 0, 0);
+  let s = 0, any = false;
+  for (let t = d.getTime() / 1000; t < now; t += HOUR) { const ir = irrAt(t, false); if (!ir) continue; any = true; s += planeGti(ir, p, t) * Math.min(1, (now - t) / HOUR); }
+  return any ? s : null;
+}
 async function loadWx(force){
   if (!S.loc) { wx = null; fcAt = 0; fcNull = false; return; }
+  const keys = [...new Set(planes().map(p => p.key))], sig = keys.join(","); // le falde diverse da chiedere
   try {
     const c = JSON.parse(localStorage.getItem(WX_KEY) || "null");
-    if (c && c.lat === S.loc.lat && c.lon === S.loc.lon && c.tilt === S.tilt) { wx = c; if (!force && Date.now() - c.at < 3600e3) { fcAt = 0; fcNull = false; return; } }
+    if (c && c.lat === S.loc.lat && c.lon === S.loc.lon && c.planes === sig && c.gp) { wx = c; if (!force && Date.now() - c.at < 3600e3) { fcAt = 0; fcNull = false; return; } }
   } catch (e) {}
   try {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${S.loc.lat}&longitude=${S.loc.lon}` +
-      `&hourly=shortwave_radiation,global_tilted_irradiance,temperature_2m&tilt=${S.tilt}&azimuth=0` +
-      `&daily=weather_code&past_days=31&forecast_days=3&timezone=auto&timeformat=unixtime`;
-    const r = await fetch(u);
-    if (!r.ok) throw new Error(r.status);
-    const j = await r.json();
+    // una richiesta per falda: Open-Meteo dà il sole inclinato per un orientamento alla volta
+    const base = `https://api.open-meteo.com/v1/forecast?latitude=${S.loc.lat}&longitude=${S.loc.lon}&past_days=31&forecast_days=3&timezone=auto&timeformat=unixtime`;
+    const js = await Promise.all(keys.map((k, i) => { const [az, tilt] = k.split("|");
+      return fetch(base + `&tilt=${tilt}&azimuth=${az}&hourly=global_tilted_irradiance` + (i ? "" : ",shortwave_radiation,temperature_2m&daily=weather_code"))
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }); }));
+    const j = js[0];
     if (!j.hourly || !j.daily) throw new Error("formato");
-    wx = { at: Date.now(), lat: S.loc.lat, lon: S.loc.lon, tilt: S.tilt, ht: j.hourly.time, rad: j.hourly.shortwave_radiation,
-      gti: j.hourly.global_tilted_irradiance || null, temp: j.hourly.temperature_2m || null, dt: j.daily.time, code: j.daily.weather_code };
+    const gp = {}; keys.forEach((k, i) => { if (js[i].hourly && Array.isArray(js[i].hourly.global_tilted_irradiance) && js[i].hourly.time.length === j.hourly.time.length) gp[k] = js[i].hourly.global_tilted_irradiance; });
+    wx = { at: Date.now(), lat: S.loc.lat, lon: S.loc.lon, planes: sig, ht: j.hourly.time, rad: j.hourly.shortwave_radiation,
+      gp, temp: j.hourly.temperature_2m || null, dt: j.daily.time, code: j.daily.weather_code };
     try { localStorage.setItem(WX_KEY, JSON.stringify(wx)); } catch (e) {}
   } catch (e) {} // senza rete resta l'ultimo meteo salvato
   fcAt = 0; fcNull = false; relearn();
@@ -1787,6 +1876,7 @@ const heatX = T => fin(T) ? Math.max(0, 16 - T) : 0, coolX = T => fin(T) ? Math.
 const elBin = el => Math.min(13, Math.floor(el / 5)), azBin = az => clamp(Math.floor((az + 120) / 15), 0, 15);
 
 function learn(rows){
+  learnSig = planeSig();
   if (rows.length < 2) return null;
   const loc = here(), hours = new Map();
   let pvRows = 0, prev = rows[0][2];
@@ -1887,7 +1977,7 @@ function learnSun(M){
   M.H.forEach(o => {
     if (o.soc0 >= 90) return;                              // vicino al pieno i regolatori tagliano: la produzione non dice quanto sole c'era
     const ir = irrAt(o.t, false); if (!ir) return;
-    const r = fin(ir.gti) ? ir.gti : ir.ghi; if (!(r > 25)) return;
+    const r = effIrr(ir, o.t); if (!(r > 25)) return;
     const pos = sunPos(o.t + HOUR / 2, L.lat, L.lon); if (pos.el < 2) return;
     let pv = o.pv;
     if (pv === null) { const d = new Date(o.t * 1000), p = M.prof[dayType(d)][d.getHours()]; pv = p ? o.net + p.med : null; } // senza regolatori: netto + consumi tipici
@@ -1906,20 +1996,21 @@ function learnSun(M){
 function pvBase(M, t, asFc){
   const ir = irrAt(t, asFc);
   if (M.sun && ir) {
-    const r = fin(ir.gti) ? ir.gti : ir.ghi; if (!(r > 0)) return 0;
+    const r = effIrr(ir, t); if (!(r > 0)) return 0;
     const L = here(), pos = sunPos(t + HOUR / 2, L.lat, L.lon); if (pos.el < 0) return 0;
     const b = M.sun.map.get(elBin(Math.max(0, pos.el)) * 16 + azBin(pos.az)), g = b ? b.g : M.sun.g;
-    return capPv(g * r * (1 - .0035 * ((fin(ir.temp) ? ir.temp : 20) + .03 * r - 25)));
+    return capPv(g * r * (1 - .0035 * ((fin(ir.temp) ? ir.temp : 20) + .03 * r - 25)), ir, t);
   }
   if (M.pvProf.some(v => v !== null)) return M.pvProf[new Date((t + HOUR / 2) * 1000).getHours()] || 0;
   return null;
 }
 // ogni regolatore Epever dà al massimo 100 A: la Tettoia da 6 kWp nelle giornate migliori ci sbatte contro
-function capPv(w){
-  const pv = data && Array.isArray(data.pv) ? data.pv.filter(g => fin(g.kwp) && g.kwp > 0) : [];
-  if (!pv.length) return w;
-  const tot = pv.reduce((a, g) => a + g.kwp, 0), lim = 100 * (data.batteries && data.batteries[0] && fin(data.batteries[0].v) ? data.batteries[0].v : 53);
-  return pv.reduce((a, g) => a + Math.min(w * g.kwp / tot, lim), 0);
+// la produzione si divide tra i gruppi secondo kWp e sole sulla loro falda
+function capPv(w, ir, t){
+  if (!(data && Array.isArray(data.pv) && data.pv.length)) return w;
+  const lim = 100 * (data.batteries && data.batteries[0] && fin(data.batteries[0].v) ? data.batteries[0].v : 53);
+  const sh = planes().map(p => p.kwp * (ir ? Math.max(0, planeGti(ir, p, t)) : 1)), tot = sh.reduce((a, b) => a + b, 0);
+  return tot ? sh.reduce((a, x) => a + Math.min(w * x / tot, lim), 0) : w;
 }
 
 // batteria misurata: capacità utile (quanto sale la carica per ogni kWh entrato) e rallentamento vicino al pieno
@@ -2331,11 +2422,25 @@ function myAlarms(bs, k, f){
       out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
   if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
-    const gs = data.pv.filter(g => g.online !== false && fin(g.kwh_today) && fin(g.kwp) && g.kwp > 0), rs = gs.map(g => g.kwh_today / g.kwp), best = Math.max(0, ...rs);
-    if (gs.length > 1 && best >= 1) gs.forEach((g, j) => { if (rs[j] < best * .7)
+    const gs = data.pv.filter(g => g.online !== false && fin(dayRatio(g))), rs = gs.map(dayRatio), best = Math.max(0, ...rs);
+    if (gs.length > 1 && best >= .25) gs.forEach((g, j) => { if (rs[j] < best * .7)
       out.push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
   }
   return out;
+}
+// resa di oggi di un gruppo: kWh per kWp diviso il sole caduto sulla sua falda (senza meteo, solo kWh per kWp)
+function dayRatio(g){
+  if (!fin(g.kwh_today) || !(g.kwp > 0)) return NaN;
+  const e = dayIrr(planeOf(g), nowOf(data));
+  return e === null ? g.kwh_today / g.kwp : e > 150 ? g.kwh_today / g.kwp / (e / 1000) : NaN;
+}
+// adesso: W per kWp diviso il sole sulla falda in questo momento
+function nowRatio(g){
+  if (!fin(g.w) || !(g.kwp > 0)) return NaN;
+  const t = Math.floor(nowOf(data) / HOUR) * HOUR, ir = irrAt(t, false);
+  if (!ir) return g.w / (g.kwp * 1000);
+  const e = planeGti(ir, planeOf(g), t);
+  return e > 60 ? g.w / g.kwp / e : NaN;
 }
 // un allarme nuovo con la app aperta: vibrazione e due toni brevi (i consigli no)
 let alSeen = null, actx = null;
@@ -2645,14 +2750,14 @@ function drawPv(pv, k){
   // resa di ogni gruppo rispetto alla sua potenza installata: chi rende molto meno degli altri va controllato.
   // Non si confronta in mantenimento o a banco quasi pieno, quando sono i regolatori a tagliare apposta.
   const yieldOf = g => fin(g.kwp) && g.kwp > 0 ? g.w / (g.kwp * 1000) : NaN;
-  const ys = on.map(yieldOf).filter(fin), best = ys.length ? Math.max(...ys) : 0;
-  const fair = on.length > 1 && best >= 0.12 && !on.some(g => g.state === "float") && !(k.soc >= 95);
+  const ys = on.map(nowRatio).filter(fin), best = ys.length ? Math.max(...ys) : 0, sunNow = on.some(g => yieldOf(g) >= 0.12);
+  const fair = ys.length > 1 && sunNow && !on.some(g => g.state === "float") && !(k.soc >= 95);
   $("pv-cols").innerHTML = pv.map(g => {
-    const off = g.online === false || !fin(g.w), y = yieldOf(g);
-    const low = !off && fair && fin(y) && y < best * 0.7;
+    const off = g.online === false || !fin(g.w), y = yieldOf(g), yr = nowRatio(g);
+    const low = !off && fair && fin(yr) && yr < best * 0.7;
     const st = off ? "mute" : g.w < 5 ? "off" : (g.state in PV_ST ? g.state : "boost");
     const fill = off || !fin(y) ? 0 : Math.max(0, Math.min(1, y)) * 100;
-    const stTxt = off ? "Non risponde" : low ? `Rende −${nf((1 - y / best) * 100, 0)}%`
+    const stTxt = off ? "Non risponde" : low ? `Rende −${nf((1 - yr / best) * 100, 0)}%`
       : g.w < 5 ? (PV_ST[g.state] && g.state !== "boost" ? PV_ST[g.state] : "Fermo") : PV_ST[g.state] || "In carica";
     const [num, unit] = off ? ["–", ""] : power(g.w).split(" ");
     const arc = (fill / 100 * 179.1).toFixed(1); // 270° di un cerchio di raggio 38 = 179,1 su 238,8
@@ -2666,16 +2771,16 @@ function drawPv(pv, k){
   }).join("");
 
   // resa di oggi: kWh per kW installato, il confronto più giusto tra gruppi di taglia diversa
-  const days = on.filter(g => fin(g.kwh_today) && fin(g.kwp) && g.kwp > 0).map(g => ({ g, r: g.kwh_today / g.kwp }));
-  const rBest = days.length ? Math.max(...days.map(d => d.r)) : 0;
-  const lowDay = d => days.length > 1 && rBest >= 0.5 && d.r < rBest * 0.75;
-  $("pv-day").innerHTML = (days.length ? `<h3>Resa di oggi</h3><p class="note">kWh prodotti per ogni kW di pannelli: con lo stesso sole i gruppi dovrebbero essere simili.</p>` +
+  const days = on.filter(g => fin(g.kwh_today) && fin(g.kwp) && g.kwp > 0).map(g => ({ g, r: g.kwh_today / g.kwp, q: dayRatio(g) }));
+  const qBest = Math.max(0, ...days.map(d => d.q).filter(fin)), oriented = days.some(d => planeOf(d.g).key !== planeOf(days[0].g).key);
+  const lowDay = d => days.length > 1 && fin(d.q) && d.r >= 0 && qBest > 0 && days.some(x => x.r >= 0.5) && d.q < qBest * 0.75;
+  $("pv-day").innerHTML = (days.length ? `<h3>Resa di oggi</h3><p class="note">kWh prodotti per ogni kW di pannelli${oriented ? ". La barra confronta ogni gruppo con il sole arrivato sulla sua falda: a parità di salute sono tutte piene." : ": con lo stesso sole i gruppi dovrebbero essere simili."}</p>` +
     `<div class="pv-rows">${days.map(d => `<div class="pv-r${lowDay(d) ? " low" : ""}"><span>${esc(pvName(d.g))}</span>` +
-      `<span class="pv-rb"><i style="width:${rBest ? (d.r / rBest * 100).toFixed(1) : 0}%"></i></span>` +
+      `<span class="pv-rb"><i style="width:${qBest && fin(d.q) ? Math.min(100, d.q / qBest * 100).toFixed(1) : 0}%"></i></span>` +
       `<span class="pv-rv">${nf(d.r, 2)} <small>kWh/kWp</small></span></div>`).join("")}</div>` : "") +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}</td>` +
-      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}</td></tr>`; }).join("") + `</tbody></table>`;
+      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
 }
 
 function drawCabinet(bs, lowSoc){
@@ -2894,9 +2999,9 @@ addEventListener("resize", () => pagesEl.scrollTo({ left: pageIdx * pagesEl.clie
 let sim = null;
 // i tre gruppi dell'impianto (docs: Tettoia 12 × 500 W, Pollaio 12 × 490 W, Pannellini 16 × 120 W)
 const DEMO_PV = [
-  { addr: 1, name: "Tettoia", kwp: 6.0, vmp: 115, eff: 1 },
-  { addr: 2, name: "Pollaio", kwp: 5.88, vmp: 114, eff: .97 },
-  { addr: 3, name: "Pannellini", kwp: 1.92, vmp: 72, eff: .94 },
+  { addr: 1, name: "Tettoia", kwp: 6.0, vmp: 115, eff: 1, az: 0, tilt: 30 },
+  { addr: 2, name: "Pollaio", kwp: 5.88, vmp: 114, eff: .97, az: -45, tilt: 25 },
+  { addr: 3, name: "Pannellini", kwp: 1.92, vmp: 72, eff: .94, az: 45, tilt: 15 },
 ];
 function simulate(){
   const now = Date.now() / 1000;
@@ -2950,13 +3055,16 @@ function simulate(){
   const pvW = sunCurve(hour) * 95 * 52.8, sunUp = sunCurve(hour) > 0;
   const kwhSoFar = hour <= 7 ? 0 : 95 * 52.8 / 1000 * 11 / Math.PI * (1 - Math.cos(Math.min(hour - 7, 11) / 11 * Math.PI));
   const bankSoc = bank(sim.bs).soc;
-  const pv = DEMO_PV.map(g => {
-    const share = g.kwp / DEMO_PV.reduce((a, x) => a + x.kwp, 0) * g.eff;
-    return { addr: g.addr, name: g.name, online: true, kwp: g.kwp,
+  const ps = DEMO_PV.map(g => planeOf(g)), t0 = Math.floor(now / HOUR) * HOUR, ir = irrAt(t0, false);
+  const gNow = ps.map(p => p.kwp * (ir ? Math.max(0, planeGti(ir, p, t0)) : 1)), gDay = ps.map(p => p.kwp * (dayIrr(p, now) || 0));
+  const sNow = gNow.reduce((a, b) => a + b, 0), sDay = gDay.reduce((a, b) => a + b, 0);
+  const pv = DEMO_PV.map((g, j) => {
+    const share = (sNow ? gNow[j] / sNow : ps[j].kwp / 13.8) * g.eff, shareDay = (sDay ? gDay[j] / sDay : ps[j].kwp / 13.8) * g.eff;
+    return { addr: g.addr, name: g.name, online: true, kwp: g.kwp, az: g.az, tilt: g.tilt,
       w: Math.round(pvW * share * (1 + (Math.random() - .5) * .04)),
       v: sunUp ? +(g.vmp + (Math.random() - .5) * 2).toFixed(1) : +(g.vmp * .1).toFixed(1),
       a: sunUp ? +(pvW * share / g.vmp).toFixed(2) : 0,
-      kwh_today: +(kwhSoFar * share).toFixed(2),
+      kwh_today: +(kwhSoFar * shareDay).toFixed(2),
       state: !sunUp ? "off" : bankSoc >= 98 ? "float" : "boost" };
   });
   return { time: Math.round(now), rssi: -61, pv,
@@ -2976,11 +3084,62 @@ function fillSettings(){
     return `<label>Indirizzo ${esc(k)}${k === "0" ? " · master" : ""}<input type="text" maxlength="24" data-k="${esc(k)}" value="${esc(S.names[k] || "")}" placeholder="${esc(b.name || "Batteria " + (i + 1))}" autocomplete="off" enterkeyhint="done"></label>`;
   }).join("") : `<p class="set-note">Compaiono appena la scheda risponde.</p>`;
   const pv = (data && Array.isArray(data.pv) && data.pv) || [];
-  $("set-pvnames").innerHTML = pv.length ? pv.map(g => {
-    const k = "pv" + g.addr;
-    return `<label>Indirizzo ${esc(g.addr)} · Epever<input type="text" maxlength="24" data-k="${esc(k)}" value="${esc(S.names[k] || "")}" placeholder="${esc(g.name || "Regolatore " + g.addr)}" autocomplete="off" enterkeyhint="done"></label>`;
-  }).join("") : `<p class="set-note">Compaiono quando la scheda legge i regolatori.</p>`;
+  $("set-pvnames").innerHTML = pv.length ? pv.map(pvCard).join("") : `<p class="set-note">Compaiono quando la scheda legge i regolatori.</p>`;
+  $("set-tilt-box").hidden = pv.length > 0; // con i regolatori l'inclinazione si imposta gruppo per gruppo
 }
+// scheda di un regolatore: nome, bussola a 8 direzioni, inclinazione, potenza e numero dei pannelli
+function pvCard(g){
+  const p = planeOf(g), c = S.pv[g.addr] || {}, k = "pv" + g.addr, rot = 180 + p.az;
+  const dial = AZ8.map(([t, az]) => { const b = (180 + az) * RAD;
+    return `<button type="button" class="cmp-b${az === p.az ? " on" : ""}" data-az="${az}" style="left:${(50 + 39 * Math.sin(b)).toFixed(1)}%;top:${(50 - 39 * Math.cos(b)).toFixed(1)}%" aria-pressed="${az === p.az}" aria-label="${AZ_NAME[t]}">${t}</button>`; }).join("");
+  const ticks = Array.from({ length: 24 }, (_, i) => i % 3 ? `<line x1="50" y1="${i % 3 ? 22 : 20}" x2="50" y2="25" transform="rotate(${i * 15} 50 50)"/>` : "").join("");
+  const kwpTxt = c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp <small>dalla scheda</small>` : "–";
+  return `<div class="pvc" data-a="${esc(g.addr)}">` +
+    `<label class="pvc-name">Indirizzo ${esc(g.addr)} · Epever<input type="text" maxlength="24" data-k="${esc(k)}" value="${esc(S.names[k] || "")}" placeholder="${esc(g.name || "Regolatore " + g.addr)}" autocomplete="off" enterkeyhint="done"></label>` +
+    `<div class="pvc-grid"><div class="cmp" role="group" aria-label="Verso dove guardano i pannelli">` +
+      `<svg class="cmp-r" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="39" fill="none" stroke="var(--line)" stroke-width="1.2"/>` +
+      `<g stroke="var(--line)" stroke-width="1">${ticks}</g><circle cx="50" cy="50" r="17" fill="var(--lith-tint)"/>` +
+      `<g transform="rotate(${rot} 50 50)" style="transition:transform .3s"><path d="M50 50V27" stroke="var(--lith)" stroke-width="2.4" stroke-linecap="round"/><path d="M50 22l5 8h-10z" fill="var(--lith)"/></g>` +
+      `<rect x="43" y="46" width="14" height="8" rx="1" fill="var(--surface)" stroke="var(--lith)" stroke-width="1.4" transform="rotate(${rot} 50 50)"/></svg>${dial}</div>` +
+    `<div class="pvc-f"><span class="pvc-l">Guardano a <b>${AZ_NAME[azTag(p.az)]}</b></span>` +
+      `<span class="pvc-l">Inclinazione</span><div class="step"><button type="button" data-st="tilt" data-d="-5" aria-label="Meno inclinati">−</button>` +
+        `<output><svg viewBox="0 0 24 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 14.5h20" opacity=".4"/><path d="M5 14.5h14" transform="rotate(${-p.tilt} 5 14.5)"/></svg>${p.tilt}°</output>` +
+        `<button type="button" data-st="tilt" data-d="5" aria-label="Più inclinati">+</button></div>` +
+      `<span class="pvc-l">Potenza di un pannello</span><div class="step"><input type="number" inputmode="numeric" min="10" max="1000" step="5" data-f="wp" value="${c.wp || ""}" placeholder="400" aria-label="Watt di picco di un pannello"><small>Wp</small></div>` +
+      `<span class="pvc-l">Quanti pannelli</span><div class="step"><button type="button" data-st="n" data-d="-1" aria-label="Un pannello in meno">−</button>` +
+        `<input type="number" inputmode="numeric" min="1" max="200" data-f="n" value="${c.n || ""}" placeholder="–" aria-label="Numero di pannelli"><button type="button" data-st="n" data-d="1" aria-label="Un pannello in più">+</button></div>` +
+    `</div></div><p class="pvc-tot"><span>Potenza del gruppo</span><b data-tot>${kwpTxt}</b></p></div>`;
+}
+// dopo una modifica: salva, e quando smetti di toccare manda tutto alla scheda e rifà meteo e previsioni
+function pvSaved(){
+  pvVer++; saveSettings(); pvEditAt = Date.now(); clearTimeout(pvT);
+  pvT = setTimeout(() => {
+    if (mode === "live" && data && Array.isArray(data.pv)) fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ pv: data.pv.map(g => { const p = planeOf(g); return { addr: g.addr, kwp: p.kwp, az: p.az, tilt: p.tilt }; }) })}).catch(() => {});
+    pvEditAt = 0; if (data) render(mode);
+  }, 1300);
+}
+$("set-pvnames").addEventListener("click", e => {
+  const b = e.target.closest("button"), card = b && b.closest(".pvc"); if (!card) return;
+  const a = card.dataset.a, g = ((data && data.pv) || []).find(x => String(x.addr) === a) || { addr: +a }, c = S.pv[a] = S.pv[a] || {};
+  if (b.dataset.az) c.az = +b.dataset.az;
+  else if (b.dataset.st === "tilt") c.tilt = clamp(planeOf(g).tilt + +b.dataset.d, 0, 90);
+  else if (b.dataset.st === "n") c.n = clamp((c.n || 0) + +b.dataset.d, 1, 200);
+  else return;
+  const sel = b.dataset.az ? `[data-az="${b.dataset.az}"]` : `[data-st="${b.dataset.st}"][data-d="${b.dataset.d}"]`;
+  card.outerHTML = pvCard(g);
+  const nb = $("set-pvnames").querySelector(`.pvc[data-a="${a}"] ${sel}`); if (nb) nb.focus({ preventScroll: true });
+  pvSaved();
+});
+$("set-pvnames").addEventListener("input", e => {
+  const t = e.target, f = t.dataset.f, card = t.closest(".pvc"); if (!f || !card) return;
+  const a = card.dataset.a, g = ((data && data.pv) || []).find(x => String(x.addr) === a) || { addr: +a }, c = S.pv[a] = S.pv[a] || {}, v = +t.value;
+  if (f === "wp") { if (t.value && v >= 10 && v <= 1000) c.wp = Math.round(v); else delete c.wp; }
+  if (f === "n") { if (t.value && Number.isInteger(v) && v >= 1 && v <= 200) c.n = v; else delete c.n; }
+  const p = planeOf(g);
+  card.querySelector("[data-tot]").innerHTML = c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp <small>dalla scheda</small>` : "–";
+  pvSaved();
+});
 const PIN = '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>';
 let locResults = null, locQ = "";
 function fillLoc(){
