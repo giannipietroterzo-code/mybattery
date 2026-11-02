@@ -1296,7 +1296,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.26"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.27"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1542,6 +1542,9 @@ function applyTheme(){
   ["set-theme-box", "set-pal-box"].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = S.style !== "classico"; }); // tema e colori: solo Classico
   const [bl, bd] = PAGE_BG[pal === "oro" ? "oro" : "fredda"];
   metas.forEach(m => m.content = STYLE_BG[S.style] || (theme === "light" ? bl : theme === "dark" ? bd : m.media.includes("dark") ? bd : bl));
+  // il tema vero, non "light dark": se no Chrome per Android col tema scuro dei siti "scurisce" la pagina già scura e schiarisce il logo
+  const cs = document.querySelector('meta[name="color-scheme"]');
+  if (cs) cs.content = theme === "dark" ? "dark" : theme === "light" ? "only light" : "light dark";
 }
 
 /* ---------- numeri: negli stili diversi da Classico l'unità è scritta piccola ---------- */
