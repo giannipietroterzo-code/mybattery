@@ -1297,7 +1297,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.28"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.29"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1527,7 +1527,42 @@ function loadSettings(){
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
   return o;
 }
-function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} }
+function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (mode === "live" && !cfgPulling) pushShared(); } catch (e) {} } // try: può servire prima che "mode" esista
+
+/* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
+// restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
+const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc"];
+let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
+const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
+function pushShared(){
+  clearTimeout(cfgPushT);
+  cfgPushT = setTimeout(async () => {
+    try {
+      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({app: sharedOf()})});
+      const j = await r.json(); if (j && j.ok) cfgAt = j.app_at;
+    } catch (e) {}
+    cfgPushT = 0;
+  }, 1500);
+}
+async function pullShared(){
+  if (cfgPushT) return; // una modifica fatta qui sta per partire: vince quella
+  try {
+    const j = await (await fetch("/api/config", {cache: "no-store"})).json();
+    if (!j || cfgPushT) return;
+    if (!j.app) { pushShared(); return; } // scheda nuova: prende le impostazioni di questo telefono
+    let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
+    const before = JSON.stringify(sharedOf()), loc0 = JSON.stringify(S.loc);
+    SHARED.forEach(k => { if (k in j.app) raw[k] = j.app[k]; });
+    cfgPulling = true;
+    try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
+    S = loadSettings(); cfgAt = j.app_at;
+    cfgPulling = false;
+    if (JSON.stringify(sharedOf()) === before) return;
+    fc = null; fcAt = 0; fillSettings(); fillLoc();
+    if (JSON.stringify(S.loc) !== loc0) { wx = null; if (S.loc) loadWx(true); else relearn(); } else relearn();
+    if (data) render(mode);
+  } catch (e) { cfgPulling = false; }
+}
 const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
 const PAGE_BG = { oro: ["#ECECE8", "#161615"], fredda: ["#E9EDF1", "#121820"] }; // = --bg chiaro e scuro
 const STYLE_BG = { hitech: "#04070C", terminale: "#020603", mecha: "#0B0B0B", cyber: "#050403", reattore: "#070502", plancia: "#021012" };
@@ -1579,6 +1614,8 @@ async function poll(){
     data = j; lastOk = Date.now(); everLive = true;
     if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; saveSettings(); } // comanda la scheda
     render("live");
+    if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();
+    if (fin(j.mute_until) && Math.abs(j.mute_until - muteUntil) > 60 && !muted()) { muteUntil = j.mute_until; try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {} }
     syncLog();
   } catch (e) {
     if (everLive) render("stale");
@@ -1952,7 +1989,44 @@ async function syncLog(){
     }
   } catch (e) {}
   if (added.length) { LOG.push(...added); db.put(added); }
+  await boardAlarms();
+  await pushOldLog();
   relearn();
+}
+// il diario della scheda (sempre accesa) al posto della cronologia che la app tiene solo mentre è aperta
+let boardEv = null;
+async function boardAlarms(){
+  try {
+    const j = await (await fetch("/api/alarms", {cache: "no-store"})).json();
+    if (!j || !Array.isArray(j.ev)) return;
+    boardEv = j.ev.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
+      const g = { addr: e.addr, name: e.who }, who = e.pv ? pvName(g) : nameOf(g, e.addr);
+      const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile"
+        : e.code === "PV_FAULT" ? "Guasto del regolatore" : (MSG[e.code] || [e.code])[0];
+      return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0 };
+    });
+  } catch (e) {}
+}
+// il registro fatto col cavo USB prima che ci fosse la scheda: lo si versa nella scheda, dal più recente al più vecchio
+// (la scheda accetta solo righe che finiscono prima della sua prima riga)
+const PUSH_KEY = "mybattery.logpush.v1";
+async function pushOldLog(){
+  if (!data || !fin(data.log_n)) return;
+  const first = data.log_n ? data.log_first : Infinity;
+  if (data.log_n && !fin(first)) return;
+  const old = LOG.filter(r => r[0] + r[1] * 60 <= first);
+  if (!old.length || lsGet(PUSH_KEY) === `${first}:${old.length}`) return;
+  let sent = 0;
+  try {
+    for (let end = old.length; end > 0; end -= 300) {
+      const part = old.slice(Math.max(0, end - 300), end).map(r => r.slice(0, 6));
+      const j = await (await fetch("/api/log/import", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({rows: part})})).json();
+      if (!j || !j.ok) break;
+      sent += j.added || 0;
+    }
+  } catch (e) {}
+  try { localStorage.setItem(PUSH_KEY, JSON.stringify(`${first}:${old.length}`)); } catch (e) {}
+  if (sent) toast(`Registro del cavo USB copiato nella scheda: ${sent} righe`);
 }
 
 /* ---------- sole: posizione (elevazione e azimut) e cielo sereno ---------- */
@@ -2816,7 +2890,9 @@ let alhSig = "";
 function drawAlHist(){
   const thr = S.alLow, now = Date.now() / 1000, t0 = new Date(); t0.setHours(0, 0, 0, 0); t0.setDate(t0.getDate() - 29);
   const from = t0.getTime() / 1000, rows = LOG.filter(r => r[0] >= from && fin(r[2]));
-  const ev = (logSrc === "demo" ? demoAlh() : alh.ev).filter(e => (e.e || now) >= from).sort((a, b) => b.s - a.s);
+  const bFrom = boardEv && mode === "live" ? Math.min(fin(data && data.log_first) ? data.log_first : now, ...boardEv.map(e => e.s)) : Infinity;
+  const ev = (logSrc === "demo" ? demoAlh() : boardEv && mode === "live" ? [...boardEv, ...alh.ev.filter(e => e.s < bFrom)] : alh.ev)
+    .filter(e => (e.e || now) >= from).sort((a, b) => b.s - a.s);
   const sig = [thr, LOG.length, LOG.length && LOG[LOG.length - 1][0], ev.length, ev[0] && ev[0].e, dkey(now)].join();
   if (sig === alhSig) return; alhSig = sig;
   const read = $("alh-read"), svg = $("alh"), list = $("alh-list"), note = $("alh-note");
