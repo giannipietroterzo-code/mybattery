@@ -1297,7 +1297,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.29"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.30"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1534,11 +1534,15 @@ function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } 
 const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
+// i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
+// nome "" e kwp 0 = torna al valore della scheda
+const pvCfgOf = () => ((data && Array.isArray(data.pv) && data.pv.length) ? data.pv : [1, 2, 3].map(a => ({ addr: a })))
+  .map(g => { const p = planeOf(g); return { addr: g.addr, name: S.names["pv" + g.addr] || "", kwp: p.kwp || 0, az: p.az, tilt: p.tilt, strings: strOf(g.addr) }; });
 function pushShared(){
   clearTimeout(cfgPushT);
   cfgPushT = setTimeout(async () => {
     try {
-      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({app: sharedOf()})});
+      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({app: sharedOf(), pv: pvCfgOf()})});
       const j = await r.json(); if (j && j.ok) cfgAt = j.app_at;
     } catch (e) {}
     cfgPushT = 0;
@@ -3912,8 +3916,6 @@ function pvCard(g){
 function pvSaved(){
   pvVer++; saveSettings(); pvEditAt = Date.now(); clearTimeout(pvT);
   pvT = setTimeout(() => {
-    if (mode === "live" && data && Array.isArray(data.pv)) fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ pv: data.pv.map(g => { const p = planeOf(g); return { addr: g.addr, kwp: p.kwp, az: p.az, tilt: p.tilt, strings: strOf(g.addr) }; }) })}).catch(() => {});
     pvEditAt = 0; if (data) render(mode);
   }, 1300);
 }
