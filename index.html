@@ -436,6 +436,12 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .ntfy-on code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;font:500 .82rem var(--mono)}
 .ntfy-row{display:flex;flex-wrap:wrap;gap:8px}
 .ntfy-row .link-btn{margin-top:10px}
+.set-btn.pri{background:var(--lith);color:#151515}
+[data-style] .set-btn.pri{background:var(--lith);color:var(--bg);border-color:var(--lith);box-shadow:0 0 14px -5px var(--lith)}
+.ntfy-steps{margin:8px 0 0;padding-left:1.3em;font-size:.9rem;line-height:1.5}.ntfy-steps li{margin:2px 0}
+.ntfy-ch{margin-top:10px;padding:10px 12px;border:1px dashed var(--line);background:var(--bg);font:600 .86rem var(--mono);color:var(--sun);overflow-wrap:anywhere;user-select:all}
+.ntfy-st{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;font-size:.84rem;color:var(--muted)}.ntfy-st i{flex:none;width:8px;height:8px;margin-top:.45em;border-radius:50%;background:var(--muted)}
+.ntfy-st.ok i{background:#3FB950;box-shadow:0 0 8px #3FB950}.ntfy-st.wa i{background:#E3A008}
 .set-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:14px;border-top:1px solid var(--line)}
 .link-btn{border:0;background:none;padding:6px 0;font:inherit;font-size:.9rem;color:var(--alert);cursor:pointer}
 .link-btn.plain{color:var(--muted)}
@@ -1229,9 +1235,8 @@ footer{border-top:0;padding-top:0}
     </div>
     <p class="set-note">Le protezioni del BMS e gli allarmi delle batterie compaiono sempre.</p>
 
-    <h3>Notifiche con ntfy</h3>
+    <h3>Notifiche con l'app chiusa</h3>
     <div id="set-ntfy"></div>
-    <p class="set-note">Arrivano solo a app chiusa: con la app aperta gli allarmi sono qui, con suono e vibrazione. Le previsioni le programma la app quando la chiudi; gli allarmi del momento li manderà la scheda, se raggiunge internet.</p>
 
     <h3>Registrazione dello storico</h3>
     <fieldset class="seg" id="set-log">
@@ -1297,7 +1302,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.30"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.31"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1680,6 +1685,7 @@ const nowOf = d => d && fin(d.time) && d.time > 1.6e9 ? d.time : Date.now() / 10
 function render(m){
   if (!data) return;
   mode = m;
+  ntfySt();
   const bs = data.batteries || [];
   const lim = data.limits || {};
   const k = bank(bs);
@@ -2710,7 +2716,7 @@ function drawForecast(){
     ` · forchetta: 8 giornate su 10 cadono nella zona chiara.`;
 }
 
-/* ---------- allarmi: soglie scelte, previsioni e consigli. Con la app aperta suono e vibrazione, a app chiusa ntfy ---------- */
+/* ---------- allarmi: soglie scelte, previsioni e consigli. Con la app aperta suono e vibrazione, a app chiusa ntfy (dalla scheda) ---------- */
 const dkey = t => { const d = new Date(t * 1000); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 function myAlarms(bs, k, f){
   const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours();
@@ -2805,7 +2811,8 @@ function ringNew(items){
   alSeen = ids;
 }
 
-// ntfy: canale privato casuale; la app manda solo le previsioni, programmate quando la chiudi e annullate quando la riapri
+// ntfy: canale privato casuale. Gli allarmi li manda la scheda (le arriva con le impostazioni condivise);
+// la app manda solo le previsioni, programmate quando la chiudi e annullate quando la riapri
 const NTFY = "https://ntfy.sh", NTFY_KEY = "mybattery.ntfy.v1", APP_URL = new URL("./", location.href).href;
 const newTopic = () => "mybattery-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join("");
 const ntfyPub = (msg, keep) => fetch(NTFY + "/", { method: "POST", body: JSON.stringify(msg), keepalive: !!keep });
@@ -2814,11 +2821,48 @@ const writeSched = m => { try { localStorage.setItem(NTFY_KEY, JSON.stringify(m)
 function fillNtfy(){
   const el = $("set-ntfy");
   el.innerHTML = S.ntfy
-    ? `<div class="ntfy-on"><span class="loc-pin">${ico(AL_ICON.fc)}</span><code>${esc(S.ntfy)}</code></div>` +
-      `<div class="ntfy-row"><a class="set-btn" href="ntfy://ntfy.sh/${esc(S.ntfy)}?display=MyBattery">Iscriviti nell'app ntfy</a>` +
-      `<button class="set-btn" id="ntfy-test" type="button">Invia una prova</button><button class="link-btn" id="ntfy-off" type="button">Spegni</button></div>`
-    : `<button class="set-btn" id="ntfy-on" type="button">${ico(AL_ICON.fc)}Attiva le notifiche con ntfy</button>` +
-      `<p class="set-note">Prima installa sul telefono l'app gratuita ntfy. Qui si crea un canale privato con un nome casuale: chi non lo conosce non può leggerlo.</p>`;
+    ? `<ol class="ntfy-steps"><li>Installa <b>ntfy</b> dal Play Store.</li><li>Tocca «Apri in ntfy» qui sotto (o aggiungi a mano il canale).</li>` +
+      `<li>Nelle impostazioni del canale scegli un suono tuo e, se vuoi, «ignora Non disturbare» per gli urgenti.</li></ol>` +
+      `<div class="ntfy-ch">ntfy.sh/${esc(S.ntfy)}</div>` +
+      `<div class="ntfy-row"><a class="set-btn pri" href="ntfy://ntfy.sh/${esc(S.ntfy)}?display=MyBattery">Apri in ntfy</a><button class="set-btn" id="ntfy-copy" type="button">Copia il canale</button></div>` +
+      `<p class="ntfy-st" id="ntfy-st"></p>` +
+      `<div class="ntfy-row"><button class="set-btn" id="ntfy-test" type="button">Prova notifica</button><button class="set-btn" id="ntfy-urg" type="button">Prova urgente</button><button class="link-btn" id="ntfy-off" type="button">Spegni</button></div>` +
+      `<p class="set-note">Il canale è segreto: chi lo conosce legge gli avvisi. Non condividerlo. Le previsioni e i consigli li programma questo telefono quando chiudi la app.</p>`
+    : `<p class="set-note" style="margin-top:0">Gli allarmi li manda la scheda appena li vede: protezioni del BMS, carica sotto la tua soglia, batterie o regolatori che non rispondono. Arrivano anche con la app chiusa, nell'app gratuita ntfy, se la scheda raggiunge internet dal router di casa.</p>` +
+      `<button class="set-btn pri" id="ntfy-on" type="button">${ico(AL_ICON.fc)}Attiva le notifiche</button>`;
+  ntfySt();
+}
+// com'è messa la scheda con le notifiche: le manda lei, serve che arrivi a internet
+function ntfySt(){
+  const el = $("ntfy-st"); if (!el) return;
+  const n = data && data.ntfy;
+  let c = "", t;
+  if (mode !== "live") t = "Senza la scheda da qui partono solo le previsioni. Gli allarmi del momento li manda la scheda, quando c'è.";
+  else if (!n) t = "La scheda non ha ancora il canale: aspetta qualche secondo. Se resta così, serve il firmware 0.4 o più nuovo.";
+  else if (!n.net) { c = "wa"; t = "La scheda non raggiunge il router: gli avvisi aspettano in coda fino a 6 ore e partono quando torna la rete."; }
+  else if (n.err) { c = "wa"; t = `La scheda è in rete ma ntfy non risponde (${esc(n.err)}): riprova da sola ogni minuto.`; }
+  else { c = "ok"; t = "La scheda è collegata e manda gli avvisi" + (n.ok_at ? ` · ultimo inviato ${Date.now() / 1000 - n.ok_at > 20 * HOUR ? "il " + new Date(n.ok_at * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" }) : "alle " + hm(n.ok_at)}` : "") + "."; }
+  if (n && n.queue) t += ` ${n.queue} in coda.`;
+  el.className = "ntfy-st " + c; el.innerHTML = `<i></i><span>${t}</span>`;
+}
+function copyText(t){ // navigator.clipboard vuole HTTPS: dalla scheda (HTTP) si passa da una textarea
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+  return new Promise((ok, ko) => { const a = document.createElement("textarea"); a.value = t; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select();
+    try { document.execCommand("copy") ? ok() : ko(); } catch (e) { ko(e); } a.remove(); });
+}
+async function ntfyTest(urg){
+  if (mode === "live") {
+    try {
+      let r = await fetch("/api/ntfy/test", { method: "POST", body: new URLSearchParams({ urgent: urg ? "1" : "0" }) });
+      if (r.status === 409) { await new Promise(w => setTimeout(w, 2500)); r = await fetch("/api/ntfy/test", { method: "POST", body: new URLSearchParams({ urgent: urg ? "1" : "0" }) }); }
+      const j = await r.json().catch(() => ({}));
+      toast(!r.ok ? "La scheda non ha ancora il canale: riprova tra poco" : j.net ? "Prova inviata dalla scheda" : "Prova in coda: parte quando la scheda raggiunge internet");
+    } catch (e) { toast("Scheda non raggiungibile"); }
+    return;
+  }
+  ntfyPub({ topic: S.ntfy, title: urg ? "Protezione · prova urgente" : "MyBattery · prova", tags: [urg ? "rotating_light" : "battery"], priority: urg ? 5 : 3, click: APP_URL,
+    message: urg ? "Prova: le protezioni del BMS arrivano così, anche con gli avvisi silenziati." : "Prova: gli avvisi arriveranno così, anche con la app chiusa." })
+    .then(r => toast(r.ok ? "Prova inviata" : "ntfy non risponde")).catch(() => toast("Nessuna rete"));
 }
 function scheduleOnClose(){
   if (!S.ntfy || !isReal() || !fc || !data) return;
@@ -4001,8 +4045,8 @@ $("set-ntfy").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.id === "ntfy-on") { S.ntfy = newTopic(); saveSettings(); fillNtfy(); }
   else if (b.id === "ntfy-off") { cancelScheduled(); S.ntfy = ""; saveSettings(); fillNtfy(); }
-  else if (b.id === "ntfy-test") ntfyPub({ topic: S.ntfy, title: "MyBattery", tags: ["battery"], priority: 4, click: APP_URL,
-    message: "Prova: gli allarmi arriveranno così, solo con la app chiusa." }).then(r => toast(r.ok ? "Prova inviata" : "ntfy non risponde")).catch(() => toast("Nessuna rete"));
+  else if (b.id === "ntfy-test" || b.id === "ntfy-urg") ntfyTest(b.id === "ntfy-urg");
+  else if (b.id === "ntfy-copy") copyText("ntfy.sh/" + S.ntfy).then(() => toast("Canale copiato")).catch(() => toast("Copia non riuscita: tieni premuto sul canale"));
 });
 document.addEventListener("visibilitychange", () => { if (document.hidden) scheduleOnClose(); else cancelScheduled(); });
 $("settings").addEventListener("change", e => {
