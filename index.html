@@ -43,6 +43,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
     "pv": [{                         // facoltativo: regolatori Epever letti in sola lettura (Modbus funzione 04)
       "addr": 1, "name": "Tettoia", "online": true,   // addr = indirizzo Modbus; name facoltativo (nella app si può rinominare)
       "w": 2410, "v": 112.4, "a": 21.4,   // pannelli: W, V, A (registri 3100H–3103H)
+      "out_w": 2340,                 // W che il regolatore porta alle batterie (3106H–3107H): li usa «Energia adesso»
       "kwh_today": 3.42,             // energia prodotta oggi (330CH)
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
       "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
@@ -130,6 +131,7 @@ body{height:100%;overflow:hidden}
 .tab-n{position:absolute;top:-2px;right:6px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--warn);color:#fff;
   font-size:.62rem;font-weight:700;line-height:16px;font-family:var(--num);box-shadow:0 0 0 2px var(--bg)}
 .tab-n.prot{background:var(--alert)}
+[hidden]{display:none!important} /* hidden vince sempre sui display:flex delle classi */
 .tab-n[hidden]{display:none}
 .pv-empty{margin:10px 2px 0;font-size:.9rem;color:var(--muted)}
 .pv-day h3{margin:24px 2px 4px;font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
@@ -1375,7 +1377,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.36"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.37"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1718,7 +1720,7 @@ function swSet(m, z){
   const prev = SW.mask, t = Math.round(Date.now() / 1000);
   SW.mask = m; SW.at = t;
   if (mode === "live" && SW.board) {
-    fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sw: m }) })
+    fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ sw: m }) })
       .then(r => { if (!r.ok) throw 0; }).catch(() => { SW.mask = prev; drawSw(); toast("Scheda non raggiungibile: deviatore non salvato"); });
     swNext = Date.now() + 130e3;                            // la scheda misura il salto due minuti dopo l'ultimo tocco
   } else { SW.rows.push([t, m, prev, null, 0]); swSaveLocal(); swChanged(); }
@@ -1850,7 +1852,7 @@ function pushShared(){
   clearTimeout(cfgPushT);
   cfgPushT = setTimeout(async () => {
     try {
-      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({app: sharedOf(), pv: pvCfgOf()})});
+      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({app: sharedOf(), pv: pvCfgOf()})});
       const j = await r.json(); if (j && j.ok) cfgAt = j.app_at;
     } catch (e) {}
     cfgPushT = 0;
@@ -2541,7 +2543,7 @@ async function pushOldLog(){
   try {
     for (let end = old.length; end > 0; end -= 300) {
       const part = old.slice(Math.max(0, end - 300), end).map(r => r.slice(0, 6));
-      const j = await (await fetch("/api/log/import", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({rows: part})})).json();
+      const j = await (await fetch("/api/log/import", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({rows: part})})).json();
       if (!j || !j.ok) break;
       sent += j.added || 0;
     }
@@ -3366,8 +3368,8 @@ function copyText(t){ // navigator.clipboard vuole HTTPS: dalla scheda (HTTP) si
 async function ntfyTest(urg){
   if (mode === "live") {
     try {
-      let r = await fetch("/api/ntfy/test", { method: "POST", body: new URLSearchParams({ urgent: urg ? "1" : "0" }) });
-      if (r.status === 409) { await new Promise(w => setTimeout(w, 2500)); r = await fetch("/api/ntfy/test", { method: "POST", body: new URLSearchParams({ urgent: urg ? "1" : "0" }) }); }
+      let r = await fetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) });
+      if (r.status === 409) { await new Promise(w => setTimeout(w, 2500)); r = await fetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) }); }
       const j = await r.json().catch(() => ({}));
       toast(!r.ok ? "La scheda non ha ancora il canale: riprova tra poco" : j.net ? "Prova inviata dalla scheda" : "Prova in coda: parte quando la scheda raggiunge internet");
     } catch (e) { toast("Scheda non raggiungibile"); }
@@ -3419,7 +3421,7 @@ $("al-mute").addEventListener("click", () => {
   else { const d = new Date(); if (d.getHours() >= 7) d.setDate(d.getDate() + 1); d.setHours(7, 0, 0, 0); muteUntil = d.getTime() / 1000; }
   try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {}
   toast(muteUntil ? `Silenziati fino alle ${hm(muteUntil)}` : "Avvisi riattivati");
-  if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({mute_until: Math.round(muteUntil)})}).catch(() => {});
+  if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({mute_until: Math.round(muteUntil)})}).catch(() => {});
   drawMute(1);
 });
 
@@ -4416,8 +4418,9 @@ function simulate(){
   const sNow = gNow.reduce((a, b) => a + b, 0), sDay = gDay.reduce((a, b) => a + b, 0);
   const pv = DEMO_PV.map((g, j) => {
     const share = (sNow ? gNow[j] / sNow : ps[j].kwp / 13.8) * g.eff, shareDay = (sDay ? gDay[j] / sDay : ps[j].kwp / 13.8) * g.eff;
+    const w = Math.round(pvW * share * (1 + (Math.random() - .5) * .04));
     return { addr: g.addr, name: g.name, online: true, kwp: g.kwp, az: g.az, tilt: g.tilt,
-      w: Math.round(pvW * share * (1 + (Math.random() - .5) * .04)),
+      w, out_w: Math.round(w * .97),   // lato batteria, come i registri 3106H–3107H degli Epever (resa ~97 %)
       v: sunUp ? +(g.vmp + (Math.random() - .5) * 2).toFixed(1) : +(g.vmp * .1).toFixed(1),
       a: sunUp ? +(pvW * share / g.vmp).toFixed(2) : 0,
       kwh_today: +(kwhSoFar * shareDay).toFixed(2),
@@ -4575,7 +4578,7 @@ $("settings").addEventListener("change", e => {
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (t.name === "log") {
     if (logSrc === "demo") { LOG = demoLog(); relearn(); }
-    else if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({log_min: S.log})}).catch(() => {});
+    else if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({log_min: S.log})}).catch(() => {});
   }
   if (data) render(mode);
 });
