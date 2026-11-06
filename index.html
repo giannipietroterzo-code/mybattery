@@ -437,6 +437,56 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .ntfy-row{display:flex;flex-wrap:wrap;gap:8px}
 .ntfy-row .link-btn{margin-top:10px}
 .set-btn.pri{background:var(--lith);color:#151515}
+/* energia adesso: pannelli → batterie → casa, con il verso del flusso */
+.flow-box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px 4px 2px}
+[data-style] .flow-box{background:transparent;border-color:color-mix(in srgb,var(--lith) 25%,transparent)}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) .flow-box{border-radius:0}
+[data-style="mecha"] .flow-box{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+.flow{display:block;width:100%;height:auto;font-family:inherit}
+.flow .tr{fill:none;stroke:var(--line);stroke-width:4;stroke-linecap:round}
+.flow .fl{fill:none;stroke-width:4;stroke-linecap:round;stroke-dasharray:.1 13;animation:flw var(--d,1.6s) linear infinite;transition:opacity .4s}
+.flow .fl.rev{animation-direction:reverse}.flow .fl.off{opacity:0}
+@keyframes flw{to{stroke-dashoffset:-13.1}}
+@media (prefers-reduced-motion:reduce){.flow .fl{animation:none;stroke-dasharray:none;opacity:.7}}
+.flow .nd{fill:var(--bg);stroke-width:2.2;transition:stroke .3s}
+.flow .ic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.flow .fv{font-size:16px;font-weight:700;fill:var(--ink);font-variant-numeric:tabular-nums}
+.flow .fa{font-size:11px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
+.flow .fn{font-size:9.5px;font-weight:700;letter-spacing:.09em;fill:var(--muted);text-transform:uppercase}
+.flow .bus{fill:var(--ink)}
+.flow .fp{font-size:15px;font-weight:700;fill:var(--sun);font-variant-numeric:tabular-nums}
+[data-mecha] .flow .fv,[data-style="reattore"] .flow .fv,[data-style="plancia"] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
+/* quadro dei deviatori: leve nello stile della app (colori e forme del tema scelto) */
+.quadro{margin-top:2px}
+.q-row{display:flex;align-items:stretch;gap:5px;padding:10px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.q-mod{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 0 7px;border:1px solid transparent;border-radius:11px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent;transition:border-color .2s,box-shadow .2s,background .2s}
+.q-mod:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.q-let{font-weight:800;font-size:1rem;line-height:1;color:var(--muted);transition:color .2s}
+.q-slot{position:relative;width:min(22px,64%);height:48px;border-radius:11px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.q-lev{position:absolute;left:3px;right:3px;top:calc(100% - 3px - 20px);height:20px;border-radius:8px;background:var(--muted);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:top .26s cubic-bezier(.3,1.5,.5,1),background .2s,box-shadow .2s}
+.q-st{display:block;width:15px;height:15px;color:var(--muted)}.q-st svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.q-mod[aria-checked="true"]{border-color:color-mix(in srgb,var(--lith) 55%,transparent);background:color-mix(in srgb,var(--lith) 10%,var(--bg))}
+.q-mod[aria-checked="true"] .q-lev{top:3px;background:var(--lith);box-shadow:0 0 12px -2px var(--lith)}
+.q-mod[aria-checked="true"] .q-slot{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lith) 45%,transparent)}
+.q-mod[aria-checked="true"] :is(.q-let,.q-st){color:var(--sun)}
+.q-names{display:flex;gap:5px;padding:7px 11px 0}
+.q-names span{flex:1;min-width:0;text-align:center;font-size:.64rem;line-height:1.3;color:var(--muted);overflow:hidden}
+.q-names i{display:block;font-style:normal;white-space:nowrap;font-variant-numeric:tabular-nums}.q-names em{display:block;font-style:normal;font-size:.58rem;opacity:.8}
+.q-leg{display:flex;justify-content:center;gap:16px;margin:8px 0 0;font-size:.74rem;color:var(--muted)}.q-leg span{display:inline-flex;align-items:center;gap:5px}
+.q-leg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.q-leg span:first-child{color:var(--sun)}
+.q-names b{display:block;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+[data-style] .q-row{background:transparent;border-color:color-mix(in srgb,var(--lith) 25%,transparent)}
+[data-style] .q-mod{background:color-mix(in srgb,var(--lith) 4%,var(--bg));border-color:color-mix(in srgb,var(--lith) 14%,transparent)}
+[data-style] .q-mod[aria-checked="true"]{background:color-mix(in srgb,var(--lith) 14%,var(--bg));border-color:var(--lith);box-shadow:0 0 14px -6px var(--lith)}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-row,.q-mod,.q-slot,.q-lev){border-radius:0}
+[data-style="mecha"] .q-mod{clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+[data-style="hitech"] :is(.q-row,.q-mod){border-radius:3px}
+.q-sum{margin:10px 2px 0;font-size:.86rem;line-height:1.45}
+.q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
+.q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
+.q-chip i{flex:none;width:9px;height:9px;border-radius:2px;background:var(--lith);box-shadow:0 0 8px var(--lith)}.q-chip span{flex:1;min-width:0}.q-chip small{color:var(--muted)}
+[data-style] .q-chip{background:transparent;border-color:color-mix(in srgb,var(--lith) 35%,transparent)}
+.zones label.em{display:flex;align-items:center;gap:6px;font-size:.78rem;margin-top:2px}.zones label.em input{width:auto}
 [data-style] .set-btn.pri{background:var(--lith);color:var(--bg);border-color:var(--lith);box-shadow:0 0 14px -5px var(--lith)}
 .ntfy-steps{margin:8px 0 0;padding-left:1.3em;font-size:.9rem;line-height:1.5}.ntfy-steps li{margin:2px 0}
 .ntfy-ch{margin-top:10px;padding:10px 12px;border:1px dashed var(--line);background:var(--bg);font:600 .86rem var(--mono);color:var(--sun);overflow-wrap:anywhere;user-select:all}
@@ -1047,7 +1097,12 @@ footer{border-top:0;padding-top:0}
       <div class="eta" id="eta"></div>
       </div>
       </section>
+    <section class="flow-sec" aria-labelledby="h-flow">
+      <h2 id="h-flow">Energia adesso</h2>
+      <div class="flow-box"><svg class="flow" id="flow" viewBox="0 0 340 178" role="img" aria-label="Flussi di energia tra pannelli, batterie e casa"></svg></div>
+    </section>
     <div class="notice" id="notice" role="status" hidden></div>
+    <button class="q-chip" id="q-chip" type="button"></button>
     <section aria-labelledby="h-al">
       <h2 id="h-al">Avvisi <span class="h-n" id="al-n" hidden></span></h2>
       <ul class="alerts" id="alerts"></ul>
@@ -1082,6 +1137,14 @@ footer{border-top:0;padding-top:0}
         </div>
         <div class="pv-day" id="pv-day"></div>
         <p class="pv-empty" id="pv-empty" hidden>I gruppi di pannelli compaiono quando la scheda legge i regolatori Epever.</p>
+      </section>
+      <section aria-labelledby="h-q" id="quadro-sec">
+        <h2 id="h-q">Quadro: solare o Enel</h2>
+        <div class="quadro" id="quadro"></div>
+        <p class="q-leg" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Su: solare</span><span><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Giù: Enel</span></p>
+        <p class="set-note" id="q-unk" hidden>– = consumo non ancora misurato: la scheda lo misura da sola la prima volta che sposti quel deviatore.</p>
+        <p class="q-sum" id="q-sum"></p>
+        <div class="q-last" id="q-last"></div>
       </section>
     </div>
     <div class="page" id="pg-3" role="tabpanel" aria-labelledby="tab-3">
@@ -1286,6 +1349,10 @@ footer{border-top:0;padding-top:0}
     <h3>Nomi delle batterie</h3>
     <div class="names" id="set-names"></div>
 
+    <h3>Zone del quadro</h3>
+    <div class="names zones" id="set-zones"></div>
+    <p class="set-note">I deviatori A–G della pagina Pannelli. «Solo emergenza»: la app non consiglia mai di metterla su solare (per esempio la pompa del pozzo).</p>
+
     <h3>Regolatori e pannelli</h3>
     <div class="names" id="set-pvnames"></div>
     <p class="set-note">I regolatori Epever che la scheda trova sulla linea RS485. Per ognuno: verso dove guardano i pannelli, quanto sono inclinati e quanti sono. Le previsioni chiedono il sole falda per falda, e il confronto tra gruppi tiene conto dell'orientamento.</p>
@@ -1302,7 +1369,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.31"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.32"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1506,7 +1573,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, swEm: ["E"] };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1517,6 +1584,7 @@ function loadSettings(){
   if (l && typeof l.name === "string" && fin(l.lat) && fin(l.lon)) o.loc = { name: l.name.slice(0, 60), lat: +l.lat.toFixed(2), lon: +l.lon.toFixed(2) };
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
+  if (Array.isArray(s.swEm)) o.swEm = s.swEm.filter(z => /^[A-G]$/.test(z));
   if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
     if (!/^\d{1,3}$/.test(a) || !c || typeof c !== "object") return;
     const v = {};
@@ -1536,13 +1604,240 @@ function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } 
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
 // restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
-const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc"];
+const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "swEm"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 // i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
 // nome "" e kwp 0 = torna al valore della scheda
 const pvCfgOf = () => ((data && Array.isArray(data.pv) && data.pv.length) ? data.pv : [1, 2, 3].map(a => ({ addr: a })))
   .map(g => { const p = planeOf(g); return { addr: g.addr, name: S.names["pv" + g.addr] || "", kwp: p.kwp || 0, az: p.az, tilt: p.tilt, strings: strOf(g.addr) }; });
+/* ---------- quadro: i deviatori A–G dicono quali zone della casa prendono corrente dal solare (inverter, cioè dal banco)
+   e quali da Enel. Lo stato e lo storico dei cambi li tiene la scheda; a ogni cambio la scheda misura il salto del consumo
+   e da lì la app impara quanto assorbe ogni zona: lo toglie dai consumi imparati e lo rimette nelle previsioni ---------- */
+const ZONES = ["A", "B", "C", "D", "E", "F", "G"], SW_KEY = "mybattery.sw.v1";
+let SW = (() => { // senza la scheda (cavo, demo) lo stato resta sul telefono, senza misura del salto
+  try { const o = JSON.parse(localStorage.getItem(SW_KEY) || "null"); if (o && fin(o.mask)) return { mask: o.mask & 127, at: o.at || 0, rows: Array.isArray(o.rows) ? o.rows : [], board: false }; } catch (e) {}
+  return { mask: 0x10, at: 0, rows: [], board: false };
+})();
+let swAtSeen = -1, swNext = 0, swEstC = null, swHabC = null, swOverride = null, swLastTap = null;
+const swOn = (m, z) => (m >> z & 1) === 1;
+const zName = z => S.names["sw" + ZONES[z]] || "";
+const zLab = z => ZONES[z] + (zName(z) ? ` (${zName(z)})` : "");
+const zList = zs => { const a = zs.map(zLab); return a.length > 1 ? a.slice(0, -1).join(", ") + " e " + a[a.length - 1] : a[0] || ""; };
+const zEm = z => (S.swEm || []).includes(ZONES[z]);
+const swSaveLocal = () => { try { localStorage.setItem(SW_KEY, JSON.stringify({ mask: SW.mask, at: SW.at, rows: SW.rows.slice(-2000) })); } catch (e) {} };
+const swT = r => fin(r[3]) && r[4] ? r[4] : r[0];          // ora del cambio vero: quella del salto, se misurato
+function maskAt(t){
+  const r = SW.rows; if (!r.length) return SW.mask;
+  let lo = 0, hi = r.length - 1, k = -1;
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (swT(r[m]) <= t) { k = m; lo = m + 1; } else hi = m - 1; }
+  return k < 0 ? r[0][2] : r[k][1];
+}
+// quanto assorbe ogni zona, dai salti misurati: mediana degli ultimi 10, per fascia di 6 ore se ce ne sono almeno 2
+function swEst(){
+  if (swEstC) return swEstC;
+  const per = ZONES.map(() => [[], [], [], []]), all = ZONES.map(() => []), one = ZONES.map(() => []);
+  const moves = SW.rows.map(([t, m, p, dW, at]) => {
+    if (!fin(dW)) return null;
+    const on = m & ~p, off = p & ~m; if (!(on || off) || (on && off)) return null;   // misti: non si sa chi ha fatto cosa
+    const zs = ZONES.map((_, z) => z).filter(z => swOn(on | off, z)), v = Math.max(0, dW * (on ? 1 : -1));
+    if (zs.length === 1) one[zs[0]].push(v);
+    return { zs, v, b: Math.floor(new Date((at || t) * 1000).getHours() / 6) };
+  }).filter(Boolean);
+  const solo = one.map(a => a.length ? quant(a.slice(-10), .5) : null);
+  moves.forEach(({ zs, v, b }) => {          // più zone insieme: il salto si divide come pesano da sole, se si sa
+    const w = zs.map(z => solo[z] ?? null), known = w.every(x => x !== null && x > 0), tot = known ? w.reduce((a, x) => a + x, 0) : zs.length;
+    zs.forEach((z, i) => { const x = v * (known ? w[i] : 1) / tot; per[z][b].push(x); all[z].push(x); });
+  });
+  const med = a => quant(a.slice(-10), .5);
+  return swEstC = ZONES.map((_, z) => ({ n: all[z].length, last: all[z].length ? all[z][all[z].length - 1] : null,
+    b: per[z].map(a => a.length >= 2 ? med(a) : null), all: all[z].length ? med(all[z]) : null }));
+}
+const zW = (z, t) => { const e = swEst()[z]; if (!e.n) return null; const b = e.b[Math.floor(new Date(t * 1000).getHours() / 6)]; return b ?? e.all; };
+const zonesW = (t, m) => ZONES.reduce((a, _, z) => a + (swOn(m, z) ? zW(z, t) || 0 : 0), 0);
+// abitudini: per ogni zona e ora, quante sere su 21 era sul solare. Servono almeno 7 giorni di storico e 4 cambi
+function swHabit(){
+  const now = Date.now() / 1000;
+  if (swHabC && swHabC.n === SW.rows.length && now - swHabC.at < HOUR) return swHabC.v;
+  let v = null;
+  if (SW.rows.length >= 4) {
+    const start = Math.max(SW.rows[0][0], now - 21 * DAY);
+    if (now - start >= 7 * DAY) {
+      const cnt = ZONES.map(() => Array.from({ length: 24 }, () => [0, 0])), ch = ZONES.map(() => 0);
+      for (let t = Math.ceil(start / HOUR) * HOUR + 1800; t < now; t += HOUR) {
+        const m = maskAt(t), h = new Date(t * 1000).getHours();
+        ZONES.forEach((_, z) => { cnt[z][h][1]++; if (swOn(m, z)) cnt[z][h][0]++; });
+      }
+      SW.rows.forEach(r => { if (r[0] >= start) ZONES.forEach((_, z) => { if (swOn(r[1] ^ r[2], z)) ch[z]++; }); });
+      v = ZONES.map((_, z) => ch[z] >= 4 ? cnt[z].map(([a, n]) => n ? a / n : null) : null);
+    }
+  }
+  swHabC = { n: SW.rows.length, at: now, v };
+  return v;
+}
+// zone previste sul banco all'ora t: per le prime ore come sono adesso, poi sempre più come le sposti di solito
+function zoneLoad(t, t0){
+  if (t < t0 - 60) return zonesW(t, maskAt(t));
+  const ov = swOverride && t < swOverride.until, cur = ov ? swOverride.mask : SW.mask, hab = ov ? null : swHabit();
+  const h = new Date(t * 1000).getHours(), w = Math.exp(-(t - t0) / (3 * HOUR));
+  let s = 0;
+  ZONES.forEach((_, z) => {
+    const e = zW(z, t); if (e === null) return;
+    let p = swOn(cur, z) ? 1 : 0;
+    if (hab && hab[z] && fin(hab[z][h])) p = w * p + (1 - w) * hab[z][h];
+    s += p * e;
+  });
+  return s;
+}
+function swChanged(){ swEstC = null; swHabC = null; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
+async function swSync(j){
+  if (!fin(j.sw)) { SW.board = false; return; }            // firmware senza deviatori
+  if (!SW.board) { SW.board = true; SW.rows = []; }
+  const now = Date.now();
+  if (!(swLastTap && now - swLastTap.at < 6000)) SW.mask = j.sw & 127;   // una lettura partita prima del tocco non lo annulla
+  if (j.sw_at === swAtSeen && !(swNext && now >= swNext)) return;
+  swAtSeen = j.sw_at; if (swNext && now >= swNext) swNext = 0;
+  try {
+    const r = await (await fetch("/api/switch", { cache: "no-store" })).json();
+    if (!Array.isArray(r.rows)) return;
+    const changed = r.rows.length !== SW.rows.length || JSON.stringify(r.rows[r.rows.length - 1]) !== JSON.stringify(SW.rows[SW.rows.length - 1]);
+    SW.rows = r.rows;
+    if (r.pend) swNext = now + 30e3;
+    if (changed) swChanged();
+  } catch (e) {}
+}
+function swSet(m, z){
+  const prev = SW.mask, t = Math.round(Date.now() / 1000);
+  SW.mask = m; SW.at = t;
+  if (mode === "live" && SW.board) {
+    fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sw: m }) })
+      .then(r => { if (!r.ok) throw 0; }).catch(() => { SW.mask = prev; drawSw(); toast("Scheda non raggiungibile: deviatore non salvato"); });
+    swNext = Date.now() + 130e3;                            // la scheda misura il salto due minuti dopo l'ultimo tocco
+  } else { SW.rows.push([t, m, prev, null, 0]); swSaveLocal(); swChanged(); }
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+  swLastTap = { z, prev, m, at: Date.now() };
+  fc = null; fcAt = 0;
+  drawSw();
+}
+const Q_SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3 7 7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/></svg>';
+const Q_PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0V8zM12 17v4"/></svg>';
+function drawSw(){
+  const box = $("quadro"); if (!box) return;
+  const est = swEst(), now = nowOf(data);
+  if (!box.dataset.built) {
+    box.dataset.built = 1;
+    box.innerHTML = `<div class="q-row" role="group" aria-label="Deviatori del quadro: su = solare, giù = Enel">` +
+      ZONES.map((z, i) => `<button class="q-mod" type="button" role="switch" data-z="${i}"><span class="q-let">${z}</span>` +
+        `<span class="q-slot"><span class="q-lev"></span></span><span class="q-st"></span></button>`).join("") +
+      `</div><div class="q-names" id="q-names"></div>`;
+    box.addEventListener("click", e => { const b = e.target.closest(".q-mod"); if (b) { const z = +b.dataset.z; swSet(SW.mask ^ (1 << z), z); } });
+  }
+  box.querySelectorAll(".q-mod").forEach(b => {
+    const z = +b.dataset.z, on = swOn(SW.mask, z), w = zW(z, now);
+    b.setAttribute("aria-checked", on);
+    const st = b.querySelector(".q-st"), want = on ? "s" : "e";
+    if (st.dataset.v !== want) { st.dataset.v = want; st.innerHTML = on ? Q_SUN : Q_PLUG; }
+    b.setAttribute("aria-label", `${zLab(z)}: ${on ? "solare" : "Enel"}${w !== null ? `, circa ${power(w)}` : ""}`);
+  });
+  $("q-names").innerHTML = ZONES.map((z, i) => { const w = zW(i, now);
+    return `<span>${zName(i) ? `<b>${esc(zName(i))}</b>` : ""}<i>${w === null ? "–" : power(w)}</i>${zEm(i) ? "<em>emerg.</em>" : ""}</span>`; }).join("");
+  $("q-unk").hidden = !ZONES.some((_, i) => zW(i, now) === null);
+  const on = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z)), wOn = zonesW(now, SW.mask);
+  $("q-sum").innerHTML = on.length ? `Su solare: <b>${esc(zList(on))}</b>${wOn > 0 ? ` · il banco alimenta circa <b>${power(wOn)}</b> di queste zone` : ""}.` : "Tutte le zone su Enel: il banco alimenta solo l'inverter acceso.";
+  const last = $("q-last"), tap = swLastTap && Date.now() - swLastTap.at < 15e3 ? swLastTap : null;
+  let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
+  if (tap) last.innerHTML = `<span>${esc(zLab(tap.z))} su ${swOn(tap.m, tap.z) ? "solare" : "Enel"}${mode === "live" && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
+  else if (r) { const ch = ZONES.map((_, z) => z).filter(z => swOn(r[1] ^ r[2], z)), t = swT(r);
+    last.innerHTML = `<span>Ultimo cambio ${new Date(t * 1000).toDateString() === new Date().toDateString() ? "alle " + hm(t) : new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(t)}: ${esc(zList(ch))} su ${swOn(r[1], ch[0]) ? "solare" : "Enel"}` +
+      `${fin(r[3]) ? ` · misurato ${r[3] >= 0 ? "+" : "−"}${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
+  else last.innerHTML = mode === "live" && !SW.board ? "<span>Per salvare i deviatori sulla scheda serve il firmware 0.5.</span>" : "";
+  const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev, t2.z); swLastTap = null; drawSw(); };
+  const chip = $("q-chip");
+  chip.innerHTML = `<i></i><span>Su solare: <b>${on.length ? esc(on.map(z => ZONES[z]).join(" ")) : "nessuna zona"}</b>${wOn > 0 ? ` <small>· ~${power(wOn)}</small>` : ""}</span><small>Quadro ›</small>`;
+}
+// energia adesso: i regolatori portano al nodo la potenza "lato batteria" (out_w); da lì va alle batterie o alla casa
+function drawFlow(k){
+  const svg = $("flow"); if (!svg) return;
+  if (!svg.dataset.built) {
+    svg.dataset.built = 1;
+    const node = (id, x, y, color, icon) => `<circle class="nd" id="fn-${id}" cx="${x}" cy="${y}" r="27" style="stroke:${color}"/><g class="ic" transform="translate(${x - 12} ${y - 12})" style="stroke:${color}">${icon}</g>`;
+    const SUN = '<circle cx="12" cy="12" r="4.4"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/>';
+    const HOME = '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.8 9.5V20h12.4V9.5"/><path d="M10 20v-5.5h4V20"/>';
+    const BAT = '<rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4"/><rect id="fb-lvl" x="8.6" y="6" width="6.8" height="13.5" rx=".8" style="stroke:none"/>';
+    svg.innerHTML =
+      `<path class="tr" d="M80 50H162"/><path class="tr" d="M178 50H260"/><path class="tr" d="M170 58V109"/>` +
+      `<path class="fl" id="ff-pv" d="M80 50H162" style="stroke:var(--sun)"/><path class="fl" id="ff-home" d="M178 50H260" style="stroke:var(--out)"/><path class="fl" id="ff-bat" d="M170 58V109"/>` +
+      `<circle class="bus" cx="170" cy="50" r="5"/>` +
+      node("pv", 52, 50, "var(--sun)", SUN) + node("home", 288, 50, "var(--out)", HOME) + node("bat", 170, 137, "var(--lith)", BAT) +
+      `<text class="fn" x="52" y="96" text-anchor="middle">Pannelli</text><text class="fv" id="ft-pv" x="52" y="114" text-anchor="middle"></text><text class="fa" id="fa-pv" x="52" y="128" text-anchor="middle"></text>` +
+      `<text class="fn" x="288" y="96" text-anchor="middle">Casa</text><text class="fv" id="ft-home" x="288" y="114" text-anchor="middle"></text><text class="fa" id="fa-home" x="288" y="128" text-anchor="middle"></text>` +
+      `<text class="fn" id="fn2-bat" x="208" y="124">Batterie</text><text class="fv" id="ft-bat" x="208" y="142"></text><text class="fa" id="fa-bat" x="208" y="157"></text>` +
+      `<text class="fp" id="fs-bat" x="132" y="142" text-anchor="end"></text><text class="fa" id="fk-pv" x="52" y="143" text-anchor="middle"></text>`;
+  }
+  const v = fin(k.v) && k.v > 40 ? k.v : NOMV, pv = Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [];
+  const prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null, bat = k.on && fin(k.p) ? k.p : null;
+  const home = prod !== null && bat !== null ? Math.max(0, prod - bat) : bat !== null && bat < 0 ? -bat : null;
+  const kwh = pv.reduce((a, g) => a + (fin(g.kwh_today) ? g.kwh_today : 0), 0);
+  const amp = w => w === null ? "" : nf(Math.abs(w) / v, Math.abs(w) / v < 10 ? 1 : 0) + " A";
+  const set = (id, t) => { const e = $(id); if (e && e.textContent !== t) e.textContent = t; };
+  const flow = (id, w, rev, color) => { const e = $(id); const on = w !== null && Math.abs(w) >= 15;
+    e.classList.toggle("off", !on); e.classList.toggle("rev", !!rev);
+    if (on) e.style.setProperty("--d", Math.max(.45, 2.6 - Math.log10(Math.abs(w) + 1) * .55).toFixed(2) + "s");
+    if (color) e.style.stroke = color; };
+  set("ft-pv", prod === null ? "–" : power(prod)); set("fa-pv", prod === null ? (Array.isArray(data.pv) ? "non rispondono" : "regolatori non letti") : amp(prod));
+  set("ft-home", home === null ? "–" : power(home)); set("fa-home", home === null ? "senza i regolatori" : amp(home));
+  set("ft-bat", bat === null ? "–" : power(bat)); set("fa-bat", bat === null ? "" : amp(bat) + (Math.abs(bat) < 15 ? " · ferme" : bat > 0 ? " · in carica" : " · in scarica"));
+  set("fs-bat", fin(k.soc) ? nf(k.soc, 0) + "%" : ""); set("fk-pv", prod !== null && kwh > 0 ? `oggi ${nf(kwh, 1)} kWh` : "");
+  flow("ff-pv", prod, false); flow("ff-home", home, false);
+  flow("ff-bat", bat, bat !== null && bat < 0, bat !== null && bat < 0 ? "var(--out)" : "var(--lith)");
+  const lv = $("fb-lvl"), f = fin(k.soc) ? clamp(k.soc, 0, 100) / 100 : 0;
+  lv.setAttribute("y", (6 + 13.5 * (1 - f)).toFixed(1)); lv.setAttribute("height", (13.5 * f).toFixed(1));
+  lv.style.fill = k.soc < S.alLow ? "var(--alert)" : "var(--lith)";
+  svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${home === null ? "non nota" : power(home)}`);
+}
+// consigli e avvisi sui deviatori: adesso (carica bassa), stanotte (rischio sotto soglia), oggi (sole in più)
+function swSim(f, ov){
+  const M = model; swOverride = ov;
+  try { return runDet(M, f.t[0], f.mid[0], f.cap, { asFc: true, pvB: M.cal ? M.cal.pvB : [1, 1], lB: M.cal ? M.cal.lB : 1, nc: f.nc }); }
+  finally { swOverride = null; }
+}
+function swAlarms(k, f, now, hr){
+  const out = [], est = swEst(), known = z => est[z].n > 0, lim = Math.max(S.alLow, S.reserve || 0);
+  const onZ = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z));
+  if (k.on && fin(k.soc) && k.soc < S.alLow) {
+    const zs = onZ.filter(z => (zW(z, now) ?? 100) > 30);
+    if (zs.length) out.push({ id: "swlow", sev: "alarm", t: `Carica al ${nf(k.soc, 0)}% con ${zs.map(z => ZONES[z]).join(", ")} su solare`, d: `Riporta su Enel ${zList(zs)}, almeno le zone che non servono: il banco smette di scendere così in fretta.` });
+  }
+  if (!f || !model || !model.prof || !est.some(e => e.n)) return out;
+  const nt = f.night, from = nt[0] ? 1 : nt.findIndex((x, i) => i > 0 && x);
+  let sr = -1; if (from > 0) for (let i = from; i < nt.length; i++) if (!nt[i] && nt[i - 1]) { sr = i; break; }
+  if (S.alFc && sr > 0 && (nt[0] || hr >= 15)) {
+    const minTo = a => Math.min(...a.slice(0, Math.min(a.length, sr + 3))), m0 = minTo(swSim(f, null).S);
+    if (m0 < lim + 3) {
+      const cand = onZ.filter(known).sort((a, b) => zW(b, now + 3 * HOUR) - zW(a, now + 3 * HOUR));
+      let mask = SW.mask, set = [], m1 = m0;
+      for (const z of cand) { mask &= ~(1 << z); set.push(z); m1 = minTo(swSim(f, { mask, until: f.t[0] + (sr + 3) * HOUR }).S); if (m1 >= lim + 5) break; }
+      if (set.length && m1 >= m0 + 2) out.push({ id: "swnight" + dkey(now), sev: "fc", t: `Stanotte il banco scende al ${nf(m0, 0)}%`,
+        d: `Con ${zList(onZ)} su solare. Mettendo ${zList(set)} su Enel ${m1 >= lim ? "resti sopra il " + nf(Math.floor(m1), 0) + "%" : "arrivi al " + nf(m1, 0) + "%"}.` });
+    }
+  }
+  if (S.alTip && k.i > 0.5 && hr >= 7 && hr < 14) {
+    const tF = crossAt(f.mid, x => x >= 99.5, 99.5), ss = nt.findIndex((x, i) => i > 0 && x);
+    let sr2 = -1; if (ss > 0) for (let i = ss; i < nt.length; i++) if (!nt[i] && nt[i - 1]) { sr2 = i; break; }
+    if (tF !== null && f.prob.full >= .7 && ss > 0 && sr2 > 0) {
+      const until = f.t[0] + ss * HOUR;
+      const ok = r => Math.max(...r.S.slice(0, ss + 1)) >= 95 && Math.min(...r.S.slice(ss, sr2 + 3)) >= lim + 10;
+      const cand = ZONES.map((_, z) => z).filter(z => !swOn(SW.mask, z) && !zEm(z) && known(z) && zW(z, now) > 50).sort((a, b) => zW(a, now) - zW(b, now));
+      let mask = SW.mask; const set = [];
+      for (const z of cand) { const m2 = mask | (1 << z); if (ok(swSim(f, { mask: m2, until }))) { mask = m2; set.push(z); } }
+      if (set.length) { const r = swSim(f, { mask, until }), mn = Math.min(...r.S.slice(ss, sr2 + 3));
+        out.push({ id: "swsun" + dkey(now), sev: "tip", t: "Oggi c'è sole in più",
+          d: `Arrivi al pieno verso le ${hm(q15(f.t[0] + tF * HOUR))}: puoi mettere ${zList(set)} su solare fino al tramonto e stanotte resti comunque sopra il ${nf(Math.floor(mn), 0)}%.` }); }
+    }
+  }
+  return out;
+}
+$("q-chip") && $("q-chip").addEventListener("click", () => { goPage(2); setTimeout(() => $("quadro-sec").scrollIntoView({ behavior: "smooth", block: "start" }), 350); });
 function pushShared(){
   clearTimeout(cfgPushT);
   cfgPushT = setTimeout(async () => {
@@ -1624,6 +1919,7 @@ async function poll(){
     if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; saveSettings(); } // comanda la scheda
     render("live");
     if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();
+    swSync(j);
     if (fin(j.mute_until) && Math.abs(j.mute_until - muteUntil) > 60 && !muted()) { muteUntil = j.mute_until; try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {} }
     syncLog();
   } catch (e) {
@@ -1785,6 +2081,8 @@ function render(m){
   $("k-t2").className = "k-sub" + (k.tspread >= 5 ? " warn" : "");
 
   drawPv(data.pv, k);
+  drawSw();
+  drawFlow(k);
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   drawCabinet(bs, lowSoc);
@@ -2216,7 +2514,8 @@ function learn(rows){
     const key = d.getTime() / 1000, has = fin(pv);
     if (has) pvRows++;
     // consumi = sole − entrata + uscita (le perdite di carica restano nei consumi); senza i regolatori si conoscono solo col sole giù
-    const load = has ? pv - chg + dsg : sinElev(mid, loc.lat, loc.lon) < -.05 ? dsg - chg : null;
+    let load = has ? pv - chg + dsg : sinElev(mid, loc.lat, loc.lon) < -.05 ? dsg - chg : null;
+    if (fin(load) && SW.rows.length) load -= zonesW(mid, maskAt(mid)) * m / 60; // le zone sul solare si tolgono: si impara il resto della casa
     let o = hours.get(key);
     if (!o) hours.set(key, o = { t: key, lwh: 0, lmin: 0, pwh: 0, pmin: 0, cwh: 0, dwh: 0, nmin: 0, soc0: prev, soc });
     if (fin(load)) { o.lwh += Math.max(0, load); o.lmin += m; }
@@ -2385,7 +2684,7 @@ function runDet(M, t0, soc0, cap, o){
     if (i === N) break;
     const lead = i < 24 ? 0 : 1, pb = pvBase(M, t, o.asFc);
     P.push(Math.max(0, (fin(pb) ? pb : 0) * pvB[lead] * (t < today.getTime() / 1000 ? 1 + (nc.fP - 1) * Math.exp(-i / 10) : 1)));
-    L.push(loadBase(M, t) * lB * (1 + (nc.fL - 1) * Math.exp(-i / 6)));
+    L.push(loadBase(M, t) * lB * (1 + (nc.fL - 1) * Math.exp(-i / 6)) + (o.actual ? zonesW(t, maskAt(t)) : zoneLoad(t, t0)));
   }
   for (let i = 0; i < N; i++) {
     let e = P[i] - L[i];
@@ -2403,7 +2702,7 @@ function hindcast(M, cap, pvB, lB){
     const dt = new Date((M.last - d * DAY) * 1000); dt.setHours(hh, 0, 0, 0);
     const t0 = dt.getTime() / 1000; if (t0 + 48 * HOUR > M.last || t0 < M.first + 7 * DAY) continue;
     const s0 = socAt(M, t0); if (!fin(s0)) continue;
-    const run = runDet(M, t0, s0, cap, { asFc: true, pvB, lB });
+    const run = runDet(M, t0, s0, cap, { asFc: true, pvB, lB, actual: true });
     R.n++;
     for (let i = 1; i <= 48; i++) { const a = socAt(M, t0 + i * HOUR); if (fin(a)) R.err[i].push(a - run.S[i]); }
     const dayA = [0, 0], dayP = [0, 0];
@@ -2752,6 +3051,7 @@ function myAlarms(bs, k, f){
     if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
       out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
+  out.push(...swAlarms(k, f, now, hr));
   // tensione dei pannelli vicina al massimo del regolatore: sempre attivo, è una protezione dell'impianto
   if (Array.isArray(data.pv)) data.pv.forEach(g => {
     const max = vmaxOf(g.addr), pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
@@ -3929,6 +4229,8 @@ function fillSettings(){
   const pv = (data && Array.isArray(data.pv) && data.pv) || [];
   $("set-pvnames").innerHTML = pv.length ? pv.map(pvCard).join("") : `<p class="set-note">Compaiono quando la scheda legge i regolatori.</p>`;
   $("set-tilt-box").hidden = pv.length > 0; // con i regolatori l'inclinazione si imposta gruppo per gruppo
+  $("set-zones").innerHTML = ZONES.map((z, i) => `<label>Deviatore ${z}<input type="text" maxlength="24" data-k="sw${z}" value="${esc(S.names["sw" + z] || "")}" placeholder="Zona ${z}" autocomplete="off" enterkeyhint="done">` +
+    `<label class="em"><input type="checkbox" data-em="${z}"${zEm(i) ? " checked" : ""}>Solo emergenza</label></label>`).join("");
 }
 // scheda di un regolatore: nome, bussola a 8 direzioni, inclinazione, potenza e numero dei pannelli
 function pvCard(g){
@@ -4064,7 +4366,11 @@ $("settings").addEventListener("change", e => {
   }
   if (data) render(mode);
 });
-["set-names", "set-pvnames"].forEach(id => {
+$("set-zones").addEventListener("change", e => {
+  const t = e.target, z = t.dataset.em; if (!z) return;
+  S.swEm = ZONES.filter(x => x === z ? t.checked : S.swEm.includes(x)); saveSettings(); swEstC = null; if (data) render(mode);
+});
+["set-names", "set-pvnames", "set-zones"].forEach(id => {
   $(id).addEventListener("input", e => {
     const t = e.target; if (!t.dataset.k) return;
     const v = t.value.trim();
