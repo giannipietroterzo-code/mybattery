@@ -162,6 +162,7 @@ section{margin-top:26px}
 .conn.live .dot{background:var(--lith);box-shadow:0 0 0 0 var(--lith);animation:pulse 2.4s ease-out infinite}
 .conn.stale .dot{background:var(--warn)}
 .conn.demo .dot{background:var(--out)}
+.conn.remote .dot{background:var(--sun);box-shadow:0 0 0 0 var(--sun);animation:pulse 3.2s ease-out infinite}
 .top-r{display:flex;align-items:center;gap:4px}
 .icon-btn{display:inline-grid;place-items:center;width:38px;height:38px;margin-right:-8px;border:0;border-radius:50%;
   background:transparent;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s}
@@ -1301,6 +1302,9 @@ footer{border-top:0;padding-top:0}
     <h3>Notifiche con l'app chiusa</h3>
     <div id="set-ntfy"></div>
 
+    <h3>Da fuori casa</h3>
+    <div id="set-rem"></div>
+
     <h3>Registrazione dello storico</h3>
     <fieldset class="seg" id="set-log">
       <legend>Salva una riga ogni</legend>
@@ -1369,7 +1373,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.32"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.33"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1573,7 +1577,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, swEm: ["E"] };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, swEm: ["E"], rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1585,6 +1589,7 @@ function loadSettings(){
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
   if (Array.isArray(s.swEm)) o.swEm = s.swEm.filter(z => /^[A-G]$/.test(z));
+  if (s.rem && /^[A-Za-z0-9_-]{12,64}$/.test(s.rem.t) && /^[A-Za-z0-9_-]{43}$/.test(s.rem.k)) o.rem = { t: s.rem.t, k: s.rem.k };
   if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
     if (!/^\d{1,3}$/.test(a) || !c || typeof c !== "object") return;
     const v = {};
@@ -1604,7 +1609,7 @@ function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } 
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
 // restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
-const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "swEm"];
+const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "swEm", "rem"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 // i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
@@ -1707,6 +1712,7 @@ async function swSync(j){
   } catch (e) {}
 }
 function swSet(m, z){
+  if (mode === "remote") { toast("Da fuori casa i deviatori si guardano soltanto"); return; }
   const prev = SW.mask, t = Math.round(Date.now() / 1000);
   SW.mask = m; SW.at = t;
   if (mode === "live" && SW.board) {
@@ -1903,9 +1909,128 @@ let openIdx = null, selCell = null, scrubI = null, scrubTimer = 0, hist = null;
 // Su GitHub Pages la scheda non è raggiungibile (e una pagina HTTPS non può chiamare la scheda in HTTP): solo demo
 const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
 
+/* ---------- da fuori casa: la scheda manda ogni 10 minuti un pacchetto cifrato (AES-256-GCM) su un canale ntfy segreto.
+   Qui lo si scarica, lo si apre con la chiave avuta in casa e lo si mostra come se si fosse in rete con la scheda ---------- */
+const REM_APP = "https://giannipietroterzo-code.github.io/mybattery/", REM_KEY = "mybattery.rem.v1";
+let remAt = 0, remBusy = false, remKeyC = null, remErr = "";
+const b64u = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+function remNew(){
+  const r = crypto.getRandomValues(new Uint8Array(18));
+  return { t: "mbr-" + Array.from(r, b => (b % 36).toString(36)).join(""), k: b64u(crypto.getRandomValues(new Uint8Array(32))) };
+}
+async function remOpen(url){
+  const buf = new Uint8Array(await (await fetch(url, { cache: "no-store" })).arrayBuffer());
+  if (buf.length < 33 || String.fromCharCode(...buf.slice(0, 4)) !== "MBR1") throw new Error("pacchetto non valido");
+  if (!remKeyC || remKeyC.k !== S.rem.k) remKeyC = { k: S.rem.k, key: await crypto.subtle.importKey("raw", unb64u(S.rem.k), "AES-GCM", false, ["decrypt"]) };
+  return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(4, 16) }, remKeyC.key, buf.slice(16)));
+}
+const r1 = v => Math.round(v * 10) / 10;
+function remLogRows(u8){ // righe da 20 byte del registro della scheda: t, min, soc×100, Wh entrati, usciti, pannelli
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), out = [];
+  for (let o = 0; o + 20 <= u8.length; o += 20) {
+    const pv = dv.getFloat32(o + 16, true);
+    out.push([dv.getUint32(o, true), dv.getUint16(o + 4, true), dv.getUint16(o + 6, true) / 100, r1(dv.getFloat32(o + 8, true)), r1(dv.getFloat32(o + 12, true)), isFinite(pv) ? r1(pv) : null]);
+  }
+  return out.filter(validRow);
+}
+async function remApply(b, fresh){
+  if (!b || !b.s || !Array.isArray(b.s.batteries)) throw new Error("pacchetto vuoto");
+  data = b.s;
+  if (Array.isArray(b.ev)) boardEv = mapEv(b.ev);
+  if (Array.isArray(b.sw) && fin(b.s.sw)) { const ch = JSON.stringify(b.sw) !== JSON.stringify(SW.rows); SW.board = true; SW.rows = b.sw; SW.mask = b.s.sw & 127; if (ch) { swEstC = null; swHabC = null; } }
+  if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
+  if (b.cfg && typeof b.cfg === "object") { // le impostazioni condivise: comanda la scheda, il canale resta quello di questo telefono
+    let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
+    const before = JSON.stringify(sharedOf());
+    SHARED.forEach(k => { if (k !== "rem" && k in b.cfg) raw[k] = b.cfg[k]; });
+    raw.rem = S.rem;
+    try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
+    S = loadSettings();
+    if (JSON.stringify(sharedOf()) !== before && $("settings").open) { fillSettings(); fillLoc(); }
+  }
+  if (fresh && Array.isArray(b.log)) { const rows = b.log.filter(validRow); if (rows.length) await db.put(rows); logSrc = ""; await realLog(); relearn(); }
+}
+async function remotePoll(){
+  if (remBusy) return;
+  if (!data || mode !== "remote") { // all'apertura: l'ultimo pacchetto visto, mentre arriva quello nuovo
+    const c = lsGet(REM_KEY);
+    if (c && c.b && c.t === S.rem.t) { try { await remApply(c.b, false); if (!LOG.length) { logSrc = ""; await realLog(); relearn(); } render("remote"); } catch (e) {} }
+  }
+  if (Date.now() - remAt < 60e3) { if (data && mode === "remote") render("remote"); return; }
+  remBusy = true; remAt = Date.now();
+  try {
+    const txt = await (await fetch(`https://ntfy.sh/${S.rem.t}/json?poll=1&since=3h`, { cache: "no-store" })).text();
+    const msgs = txt.split("\n").map(l => { try { return JSON.parse(l); } catch (e) { return null; } })
+      .filter(m => m && m.event === "message" && m.attachment && m.attachment.url && m.attachment.expires * 1000 > Date.now());
+    const last = name => msgs.filter(m => m.attachment.name === name).pop(), c = lsGet(REM_KEY) || {};
+    const lg = last("log.bin");
+    if (lg && lg.id !== c.log) { const rows = remLogRows(await remOpen(lg.attachment.url)); if (rows.length) await db.put(rows); c.log = lg.id; }
+    const mb = last("mb.bin");
+    if (!mb) throw new Error("nessun pacchetto nelle ultime 3 ore");
+    if (mb.id !== c.id || !data || mode !== "remote") {
+      const b = JSON.parse(new TextDecoder().decode(await remOpen(mb.attachment.url)));
+      await remApply(b, true);
+      lsSet(REM_KEY, { t: S.rem.t, id: mb.id, log: c.log, b });
+    } else lsSet(REM_KEY, c);
+    remErr = "";
+    render("remote");
+  } catch (e) {
+    remErr = e && e.name === "OperationError" ? "la chiave non apre il pacchetto: ricollega questo telefono da casa" : (e && e.message) || "ntfy non raggiungibile";
+    if (data && mode === "remote") render("remote"); else offline();
+  } finally { remBusy = false; remSt(); }
+}
+// abbinamento: l'app della scheda apre questa con #rem=canale.chiave (il frammento non arriva mai a nessun server)
+function remPair(){
+  const m = /^#rem=([A-Za-z0-9_-]{12,64})\.([A-Za-z0-9_-]{43})$/.exec(location.hash);
+  if (!m) return;
+  S.rem = { t: m[1], k: m[2] }; saveSettings(); remAt = 0; remErr = "";
+  try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  setTimeout(() => { toast("Telefono collegato: da fuori casa vedi la tua scheda"); if (typeof poll === "function") poll(); }, 600);
+}
+remPair(); window.addEventListener("hashchange", remPair);
+function fillRem(){
+  const el = $("set-rem"); if (!el) return;
+  if (DEMO_ONLY) {
+    el.innerHTML = S.rem
+      ? `<p class="ntfy-st" id="rem-st"></p><div class="ntfy-row"><button class="link-btn" id="rem-off" type="button">Scollega questo telefono</button></div>`
+      : `<p class="set-note" style="margin-top:0">Per vedere la scheda da qui quando sei fuori casa: in rete di casa apri l'app della scheda (mybattery.local o il suo indirizzo), Impostazioni → Da fuori casa → «Collega l'app da fuori casa».</p>`;
+  } else {
+    el.innerHTML = S.rem
+      ? `<p class="ntfy-st" id="rem-st"></p>` +
+        `<div class="ntfy-row"><a class="set-btn pri" href="${REM_APP}#rem=${S.rem.t}.${S.rem.k}" target="_blank" rel="noopener">Collega l'app da fuori casa</a><button class="link-btn" id="rem-off" type="button">Spegni</button></div>` +
+        `<p class="set-note">Apre l'app di GitHub su questo telefono e le consegna la chiave. Va fatto una volta per ogni telefono, da casa; poi fuori casa apri quella. I dati viaggiano cifrati: il server ntfy vede solo numeri illeggibili.</p>`
+      : `<p class="set-note" style="margin-top:0">La scheda manda ogni 10 minuti (e subito dopo un allarme) un pacchetto cifrato con tutte le letture: batterie, pannelli, deviatori, registro e diario. Fuori casa l'app di GitHub lo apre e ti mostra tutto, in sola lettura. Serve che la scheda raggiunga internet.</p>` +
+        `<button class="set-btn pri" id="rem-on" type="button">Attiva la lettura da fuori casa</button>`;
+  }
+  remSt();
+}
+function remSt(){
+  const el = $("rem-st"); if (!el) return;
+  let c = "", t;
+  if (DEMO_ONLY) {
+    const at = data && mode === "remote" ? nowOf(data) : null;
+    if (at && !remErr) { c = Date.now() / 1000 - at > 1500 ? "wa" : "ok"; t = `Collegato alla tua scheda · ultimo pacchetto delle ${hm(at)}.`; }
+    else { c = "wa"; t = `Collegato alla tua scheda${remErr ? ": " + esc(remErr) : ", in attesa del primo pacchetto"}.`; }
+  } else {
+    const r = data && data.rem;
+    if (mode !== "live") t = "Si controlla dalla rete di casa.";
+    else if (!r) t = "La scheda non ha ancora il canale: aspetta qualche secondo. Se resta così, serve il firmware 0.6 o più nuovo.";
+    else if (r.err) { c = "wa"; t = `La scheda non riesce a mandare il pacchetto (${esc(r.err)}): riprova da sola.`; }
+    else if (r.ok_at) { c = "ok"; t = `La scheda manda i pacchetti · ultimo alle ${hm(r.ok_at)}.`; }
+    else t = "La scheda manda il primo pacchetto tra poco.";
+  }
+  el.className = "ntfy-st " + c; el.innerHTML = `<i></i><span>${t}</span>`;
+}
+$("set-rem").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "rem-on") { S.rem = remNew(); saveSettings(); fillRem(); }
+  else if (b.id === "rem-off") { S.rem = null; saveSettings(); try { localStorage.removeItem(REM_KEY); } catch (x) {} fillRem(); if (DEMO_ONLY) { data = null; offline(); } }
+});
+
 async function poll(){
   if (busy || document.hidden || cable) return;
-  if (DEMO_ONLY) { offline(); return; }
+  if (DEMO_ONLY) { if (S.rem) remotePoll(); else offline(); return; }
   busy = true;
   try {
     const ctrl = new AbortController();
@@ -1923,7 +2048,8 @@ async function poll(){
     if (fin(j.mute_until) && Math.abs(j.mute_until - muteUntil) > 60 && !muted()) { muteUntil = j.mute_until; try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {} }
     syncLog();
   } catch (e) {
-    if (everLive) render("stale");
+    if (S.rem && !cable) remotePoll();                     // fuori casa con l'app della scheda: si legge il pacchetto
+    else if (everLive) render("stale");
     else offline();
   } finally { busy = false; }
 }
@@ -1981,7 +2107,7 @@ const nowOf = d => d && fin(d.time) && d.time > 1.6e9 ? d.time : Date.now() / 10
 function render(m){
   if (!data) return;
   mode = m;
-  ntfySt();
+  ntfySt(); remSt();
   const bs = data.batteries || [];
   const lim = data.limits || {};
   const k = bank(bs);
@@ -1994,15 +2120,22 @@ function render(m){
   // connessione
   $("conn").className = "conn " + mode;
   document.querySelector(".app").classList.toggle("stale", mode === "stale");
-  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "usb" ? (cable && !cable.real ? "Cavo simulato" : "Cavo USB") : mode === "demo" ? "Demo" : !cable && unplugged ? "Cavo scollegato" : "Connessione persa";
+  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "remote" ? "Da remoto" : mode === "usb" ? (cable && !cable.real ? "Cavo simulato" : "Cavo USB") : mode === "demo" ? "Demo" : !cable && unplugged ? "Cavo scollegato" : "Connessione persa";
   const n = $("notice");
   if (mode === "demo") {
-    const k = DEMO_ONLY ? "pages" : "demo";
+    const k = (DEMO_ONLY ? "pages" : "demo") + (S.rem ? "r" : "");
     if (n.dataset.k !== k + CAB_OK) { n.dataset.k = k + CAB_OK; n.className = "notice";
-      n.innerHTML = (DEMO_ONLY ? "Versione di prova: senza la scheda mostra dati simulati. Quella collegata alle batterie si apre dall'indirizzo della scheda, in rete di casa."
+      n.innerHTML = (DEMO_ONLY && S.rem ? "Collegata alla tua scheda, ma nelle ultime 3 ore non è arrivato nessun pacchetto: la scheda è spenta o non raggiunge internet. Intanto vedi dati simulati."
+        : DEMO_ONLY ? "Versione di prova: senza la scheda mostra dati simulati. Quella collegata alle batterie si apre dall'indirizzo della scheda, in rete di casa."
         : "Stai vedendo dati dimostrativi: la pagina non raggiunge ancora la scheda.") +
         (CAB_OK ? ` Oppure collega al telefono il cavo USB delle batterie.<button class="set-btn" id="notice-cab" type="button">${ico(CAB_ICON)}Collega il cavo</button>` : ""); }
     n.hidden = false; }
+  else if (mode === "remote") {
+    const age = (Date.now() / 1000 - nowOf(data)) / 60, old = age > 25;
+    n.hidden = false; n.className = "notice" + (old ? " lost" : ""); n.dataset.k = "";
+    n.textContent = old ? `La scheda non manda dati da ${dur(age / 60)}: è spenta o non raggiunge internet. Vedi l'ultimo pacchetto, delle ${hm(nowOf(data))}.`
+      : `Da fuori casa: dati della scheda delle ${hm(nowOf(data))}, si aggiornano ogni 10 minuti. Da qui si guarda soltanto.`;
+  }
   else if (mode === "stale") {
     const min = Math.round((Date.now() - lastOk) / 60000);
     n.hidden = false; n.className = "notice lost"; n.dataset.k = "";
@@ -2307,14 +2440,15 @@ async function boardAlarms(){
   try {
     const j = await (await fetch("/api/alarms", {cache: "no-store"})).json();
     if (!j || !Array.isArray(j.ev)) return;
-    boardEv = j.ev.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
+    boardEv = mapEv(j.ev);
+  } catch (e) {}
+}
+const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
       const g = { addr: e.addr, name: e.who }, who = e.pv ? pvName(g) : nameOf(g, e.addr);
       const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile"
         : e.code === "PV_FAULT" ? "Guasto del regolatore" : (MSG[e.code] || [e.code])[0];
       return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0 };
     });
-  } catch (e) {}
-}
 // il registro fatto col cavo USB prima che ci fosse la scheda: lo si versa nella scheda, dal più recente al più vecchio
 // (la scheda accetta solo righe che finiscono prima della sua prima riga)
 const PUSH_KEY = "mybattery.logpush.v1";
@@ -3238,8 +3372,8 @@ let alhSig = "";
 function drawAlHist(){
   const thr = S.alLow, now = Date.now() / 1000, t0 = new Date(); t0.setHours(0, 0, 0, 0); t0.setDate(t0.getDate() - 29);
   const from = t0.getTime() / 1000, rows = LOG.filter(r => r[0] >= from && fin(r[2]));
-  const bFrom = boardEv && mode === "live" ? Math.min(fin(data && data.log_first) ? data.log_first : now, ...boardEv.map(e => e.s)) : Infinity;
-  const ev = (logSrc === "demo" ? demoAlh() : boardEv && mode === "live" ? [...boardEv, ...alh.ev.filter(e => e.s < bFrom)] : alh.ev)
+  const bFrom = boardEv && (mode === "live" || mode === "remote") ? Math.min(fin(data && data.log_first) ? data.log_first : now, ...boardEv.map(e => e.s)) : Infinity;
+  const ev = (logSrc === "demo" ? demoAlh() : boardEv && (mode === "live" || mode === "remote") ? [...boardEv, ...alh.ev.filter(e => e.s < bFrom)] : alh.ev)
     .filter(e => (e.e || now) >= from).sort((a, b) => b.s - a.s);
   const sig = [thr, LOG.length, LOG.length && LOG[LOG.length - 1][0], ev.length, ev[0] && ev[0].e, dkey(now)].join();
   if (sig === alhSig) return; alhSig = sig;
@@ -3875,7 +4009,7 @@ function simLink(onData){
 
 /* sessione: una domanda al secondo, giro sulle 5 batterie, poi registro e disegno */
 let cable = null, cabErr = "", wakeLock = null;
-const isReal = () => mode === "live" || (mode === "usb" && cable && cable.real) || (mode === "stale" && (!cable || cable.real));
+const isReal = () => mode === "live" || mode === "remote" || (mode === "usb" && cable && cable.real) || (mode === "stale" && (!cable || cable.real));
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 function cabRx(c, bytes){
@@ -4219,7 +4353,7 @@ function simulate(){
 /* ---------- pannello impostazioni ---------- */
 function fillSettings(){
   AL_BOOL.forEach(k => { const el = document.querySelector(`#settings input[name="${k}"]`); if (el) el.checked = !!S[k]; });
-  fillNtfy();
+  fillNtfy(); fillRem();
   Object.keys(OPT).forEach(k => { const el = document.querySelector(`#settings input[name="${k}"][value="${S[k]}"]`); if (el) el.checked = true; });
   const bs = (data && data.batteries) || [];
   $("set-names").innerHTML = bs.length ? bs.map((b,i) => {
