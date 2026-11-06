@@ -1378,7 +1378,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.38"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.39"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1610,7 +1610,7 @@ function loadSettings(){
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
   return o;
 }
-function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (mode === "live" && !cfgPulling) pushShared(); } catch (e) {} } // try: può servire prima che "mode" esista
+function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(); } catch (e) {} } // try: può servire prima che "mode" esista
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
 // restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
@@ -1717,12 +1717,11 @@ async function swSync(j){
   } catch (e) {}
 }
 function swSet(m, z){
-  if (mode === "remote") { toast("Da fuori casa i deviatori si guardano soltanto"); return; }
   const prev = SW.mask, t = Math.round(Date.now() / 1000);
   SW.mask = m; SW.at = t;
-  if (mode === "live" && SW.board) {
-    fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ sw: m }) })
-      .then(r => { if (!r.ok) throw 0; }).catch(() => { SW.mask = prev; drawSw(); toast("Scheda non raggiungibile: deviatore non salvato"); });
+  if (canWrite() && SW.board) {
+    boardCfg({ sw: m }).then(() => { if (mode === "remote") toast("Deviatore salvato sulla scheda"); })
+      .catch(e => { SW.mask = prev; drawSw(); toast("Deviatore non salvato: " + e.message); });
     swNext = Date.now() + 130e3;                            // la scheda misura il salto due minuti dopo l'ultimo tocco
   } else { SW.rows.push([t, m, prev, null, 0]); swSaveLocal(); swChanged(); }
   try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
@@ -1757,7 +1756,7 @@ function drawSw(){
   $("q-sum").innerHTML = on.length ? `Su solare: <b>${esc(zList(on))}</b>${wOn > 0 ? ` · il banco alimenta circa <b>${power(wOn)}</b> di queste zone` : ""}.` : "Tutte le zone su Enel: il banco alimenta solo l'inverter acceso.";
   const last = $("q-last"), tap = swLastTap && Date.now() - swLastTap.at < 15e3 ? swLastTap : null;
   let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
-  if (tap) last.innerHTML = `<span>${esc(zLab(tap.z))} su ${swOn(tap.m, tap.z) ? "solare" : "Enel"}${mode === "live" && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
+  if (tap) last.innerHTML = `<span>${esc(zLab(tap.z))} su ${swOn(tap.m, tap.z) ? "solare" : "Enel"}${canWrite() && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
   else if (r) { const ch = ZONES.map((_, z) => z).filter(z => swOn(r[1] ^ r[2], z)), t = swT(r);
     last.innerHTML = `<span>Ultimo cambio ${new Date(t * 1000).toDateString() === new Date().toDateString() ? "alle " + hm(t) : new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(t)}: ${esc(zList(ch))} su ${swOn(r[1], ch[0]) ? "solare" : "Enel"}` +
       `${fin(r[3]) ? ` · misurato ${r[3] >= 0 ? "+" : "−"}${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
@@ -1853,9 +1852,9 @@ function pushShared(){
   clearTimeout(cfgPushT);
   cfgPushT = setTimeout(async () => {
     try {
-      const r = await fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({app: sharedOf(), pv: pvCfgOf()})});
-      const j = await r.json(); if (j && j.ok) cfgAt = j.app_at;
-    } catch (e) {}
+      const j = await boardCfg({app: sharedOf(), pv: pvCfgOf()});
+      if (j && j.ok) { cfgAt = j.app_at; if (mode === "remote") toast("Impostazioni salvate sulla scheda"); }
+    } catch (e) { if (mode === "remote") toast("Impostazioni non salvate sulla scheda: " + e.message); }
     cfgPushT = 0;
   }, 1500);
 }
@@ -1957,9 +1956,13 @@ function remNew(){
   return { t: "mbr-" + Array.from(r, b => (b % 36).toString(36)).join(""), k: b64u(crypto.getRandomValues(new Uint8Array(32))) };
 }
 async function remOpen(url){ return remDecrypt(new Uint8Array(await (await fetch(url, { cache: "no-store" })).arrayBuffer())); }
+async function remKeyOf(){
+  if (!remKeyC || remKeyC.k !== S.rem.k) remKeyC = { k: S.rem.k, key: await crypto.subtle.importKey("raw", unb64u(S.rem.k), "AES-GCM", false, ["encrypt", "decrypt"]) };
+  return remKeyC.key;
+}
 async function remDecrypt(buf){
   if (buf.length < 33 || String.fromCharCode(...buf.slice(0, 4)) !== "MBR1") throw new Error("pacchetto non valido");
-  if (!remKeyC || remKeyC.k !== S.rem.k) remKeyC = { k: S.rem.k, key: await crypto.subtle.importKey("raw", unb64u(S.rem.k), "AES-GCM", false, ["decrypt"]) };
+  await remKeyOf();
   return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(4, 16) }, remKeyC.key, buf.slice(16)));
 }
 const r1 = v => Math.round(v * 10) / 10;
@@ -1979,7 +1982,7 @@ async function remApply(b, fresh){
   if (b.ip) lsSet(HOME_KEY, { ip: b.ip, pub: b.pub || (lsGet(HOME_KEY) || {}).pub || "" });
   if (Array.isArray(b.sw) && fin(b.s.sw)) { const ch = JSON.stringify(b.sw) !== JSON.stringify(SW.rows); SW.board = true; SW.rows = b.sw; SW.mask = b.s.sw & 127; if (ch) { swEstC = null; swHabC = null; } }
   if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
-  if (b.cfg && typeof b.cfg === "object") { // le impostazioni condivise: comanda la scheda, il canale resta quello di questo telefono
+  if (b.cfg && typeof b.cfg === "object" && !cfgPushT && !(fin(b.s.cfg_at) && cfgAt && b.s.cfg_at < cfgAt) && !(fin(b.t) && b.t < remCmdAt)) { // le impostazioni condivise: comanda la scheda, il canale resta quello di questo telefono
     let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
     const before = JSON.stringify(sharedOf());
     SHARED.forEach(k => { if (k !== "rem" && k in b.cfg) raw[k] = b.cfg[k]; });
@@ -2000,7 +2003,7 @@ function mqStart(){
   const pkt = (h, body) => { const rl = []; let n = body.length; do { let d = n % 128; n = Math.floor(n / 128); if (n) d |= 128; rl.push(d); } while (n); return new Uint8Array([h, ...rl, ...body]); };
   let ws; try { ws = new WebSocket(`wss://${host}:8884/mqtt`, ["mqtt"]); } catch (e) { return; }
   ws.binaryType = "arraybuffer";
-  const me = mq = { ws, buf: new Uint8Array(0), ping: 0 };
+  const me = mq = { ws, buf: new Uint8Array(0), ping: 0, ready: false, pkt, str };
   ws.onopen = () => {
     ws.send(pkt(0x10, [...str("MQTT"), 4, 0x02 | (user ? 0x80 : 0) | (pass ? 0x40 : 0), 0, 60,
       ...str("mbapp-" + Math.random().toString(36).slice(2, 10)), ...(user ? str(user) : []), ...(pass ? str(pass) : [])]));
@@ -2018,12 +2021,58 @@ function mqStart(){
       const type = h >> 4;
       if (type === 2) {
         if (body[1] !== 0) { remErr = "il broker rifiuta l'accesso: controlla le credenziali"; ws.close(); return; }
-        mqTry = 0; ws.send(pkt(0x82, [0, 1, ...str(`mybattery/${S.rem.t}/live`), 0]));
-      } else if (type === 3) { const tl = body[0] << 8 | body[1], off = 2 + tl + ((h >> 1) & 3 ? 2 : 0); mqMsg(body.slice(off)); }
+        mqTry = 0; me.ready = true;
+        ws.send(pkt(0x82, [0, 1, ...str(`mybattery/${S.rem.t}/live`), 0, ...str(`mybattery/${S.rem.t}/ack`), 0]));
+      } else if (type === 3) {
+        const tl = body[0] << 8 | body[1], off = 2 + tl + ((h >> 1) & 3 ? 2 : 0), topic = new TextDecoder().decode(body.subarray(2, 2 + tl));
+        if (topic.endsWith("/ack")) mqAck(body.slice(off)); else mqMsg(body.slice(off));
+      }
     }
   };
   ws.onclose = () => { clearInterval(me.ping); if (mq === me) { mq = null; if (!document.hidden && S.rem) setTimeout(mqStart, Math.min(60e3, 2000 * 2 ** mqTry++)); } };
 }
+/* comandi da fuori casa: le stesse scritture di POST /api/config, cifrate con la chiave del canale e mandate alla scheda
+   su …/cmd ("MBC1" | nonce | AES-GCM con "MBC1" come AAD). La scheda risponde su …/ack ("MBA1"). Valgono 5 minuti e una
+   volta sola. Da fuori casa la scheda non accetta WiFi, firmware, file né il cambio del canale. */
+const mqWait = new Map();
+let remCmdAt = 0;                                      // l'ultimo comando riuscito: i pacchetti più vecchi non lo disfano
+async function remCmd(op, d){
+  const m = mq;
+  if (!m || !m.ready || m.ws.readyState !== 1) { mqStart(); throw new Error("la diretta con la scheda non è collegata: riprova tra qualche secondo"); }
+  const key = await remKeyOf(), enc = new TextEncoder(), magic = enc.encode("MBC1"), iv = crypto.getRandomValues(new Uint8Array(12));
+  const id = b64u(crypto.getRandomValues(new Uint8Array(9)));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: magic }, key,
+    enc.encode(JSON.stringify({ id, t: Math.round(Date.now() / 1000), op, d }))));
+  const msg = new Uint8Array(16 + ct.length); msg.set(magic); msg.set(iv, 4); msg.set(ct, 16);
+  const body = new Uint8Array([...m.str(`mybattery/${S.rem.t}/cmd`), ...msg]);
+  const p = new Promise((ok, ko) => {
+    const to = setTimeout(() => { mqWait.delete(id); ko(new Error("la scheda non ha risposto")); }, 20e3);
+    mqWait.set(id, j => { clearTimeout(to); mqWait.delete(id); j.ok ? ok(j) : ko(new Error(j.msg || "rifiutato dalla scheda")); });
+  });
+  m.ws.send(m.pkt(0x30, body));
+  const j = await p; remCmdAt = Date.now() / 1000;
+  if (fin(j.app_at)) cfgAt = j.app_at;
+  return j;
+}
+async function mqAck(u8){
+  try {
+    if (u8.length < 33 || String.fromCharCode(...u8.slice(0, 4)) !== "MBA1") return;
+    const j = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: u8.slice(4, 16), additionalData: u8.slice(0, 4) }, await remKeyOf(), u8.slice(16))));
+    const f = j && mqWait.get(j.id); if (f) f(j);
+  } catch (e) {}
+}
+// scrive sulla scheda: in casa con POST /api/config, da fuori casa col comando cifrato. Altrove non fa niente
+async function boardCfg(d){
+  if (mode === "live") {
+    const r = await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify(d) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.msg || "Scheda non raggiungibile");
+    return j;
+  }
+  if (mode === "remote" && S.rem) return remCmd("config", d);
+  return null;
+}
+const canWrite = () => mode === "live" || mode === "remote";
 function mqStop(){ const m = mq; mq = null; if (m) { clearInterval(m.ping); try { m.ws.close(); } catch (e) {} } }
 async function mqMsg(u8){
   if (!u8.length) return;
@@ -2033,8 +2082,8 @@ async function mqMsg(u8){
     if (data && mode === "remote" && fin(data.time) && fin(b.s.time) && b.s.time < data.time) return;
     const hist = data && data.history;
     data = b.s; if (!data.history && hist) data.history = hist;       // il grafico delle 24 ore arriva col pacchetto da 10 minuti
-    if (fin(b.s.sw)) SW.mask = b.s.sw & 127;
-    if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
+    if (fin(b.s.sw) && !(swLastTap && Date.now() - swLastTap.at < 25e3)) SW.mask = b.s.sw & 127;
+    if (fin(b.s.mute_until) && Date.now() / 1000 - remCmdAt > 25) muteUntil = b.s.mute_until;
     mqLive = Date.now(); remErr = "";
     render("remote");
   } catch (e) {}
@@ -2225,8 +2274,8 @@ function render(m){
     n.hidden = false; n.className = "notice" + (old ? " lost" : ""); n.dataset.k = "";
     const home = DEMO_ONLY && lsGet(HOME_KEY);
     n.innerHTML = esc(old ? `La scheda non manda dati da ${dur(age / 60)}: è spenta o non raggiunge internet. Vedi l'ultimo pacchetto, delle ${hm(nowOf(data))}.`
-      : Date.now() - mqLive < 45e3 ? `Da fuori casa, in diretta: aggiornato alle ${new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT")}. Da qui si guarda soltanto.`
-      : `Da fuori casa: dati della scheda delle ${hm(nowOf(data))}, si aggiornano ogni 10 minuti. Da qui si guarda soltanto.`) +
+      : Date.now() - mqLive < 45e3 ? `Da fuori casa, in diretta: aggiornato alle ${new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT")}. Le modifiche arrivano alla scheda in pochi secondi.`
+      : `Da fuori casa: dati della scheda delle ${hm(nowOf(data))}, si aggiornano ogni 10 minuti. Per cambiare qualcosa serve la diretta: si ricollega da sola.`) +
       (home && home.ip ? `<a class="set-btn" href="http://${esc(home.ip)}/">Sono a casa: apri l'app della scheda</a>` : "") +
       (homeWhy ? `<small class="home-why">Non ti riconosco a casa: ${esc(homeWhy)}.</small>` : "");
   }
@@ -3368,7 +3417,7 @@ function ntfySt(){
   const el = $("ntfy-st"); if (!el) return;
   const n = data && data.ntfy;
   let c = "", t;
-  if (mode !== "live") t = "Senza la scheda da qui partono solo le previsioni. Gli allarmi del momento li manda la scheda, quando c'è.";
+  if (!canWrite()) t = "Senza la scheda da qui partono solo le previsioni. Gli allarmi del momento li manda la scheda, quando c'è.";
   else if (!n) t = "La scheda non ha ancora il canale: aspetta qualche secondo. Se resta così, serve il firmware 0.4 o più nuovo.";
   else if (!n.net) { c = "wa"; t = "La scheda non raggiunge il router: gli avvisi aspettano in coda fino a 6 ore e partono quando torna la rete."; }
   else if (n.err) { c = "wa"; t = `La scheda è in rete ma ntfy non risponde (${esc(n.err)}): riprova da sola ogni minuto.`; }
@@ -3382,6 +3431,11 @@ function copyText(t){ // navigator.clipboard vuole HTTPS: dalla scheda (HTTP) si
     try { document.execCommand("copy") ? ok() : ko(); } catch (e) { ko(e); } a.remove(); });
 }
 async function ntfyTest(urg){
+  if (mode === "remote") {
+    try { await remCmd("ntfy_test", { urgent: !!urg }); toast("Prova inviata dalla scheda"); }
+    catch (e) { toast("Prova non partita: " + e.message); }
+    return;
+  }
   if (mode === "live") {
     try {
       let r = await fetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) });
@@ -3437,7 +3491,7 @@ $("al-mute").addEventListener("click", () => {
   else { const d = new Date(); if (d.getHours() >= 7) d.setDate(d.getDate() + 1); d.setHours(7, 0, 0, 0); muteUntil = d.getTime() / 1000; }
   try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {}
   toast(muteUntil ? `Silenziati fino alle ${hm(muteUntil)}` : "Avvisi riattivati");
-  if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({mute_until: Math.round(muteUntil)})}).catch(() => {});
+  boardCfg({mute_until: Math.round(muteUntil)}).catch(e => { if (mode === "remote") toast("La scheda non l'ha saputo: " + e.message); });
   drawMute(1);
 });
 
@@ -4594,7 +4648,7 @@ $("settings").addEventListener("change", e => {
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (t.name === "log") {
     if (logSrc === "demo") { LOG = demoLog(); relearn(); }
-    else if (mode === "live") fetch("/api/config", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({log_min: S.log})}).catch(() => {});
+    else boardCfg({log_min: S.log}).catch(() => {});
   }
   if (data) render(mode);
 });
