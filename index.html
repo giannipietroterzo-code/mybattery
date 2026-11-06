@@ -133,6 +133,7 @@ body{height:100%;overflow:hidden}
 .tab-n.prot{background:var(--alert)}
 [hidden]{display:none!important} /* hidden vince sempre sui display:flex delle classi */
 .tab-n[hidden]{display:none}
+.home-why{display:block;margin-top:8px;font-size:12.5px;line-height:1.4;color:var(--muted)}
 .pv-empty{margin:10px 2px 0;font-size:.9rem;color:var(--muted)}
 .pv-day h3{margin:24px 2px 4px;font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .pv-day .note{margin:0 2px 10px;font-size:.8rem;color:var(--muted)}
@@ -1377,7 +1378,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.37"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.38"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1919,22 +1920,36 @@ const REM_APP = "https://giannipietroterzo-code.github.io/mybattery/", REM_KEY =
 let remAt = 0, remBusy = false, remKeyC = null, remErr = "";
 // a casa l'app di GitHub salta da sola a quella della scheda: stesso indirizzo internet della scheda = stessa rete di casa
 const HOME_KEY = "mybattery.home.v1", JUMP_KEY = "mybattery.jump.v1";
-let homeAt = 0;
+let homeAt = 0, homeWhy = ""; // homeWhy: perché l'ultima prova non ha riconosciuto casa (si mostra nell'avviso)
+// l'indirizzo internet del telefono: tre servizi diversi, se un filtro o un DNS anti-tracker ne blocca uno si prova il successivo
+const PUB_SRC = [["https://1.1.1.1/cdn-cgi/trace", t => (t.match(/^ip=(.+)$/m) || [])[1]],
+  ["https://api.ipify.org?format=json", t => JSON.parse(t).ip], ["https://ipv4.icanhazip.com/", t => t.trim()]];
+async function pubIp(){
+  for (const [u, f] of PUB_SRC) {
+    const ctrl = new AbortController(), to = setTimeout(() => ctrl.abort(), 4000);
+    try { const ip = f(await (await fetch(u, { cache: "no-store", signal: ctrl.signal })).text()); if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip || "")) return ip; }
+    catch (e) {} finally { clearTimeout(to); }
+  }
+  return null;
+}
 async function remHome(){
   if (!DEMO_ONLY || Date.now() - homeAt < 60e3) return false;
   homeAt = Date.now();
   const h = lsGet(HOME_KEY), j = lsGet(JUMP_KEY);
-  if (!h || !/^\d{1,3}(\.\d{1,3}){3}$/.test(h.ip || "") || !h.pub) return false;
-  if (j && Date.now() - j < 120e3) return false;            // appena tornati indietro: in casa la scheda non rispondeva
+  if (!h || !/^\d{1,3}(\.\d{1,3}){3}$/.test(h.ip || "") || !h.pub) { homeWhy = "la scheda non ha ancora mandato i suoi indirizzi (arrivano col pacchetto dei 10 minuti)"; return false; }
+  if (j && Date.now() - j < 120e3) { homeWhy = `l'app della scheda non si è aperta su ${h.ip}`; return false; } // appena tornati indietro
   const c = navigator.connection;
-  if (c && c.type && !["wifi", "ethernet", "unknown", "other", "mixed"].includes(c.type)) return false; // coi dati mobili non si è a casa
-  try { const ip = (await (await fetch("https://api.ipify.org?format=json", { cache: "no-store" })).json()).ip; if (ip !== h.pub) return false; }
-  catch (e) { return false; }
+  if (c && c.type && !["wifi", "ethernet", "unknown", "other", "mixed"].includes(c.type)) { homeWhy = ""; return false; } // dati mobili: fuori casa davvero
+  const ip = await pubIp();
+  if (!ip) { homeWhy = "il telefono non riesce a sapere il suo indirizzo internet (un filtro o un DNS anti-tracker blocca i servizi che lo dicono)"; return false; }
+  if (ip !== h.pub) { homeWhy = c && c.type === "wifi" ? `questo telefono esce su internet da ${ip}, la scheda da ${h.pub}: VPN o Private Relay attivi, o un'altra rete WiFi` : ""; return false; }
+  homeWhy = "";
   lsSet(JUMP_KEY, Date.now());
   toast("Sei a casa: apro l'app della scheda");
   setTimeout(() => location.replace(`http://${h.ip}/`), 500);
   return true;
 }
+document.addEventListener("visibilitychange", () => { if (!document.hidden) homeAt = 0; }); // riaprendo la app si riprova subito
 const b64u = u8 => btoa(String.fromCharCode(...u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64u = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
 function remNew(){
@@ -2212,7 +2227,8 @@ function render(m){
     n.innerHTML = esc(old ? `La scheda non manda dati da ${dur(age / 60)}: è spenta o non raggiunge internet. Vedi l'ultimo pacchetto, delle ${hm(nowOf(data))}.`
       : Date.now() - mqLive < 45e3 ? `Da fuori casa, in diretta: aggiornato alle ${new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT")}. Da qui si guarda soltanto.`
       : `Da fuori casa: dati della scheda delle ${hm(nowOf(data))}, si aggiornano ogni 10 minuti. Da qui si guarda soltanto.`) +
-      (home && home.ip ? `<a class="set-btn" href="http://${esc(home.ip)}/">Sono a casa: apri l'app della scheda</a>` : "");
+      (home && home.ip ? `<a class="set-btn" href="http://${esc(home.ip)}/">Sono a casa: apri l'app della scheda</a>` : "") +
+      (homeWhy ? `<small class="home-why">Non ti riconosco a casa: ${esc(homeWhy)}.</small>` : "");
   }
   else if (mode === "stale") {
     const min = Math.round((Date.now() - lastOk) / 60000);
