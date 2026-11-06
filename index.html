@@ -485,6 +485,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .q-sum{margin:10px 2px 0;font-size:.86rem;line-height:1.45}
 .q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
 .q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
+a.q-chip{text-decoration:none}.fw-chip i{background:var(--sun)!important;box-shadow:0 0 8px var(--sun)!important}
 .q-chip i{flex:none;width:9px;height:9px;border-radius:2px;background:var(--lith);box-shadow:0 0 8px var(--lith)}.q-chip span{flex:1;min-width:0}.q-chip small{color:var(--muted)}
 [data-style] .q-chip{background:transparent;border-color:color-mix(in srgb,var(--lith) 35%,transparent)}
 .zones label.em{display:flex;align-items:center;gap:6px;font-size:.78rem;margin-top:2px}.zones label.em input{width:auto}
@@ -1104,6 +1105,7 @@ footer{border-top:0;padding-top:0}
     </section>
     <div class="notice" id="notice" role="status" hidden></div>
     <button class="q-chip" id="q-chip" type="button"></button>
+    <a class="q-chip fw-chip" id="fw-chip" href="/diag" hidden></a>
     <section aria-labelledby="h-al">
       <h2 id="h-al">Avvisi <span class="h-n" id="al-n" hidden></span></h2>
       <ul class="alerts" id="alerts"></ul>
@@ -1373,7 +1375,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.33"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.34"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2216,6 +2218,9 @@ function render(m){
   drawPv(data.pv, k);
   drawSw();
   drawFlow(k);
+  const fwc = $("fw-chip"), nf2 = mode === "live" && data.fw_new;
+  fwc.hidden = !nf2;
+  if (nf2) fwc.innerHTML = `<i></i><span>Firmware <b>v${esc(data.fw_new)}</b> per la scheda <small>· ora v${esc(data.fw || "?")}</small></span><small>Aggiorna ›</small>`;
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   drawCabinet(bs, lowSoc);
