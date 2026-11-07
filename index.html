@@ -54,6 +54,9 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "strings": 2                   // facoltativo: stringhe in parallelo (la app lo imposta con POST /api/config)
     }],
     "inv": { "v": 48, "cuts": [[1794000000, 48.6, 12.0]] },   // stacco dell'inverter (impostazione) e stacchi veri visti: [t, V, carica]
+    "fw": "0.19", "fw_new": "0.20",  // firmware della scheda e quello nuovo pubblicato su GitHub (si installa dalla app o da /diag)
+    "fw_trial": true,                // firmware appena installato, non ancora confermato (torna al vecchio se in 10 min non si collega)
+    "fw_upd": { "st": 2, "pct": 45, "v": "0.20", "msg": "" },   // installazione in corso: st 1 controllo, 2 scarico, 3 fatto, 4 errore
     "limits": {                      // facoltativo: soglie lette con 80H dalla master
       "bal_start": 3400,             // mV, tensione di avvio bilanciamento (voce 102)
       "bal_diff": 30,                // mV, differenza di avvio bilanciamento (voce 103)
@@ -550,6 +553,13 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
 .q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
 a.q-chip{text-decoration:none}.fw-chip i{background:var(--sun)!important;box-shadow:0 0 8px var(--sun)!important}
+.fw-chip{position:relative;overflow:hidden}.fw-chip[disabled]{cursor:default;opacity:1}
+.fw-chip .fw-bar{position:absolute;left:0;bottom:0;height:3px;background:var(--sun);transition:width .6s ease}
+.fw-chip.ask{border-color:var(--sun);background:var(--sun-tint)}
+.fw-chip.err i{background:var(--alert)!important;box-shadow:0 0 8px var(--alert)!important}
+.fw-chip.ok i{background:var(--good)!important;box-shadow:0 0 8px var(--good)!important}
+.fw-chip.run i{animation:fw-pulse 1.1s ease-in-out infinite}
+@keyframes fw-pulse{50%{opacity:.25}}
 .q-chip i{flex:none;width:9px;height:9px;border-radius:2px;background:var(--lith);box-shadow:0 0 8px var(--lith)}.q-chip span{flex:1;min-width:0}.q-chip small{color:var(--muted)}
 [data-style] .q-chip{background:transparent;border-color:color-mix(in srgb,var(--lith) 35%,transparent)}
 [data-style] .set-btn.pri{background:var(--lith);color:var(--bg);border-color:var(--lith);box-shadow:0 0 14px -5px var(--lith)}
@@ -1169,7 +1179,7 @@ footer{border-top:0;padding-top:0}
     </section>
     <div class="notice" id="notice" role="status" hidden></div>
     <button class="q-chip" id="q-chip" type="button"></button>
-    <a class="q-chip fw-chip" id="fw-chip" href="/diag" hidden></a>
+    <button class="q-chip fw-chip" id="fw-chip" type="button" hidden></button>
     <section aria-labelledby="h-al">
       <h2 id="h-al">Avvisi <span class="h-n" id="al-n" hidden></span></h2>
       <ul class="alerts" id="alerts"></ul>
@@ -1462,7 +1472,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.47"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.48"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2434,6 +2444,52 @@ async function boardCfg(d){
   return null;
 }
 const canWrite = () => mode === "live" || mode === "remote";
+/* firmware nuovo dalla app: in casa POST /api/fw/update, da fuori casa il comando cifrato "fw_update" (firmware 0.19+).
+   La scheda scarica da GitHub, controlla la firma, si riavvia e tiene il firmware nuovo «in prova»: lo conferma da sola
+   quando è collegata (router e diretta) da 1 minuto, altrimenti entro 10 minuti torna a quello di prima e lo notifica.
+   Primo tocco: chiede conferma sul chip stesso; secondo tocco entro 6 s: installa. */
+let fwAsk = 0, fwSent = 0, fwErr = "";
+function drawFw(){
+  const c = $("fw-chip"), d = data || {}, u = d.fw_upd, now = Date.now();
+  const run = u && (u.st === 1 || u.st === 2), done = u && u.st === 3 && /installato/.test(u.msg || "");
+  const wait = !u && now - fwSent < 90e3 && fwSent;          // tocco mandato, la scheda non ha ancora risposto con fw_upd
+  let html = "", cls = "", dis = false, pct = null;
+  if (!canWrite()) { c.hidden = true; return; }
+  if (fwErr) { cls = "err"; html = `<i></i><span>Firmware non installato <small>· ${esc(fwErr)}</small></span><small>Riprova ›</small>`; }
+  else if (run || wait) {
+    cls = "run"; dis = true; pct = u && u.st === 2 && fin(u.pct) ? u.pct : null;
+    html = `<i></i><span>${u && u.st === 2 ? `Scarico il firmware <b>v${esc(u.v || d.fw_new || "")}</b>${pct !== null ? ` · ${pct}%` : ""}` : "Avvio l'aggiornamento della scheda…"}</span><small>non spegnere</small>`;
+  } else if (done) { cls = "run"; dis = true; html = `<i></i><span>Firmware installato: la scheda si riavvia <small>· torna in un paio di minuti</small></span>`; }
+  else if (u && u.st === 4) { cls = "err"; html = `<i></i><span>Firmware non installato <small>· ${esc(u.msg || "errore")}</small></span><small>Riprova ›</small>`; }
+  else if (d.fw_trial) { cls = "ok run"; dis = true; html = `<i></i><span>Firmware <b>v${esc(d.fw || "")}</b> in prova <small>· si conferma da solo appena la scheda è collegata; se non va, torna alla versione di prima</small></span>`; }
+  else if (d.fw_new) {
+    const ask = now - fwAsk < 6000; cls = ask ? "ask" : "";
+    html = ask ? `<i></i><span>Tocca di nuovo per installare <b>v${esc(d.fw_new)}</b> <small>· la scheda si riavvia, pochi minuti senza dati</small></span><small>Installa</small>`
+      : `<i></i><span>Firmware <b>v${esc(d.fw_new)}</b> per la scheda <small>· ora v${esc(d.fw || "?")}</small></span><small>Installa ›</small>`;
+  }
+  c.hidden = !html; if (!html) return;
+  c.className = "q-chip fw-chip " + cls; c.disabled = dis;
+  c.innerHTML = html + (pct !== null ? `<span class="fw-bar" style="width:${pct}%"></span>` : "");
+}
+$("fw-chip").addEventListener("click", async () => {
+  const d = data || {};
+  if (fwErr) { fwErr = ""; fwAsk = Date.now(); drawFw(); setTimeout(drawFw, 6100); return; }
+  if (!d.fw_new && !(d.fw_upd && d.fw_upd.st === 4)) return;
+  if (Date.now() - fwAsk > 6000) { fwAsk = Date.now(); drawFw(); setTimeout(drawFw, 6100); return; }
+  fwAsk = 0; fwSent = Date.now(); drawFw();
+  try {
+    if (mode === "live") {
+      const r = await fetch("/api/fw/update", { method: "POST", headers: { "X-MyBattery": "1" } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.msg || "scheda non raggiungibile");
+    } else {
+      try { await remCmd("fw_update", {}); }
+      catch (e) { throw new Error(/non permesso/.test(e.message) ? "da fuori casa serve il firmware 0.19: installalo una volta da casa" : e.message); }
+    }
+    toast("Aggiornamento avviato: la scheda scarica il firmware e si riavvia");
+  } catch (e) { fwSent = 0; fwErr = e.message; }
+  drawFw();
+});
 function mqStop(){ const m = mq; mq = null; if (m) { clearInterval(m.ping); try { m.ws.close(); } catch (e) {} } }
 async function mqMsg(u8){
   if (!u8.length) return;
@@ -2721,9 +2777,7 @@ function render(m){
   drawSw();
   drawFlow(k);
   drawNight(k, f);
-  const fwc = $("fw-chip"), nf2 = mode === "live" && data.fw_new;
-  fwc.hidden = !nf2;
-  if (nf2) fwc.innerHTML = `<i></i><span>Firmware <b>v${esc(data.fw_new)}</b> per la scheda <small>· ora v${esc(data.fw || "?")}</small></span><small>Aggiorna ›</small>`;
+  drawFw();
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   drawCabinet(bs, lowSoc);
