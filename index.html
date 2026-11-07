@@ -1380,7 +1380,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.40"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.41"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1742,7 +1742,7 @@ const Q_SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="1
 const Q_PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0V8zM12 17v4"/></svg>';
 function drawSw(){
   const box = $("quadro"); if (!box) return;
-  const est = swEst(), now = nowOf(data);
+  const now = nowOf(data);
   if (!box.dataset.built) {
     box.dataset.built = 1;
     box.innerHTML = `<div class="q-row" role="group" aria-label="Deviatori del quadro: su = solare, giù = Enel">` +
@@ -1769,7 +1769,7 @@ function drawSw(){
   else if (r) { const ch = ZONES.map((_, z) => z).filter(z => swOn(r[1] ^ r[2], z)), t = swT(r);
     last.innerHTML = `<span>Ultimo cambio ${new Date(t * 1000).toDateString() === new Date().toDateString() ? "alle " + hm(t) : new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(t)}: ${esc(zList(ch))} su ${swOn(r[1], ch[0]) ? "solare" : "Enel"}` +
       `${fin(r[3]) ? ` · misurato ${r[3] >= 0 ? "+" : "−"}${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
-  else last.innerHTML = mode === "live" && !SW.board ? "<span>Per salvare i deviatori sulla scheda serve il firmware 0.5.</span>" : "";
+  else last.innerHTML = "";
   const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev, t2.z); swLastTap = null; drawSw(); };
   const chip = $("q-chip");
   chip.innerHTML = `<i></i><span>Su solare: <b>${on.length ? esc(on.map(z => ZONES[z]).join(" ")) : "nessuna zona"}</b>${wOn > 0 ? ` <small>· ~${power(wOn)}</small>` : ""}</span><small>Quadro ›</small>`;
@@ -2163,7 +2163,7 @@ function remSt(){
   } else {
     const r = data && data.rem;
     if (mode !== "live") t = "Si controlla dalla rete di casa.";
-    else if (!r) t = "La scheda non ha ancora il canale: aspetta qualche secondo. Se resta così, serve il firmware 0.6 o più nuovo.";
+    else if (!r) t = "La scheda non ha ancora il canale: aspetta qualche secondo.";
     else if (r.err) { c = "wa"; t = `La scheda non riesce a mandare il pacchetto (${esc(r.err)}): riprova da sola.`; }
     else if (r.ok_at) { c = "ok"; t = `La scheda manda i pacchetti · ultimo alle ${hm(r.ok_at)}.`; }
     else t = "La scheda manda il primo pacchetto tra poco.";
@@ -2728,7 +2728,7 @@ function demoLog(){
 // asFc: per le ore passate usa la previsione com'era (in demo); nella versione vera Open-Meteo dà per il passato i valori misurati
 function irrAt(t, asFc){
   if (logSrc === "demo") {
-    const m = t + HOUR / 2, L = here(), fcst = asFc || m > nowS(), ghi = demoGhi(m, fcst);
+    const m = t + HOUR / 2, fcst = asFc || m > nowS(), ghi = demoGhi(m, fcst);
     return { ghi, gp: null, temp: demoTemp(m) + (fcst ? .8 : 0) };
   }
   const m = wxMap(); if (!m) return null;
@@ -3385,11 +3385,13 @@ function nowRatio(g){
   const e = planeGti(ir, planeOf(g), t);
   return e > 60 ? g.w / g.kwp / e : NaN;
 }
-// un allarme nuovo con la app aperta: vibrazione e due toni brevi (i consigli no)
+// un allarme nuovo con la app aperta: vibrazione e due toni brevi. Solo protezioni e allarmi: previsioni e consigli
+// arrivano col meteo qualche secondo dopo l'apertura e non devono suonare. Senza un tocco Chrome blocca suono e vibrazione.
 let alSeen = null, actx = null;
 function ringNew(items){
-  const ids = new Set(items.filter(a => a.sev !== "tip" && a.sev !== "mute").map(a => a.id || a.sev + (a.i ?? "") + a.t));
-  if (alSeen && !document.hidden && !muted() && [...ids].some(x => !alSeen.has(x))) {
+  const ids = new Set(items.filter(a => a.sev === "prot" || a.sev === "alarm").map(a => a.id || a.sev + (a.i ?? "") + a.t));
+  const touched = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+  if (alSeen && touched && !document.hidden && !muted() && [...ids].some(x => !alSeen.has(x))) {
     try { if (navigator.vibrate) navigator.vibrate([180, 90, 180]); } catch (e) {}
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
@@ -3428,7 +3430,7 @@ function ntfySt(){
   const n = data && data.ntfy;
   let c = "", t;
   if (!canWrite()) t = "Senza la scheda da qui partono solo le previsioni. Gli allarmi del momento li manda la scheda, quando c'è.";
-  else if (!n) t = "La scheda non ha ancora il canale: aspetta qualche secondo. Se resta così, serve il firmware 0.4 o più nuovo.";
+  else if (!n) t = "La scheda non ha ancora il canale: aspetta qualche secondo.";
   else if (!n.net) { c = "wa"; t = "La scheda non raggiunge il router: gli avvisi aspettano in coda fino a 6 ore e partono quando torna la rete."; }
   else if (n.err) { c = "wa"; t = `La scheda è in rete ma ntfy non risponde (${esc(n.err)}): riprova da sola ogni minuto.`; }
   else { c = "ok"; t = "La scheda è collegata e manda gli avvisi" + (n.ok_at ? ` · ultimo inviato ${Date.now() / 1000 - n.ok_at > 20 * HOUR ? "il " + new Date(n.ok_at * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" }) : "alle " + hm(n.ok_at)}` : "") + "."; }
