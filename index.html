@@ -1472,7 +1472,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.48"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.49"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2455,26 +2455,24 @@ function drawFw(){
   const wait = !u && now - fwSent < 90e3 && fwSent;          // tocco mandato, la scheda non ha ancora risposto con fw_upd
   let html = "", cls = "", dis = false, pct = null;
   if (!canWrite()) { c.hidden = true; return; }
-  if (fwErr) { cls = "err"; html = `<i></i><span>Firmware non installato <small>· ${esc(fwErr)}</small></span><small>Riprova ›</small>`; }
+  const ask = now - fwAsk < 6000 && (d.fw_new || (u && u.st === 4)) && !run && !wait;
+  if (ask) { cls = "ask"; html = `<i></i><span>Tocca di nuovo per installare <b>v${esc(d.fw_new || (u && u.v) || "")}</b> <small>· la scheda si riavvia, pochi minuti senza dati</small></span><small>Installa</small>`; }
+  else if (fwErr) { cls = "err"; html = `<i></i><span>Firmware non installato <small>· ${esc(fwErr)}</small></span><small>Riprova ›</small>`; }
   else if (run || wait) {
     cls = "run"; dis = true; pct = u && u.st === 2 && fin(u.pct) ? u.pct : null;
     html = `<i></i><span>${u && u.st === 2 ? `Scarico il firmware <b>v${esc(u.v || d.fw_new || "")}</b>${pct !== null ? ` · ${pct}%` : ""}` : "Avvio l'aggiornamento della scheda…"}</span><small>non spegnere</small>`;
   } else if (done) { cls = "run"; dis = true; html = `<i></i><span>Firmware installato: la scheda si riavvia <small>· torna in un paio di minuti</small></span>`; }
   else if (u && u.st === 4) { cls = "err"; html = `<i></i><span>Firmware non installato <small>· ${esc(u.msg || "errore")}</small></span><small>Riprova ›</small>`; }
   else if (d.fw_trial) { cls = "ok run"; dis = true; html = `<i></i><span>Firmware <b>v${esc(d.fw || "")}</b> in prova <small>· si conferma da solo appena la scheda è collegata; se non va, torna alla versione di prima</small></span>`; }
-  else if (d.fw_new) {
-    const ask = now - fwAsk < 6000; cls = ask ? "ask" : "";
-    html = ask ? `<i></i><span>Tocca di nuovo per installare <b>v${esc(d.fw_new)}</b> <small>· la scheda si riavvia, pochi minuti senza dati</small></span><small>Installa</small>`
-      : `<i></i><span>Firmware <b>v${esc(d.fw_new)}</b> per la scheda <small>· ora v${esc(d.fw || "?")}</small></span><small>Installa ›</small>`;
-  }
+  else if (d.fw_new) html = `<i></i><span>Firmware <b>v${esc(d.fw_new)}</b> per la scheda <small>· ora v${esc(d.fw || "?")}</small></span><small>Installa ›</small>`;
   c.hidden = !html; if (!html) return;
   c.className = "q-chip fw-chip " + cls; c.disabled = dis;
   c.innerHTML = html + (pct !== null ? `<span class="fw-bar" style="width:${pct}%"></span>` : "");
 }
 $("fw-chip").addEventListener("click", async () => {
   const d = data || {};
-  if (fwErr) { fwErr = ""; fwAsk = Date.now(); drawFw(); setTimeout(drawFw, 6100); return; }
-  if (!d.fw_new && !(d.fw_upd && d.fw_upd.st === 4)) return;
+  if (!d.fw_new && !(d.fw_upd && d.fw_upd.st === 4)) { fwErr = ""; drawFw(); return; }
+  fwErr = "";
   if (Date.now() - fwAsk > 6000) { fwAsk = Date.now(); drawFw(); setTimeout(drawFw, 6100); return; }
   fwAsk = 0; fwSent = Date.now(); drawFw();
   try {
