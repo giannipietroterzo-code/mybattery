@@ -44,6 +44,8 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "addr": 1, "name": "Tettoia", "online": true,   // addr = indirizzo Modbus; name facoltativo (nella app si può rinominare)
       "w": 2410, "v": 112.4, "a": 21.4,   // pannelli: W, V, A (registri 3100H–3103H)
       "out_w": 2340,                 // W che il regolatore porta alle batterie (3106H–3107H): li usa «Energia adesso»
+      "v_max": 128.4, "v_max_at": 1793990000,   // picco della tensione dei pannelli oggi (ora italiana), tenuto dalla scheda
+      "vmax": 150,                   // massimo del regolatore che usa la scheda per gli allarmi PV_HIGH (90 %) e PV_DANGER (96 %)
       "kwh_today": 3.42,             // energia prodotta oggi (330CH)
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
       "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
@@ -1378,7 +1380,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.39"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.40"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1529,7 +1531,14 @@ function trackPv(pv){
   if (!Array.isArray(pv)) return;
   const real = isReal(), st = real ? pvPk : pvPkDemo, now = nowOf(data), dk = dkey(now);
   let ch = false;
-  pv.forEach(g => { if (g.online === false || !fin(g.v) || g.v <= 0 || g.v > 400) return;
+  pv.forEach(g => {
+    // il picco del giorno lo tiene la scheda (firmware 0.14): vale anche per le ore in cui la app era chiusa
+    if (fin(g.v_max) && fin(g.v_max_at) && g.v_max > 0 && g.v_max <= 400 && dkey(g.v_max_at) === dk) {
+      const o = st[g.addr] = st[g.addr] || {};
+      if (o.d !== dk || g.v_max > o.v) { o.d = dk; o.v = g.v_max; o.at = g.v_max_at; ch = true; }
+      if (!(o.rv >= g.v_max)) { o.rv = g.v_max; o.rat = g.v_max_at; ch = true; }
+    }
+    if (g.online === false || !fin(g.v) || g.v <= 0 || g.v > 400) return;
     const o = st[g.addr] = st[g.addr] || {};
     if (o.d !== dk || g.v > o.v) { o.d = dk; o.v = g.v; o.at = now; ch = true; }
     if (!(o.rv >= g.v)) { o.rv = g.v; o.rat = now; ch = true; }
@@ -2592,7 +2601,8 @@ async function boardAlarms(){
 const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
       const g = { addr: e.addr, name: e.who }, who = e.pv ? pvName(g) : nameOf(g, e.addr);
       const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile"
-        : e.code === "PV_FAULT" ? "Guasto del regolatore" : (MSG[e.code] || [e.code])[0];
+        : e.code === "PV_FAULT" ? "Guasto del regolatore" : e.code === "PV_HIGH" ? "Tensione dei pannelli alta"
+        : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : (MSG[e.code] || [e.code])[0];
       return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0 };
     });
 // il registro fatto col cavo USB prima che ci fosse la scheda: lo si versa nella scheda, dal più recente al più vecchio
