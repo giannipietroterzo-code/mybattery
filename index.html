@@ -210,6 +210,12 @@ section{margin-top:26px}
 .alerts li.mute{--c:var(--muted);--t:color-mix(in srgb,var(--muted) 14%,transparent)}
 .alerts li.fc{--c:var(--lith);--t:var(--lith-tint)}
 .alerts li.tip{--c:var(--good);--t:var(--good-tint)}
+.alerts li{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.alerts li.drag{transition:none!important}
+.alerts li.out{transition:transform .22s ease-in,opacity .22s ease-in!important}
+.alerts li.gone{transition:max-height .2s ease,margin .2s ease,padding .2s ease!important;max-height:0!important;margin-top:0!important;margin-bottom:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0!important}
+.al-hid{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 2px 0;font-size:.78rem;color:var(--muted)}
+.al-hid button{border:0;background:none;color:var(--lith);font:inherit;font-weight:600;padding:4px 0;cursor:pointer}
 .alerts li[data-i]{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .15s}
 .alerts li[data-i]:active{transform:scale(.985)}
 .alerts li[data-i]:focus-visible{outline:2px solid var(--c);outline-offset:2px}
@@ -1135,6 +1141,7 @@ footer{border-top:0;padding-top:0}
     <section aria-labelledby="h-al">
       <h2 id="h-al">Avvisi <span class="h-n" id="al-n" hidden></span></h2>
       <ul class="alerts" id="alerts"></ul>
+      <p class="al-hid" id="al-hid" hidden></p>
       <div class="al-ok" id="alerts-ok" hidden></div>
       <button class="al-mute" id="al-mute" type="button" aria-pressed="false" hidden></button>
     </section>
@@ -1423,7 +1430,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.44"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.46"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1460,7 +1467,7 @@ const AL_ICON = {
 const AL_TAG = { prot: "Protezione", alarm: "Attenzione", mute: "Offline", fc: "Previsione", tip: "Consiglio" };
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 // una card di avviso; con "i" diventa toccabile e apre la scheda della batteria
-const alertLi = a => `<li class="${a.sev}"${a.i !== undefined ? ` data-i="${a.i}" role="button" tabindex="0"` : ""}>` +
+const alertLi = a => `<li class="${a.sev}" data-k="${esc(alKey(a))}"${a.i !== undefined ? ` data-i="${a.i}" role="button" tabindex="0"` : ""}>` +
   `<span class="al-ico">${ico(AL_ICON[a.sev])}</span><span class="al-txt">` +
   `<span class="al-k"><span class="al-tag">${AL_TAG[a.sev]}</span>${a.who ? `<span class="al-who">${esc(a.who)}</span>` : ""}</span>` +
   `<b>${esc(a.t)}</b>${a.d ? `<span class="al-d">${esc(a.d)}</span>` : ""}</span>` +
@@ -1884,9 +1891,9 @@ function drawNight(k, f){
   if (!cur) {
     box.hidden = false; box.className = "night wait";
     const w = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Stanotte: lo dico verso sera</span></div>` +
-      `<p class="n-d">Con meno di 7 giorni di registro la notte si calcola dal pomeriggio, col consumo medio delle notti passate.</p><div class="sw-all" id="n-all"></div>`;
+      `<p class="n-d">Con meno di 7 giorni di registro la notte si calcola dal pomeriggio, col consumo medio delle notti passate.</p>`;
     if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
-    swAllDraw($("n-all")); return;
+    return;
   }
   const st = cur.min <= cut || cur.resume === null ? "bad" : cur.min <= mar ? "warn" : "ok", m0 = Math.max(0, cur.min);
   const after = cur.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(cur.resume))}</b>`;
@@ -1917,9 +1924,8 @@ function drawNight(k, f){
   const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
     `<p class="n-d">Minimo verso <b>${nf(m0, 0)}%</b>, ${after}. Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.` +
     `${cur.simple ? ` <small>Stima semplice col consumo delle notti passate: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${cur.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
-    (tip ? `<div class="n-tip">${tip}</div>` : "") + `<div class="sw-all" id="n-all"></div>`;
+    (tip ? `<div class="n-tip">${tip}</div>` : "");
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
-  swAllDraw($("n-all"));
   if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
     const b = e.target.closest("button[data-mask]"); if (b) swSet(+b.dataset.mask & 127, -1); }); }
 }
@@ -2531,26 +2537,30 @@ function render(m){
   bs.forEach((b,i) => {
     const who = nameOf(b, i);
     if (!b.online) { items.push({sev:"mute", who, i, t:"Batteria non raggiungibile", d:"Controlla il cavo di comunicazione tra le batterie."}); return; }
-    (b.prot||[]).forEach(c => items.push({sev:"prot", who, i, t:msg(c)[0], d:msg(c)[1]}));
-    (b.alarms||[]).forEach(c => items.push({sev:"alarm", who, i, t:msg(c)[0], d:msg(c)[1]}));
+    (b.prot||[]).forEach(c => items.push({id:"bp" + i + c, sev:"prot", who, i, t:msg(c)[0], d:msg(c)[1]}));
+    (b.alarms||[]).forEach(c => items.push({id:"ba" + i + c, sev:"alarm", who, i, t:msg(c)[0], d:msg(c)[1]}));
   });
   items.push(...myAlarms(bs, k, f));
   const rank = {prot:0, alarm:1, fc:2, mute:3, tip:4};
   items.sort((a,b) => rank[a.sev] - rank[b.sev]);
   ringNew(items);
   recordAl(items);
-  const alHtml = items.map(alertLi).join("");
+  const shown = alVisible(items), hid = items.length - shown.length;
+  const alHtml = shown.map(alertLi).join("");
   if ($("alerts").dataset.h !== alHtml) { $("alerts").innerHTML = alHtml; $("alerts").dataset.h = alHtml; } // non riavvia l'animazione a ogni lettura
   const nOn = bs.filter(b => b.online).length;
-  $("alerts-ok").hidden = items.length > 0;
-  if (!items.length) $("alerts-ok").innerHTML = `<span class="al-ico">${ico(AL_ICON.ok)}</span><span class="al-txt"><b>Tutto in ordine</b>` +
+  $("alerts-ok").hidden = shown.length > 0;
+  $("al-hid").hidden = !hid && (dismHint() || !shown.length);
+  $("al-hid").innerHTML = hid ? `<span>${hid === 1 ? "1 avviso nascosto" : hid + " avvisi nascosti"}</span><button type="button" id="al-show">Mostra</button>`
+    : `<span>Trascina un avviso di lato per nasconderlo.</span>`;
+  if (!shown.length) $("alerts-ok").innerHTML = `<span class="al-ico">${ico(AL_ICON.ok)}</span><span class="al-txt"><b>${hid ? "Niente di nuovo" : "Tutto in ordine"}</b>` +
     `<span class="al-d">${nOn === 1 ? "La batteria lavora" : nOn ? `Le ${nOn} batterie lavorano` : "Le batterie lavorano"} nei limiti.</span></span>`;
-  const nAl = items.filter(a => a.sev !== "tip").length; // i consigli non contano come allarmi
+  const nAl = shown.filter(a => a.sev !== "tip").length; // i consigli e gli avvisi nascosti non contano
   $("al-n").hidden = !nAl;
   $("al-n").textContent = nAl;
-  $("al-n").className = "h-n" + (items.some(a => a.sev === "prot") ? " prot" : "");
+  $("al-n").className = "h-n" + (shown.some(a => a.sev === "prot") ? " prot" : "");
   $("tab-n").hidden = !nAl; $("tab-n").textContent = nAl; // visibile anche dalle altre pagine
-  $("tab-n").className = "tab-n" + (items.some(a => a.sev === "prot") ? " prot" : "");
+  $("tab-n").className = "tab-n" + (shown.some(a => a.sev === "prot") ? " prot" : "");
   drawMute(nAl);
   drawAlHist();
 
@@ -4159,6 +4169,46 @@ function fillSheet(i){
   `;
 }
 function closeSheet(){ const d = $("sheet"); if (d.open) d.close(); }
+/* avvisi nascosti col trascinamento laterale. Restano nascosti finché l'avviso c'è; se sparisce per più di 10 minuti e poi
+   torna, si rivede. Comunque tornano: le protezioni dopo 1 ora, tutto il resto dopo 12 ore. */
+const DISM_KEY = "mybattery.dismiss.v1";
+const lsJ = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
+const lsW = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let dism = lsJ(DISM_KEY) || {};
+const dismHint = () => !!lsJ(DISM_KEY + ".hint");
+function alVisible(items){
+  const now = Date.now(), here = new Set(items.map(alKey)); let ch = false;
+  Object.keys(dism).forEach(k => { const d = dism[k];
+    if (here.has(k)) { if (now - d.seen > 60e3) { d.seen = now; ch = true; } }
+    else if (now - d.seen > 10 * 60e3) { delete dism[k]; ch = true; } });
+  if (ch) lsW(DISM_KEY, dism);
+  return items.filter(a => { const d = dism[alKey(a)]; return !d || now - d.at > (a.sev === "prot" ? HOUR : 12 * HOUR) * 1000; });
+}
+function dismiss(k){ const now = Date.now(); dism[k] = { at: now, seen: now }; lsW(DISM_KEY, dism); lsW(DISM_KEY + ".hint", 1); if (data) render(mode); }
+$("al-hid").addEventListener("click", e => { if (e.target.closest("#al-show")) { dism = {}; lsW(DISM_KEY, dism); if (data) render(mode); } });
+{ // il gesto: solo orizzontale (lo scorrimento verticale resta della pagina); oltre un terzo della larghezza, o un colpo veloce, sparisce
+  let drag = null, swiped = 0;
+  const ul = $("alerts");
+  ul.addEventListener("pointerdown", e => { const li = e.target.closest("li[data-k]"); if (!li || e.button) return;
+    drag = { li, x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, on: false, id: e.pointerId }; });
+  ul.addEventListener("pointermove", e => { if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on) { if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; } if (Math.abs(dx) < 8) return;
+      drag.on = true; drag.li.classList.add("drag"); try { drag.li.setPointerCapture(e.pointerId); } catch (x) {} }
+    drag.dx = dx; const w = drag.li.offsetWidth;
+    drag.li.style.transform = `translateX(${dx}px)`; drag.li.style.opacity = Math.max(.15, 1 - Math.abs(dx) / w).toFixed(2); });
+  const end = e => { if (!drag || (e && e.pointerId !== drag.id)) return; const d = drag; drag = null; if (!d.on) return;
+    swiped = Date.now(); d.li.classList.remove("drag");
+    const w = d.li.offsetWidth, v = Math.abs(d.dx) / Math.max(1, performance.now() - d.t);
+    if (Math.abs(d.dx) > w / 3 || (v > .6 && Math.abs(d.dx) > 40)) {
+      d.li.classList.add("out"); d.li.style.transform = `translateX(${d.dx > 0 ? w * 1.1 : -w * 1.1}px)`; d.li.style.opacity = "0";
+      setTimeout(() => { d.li.style.maxHeight = d.li.offsetHeight + "px"; requestAnimationFrame(() => d.li.classList.add("gone")); }, 200);
+      setTimeout(() => dismiss(d.li.dataset.k), 420);
+      try { if (navigator.vibrate) navigator.vibrate(10); } catch (x) {}
+    } else { d.li.classList.add("out"); d.li.style.transform = ""; d.li.style.opacity = ""; setTimeout(() => d.li.classList.remove("out"), 240); } };
+  ul.addEventListener("pointerup", end); ul.addEventListener("pointercancel", end);
+  ul.addEventListener("click", e => { if (Date.now() - swiped < 400) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+}
 $("alerts").addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (li) openBattery(+li.dataset.i); });
 $("alerts").addEventListener("keydown", e => { const li = e.target.closest("li[data-i]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openBattery(+li.dataset.i); } });
 function openBattery(i){
