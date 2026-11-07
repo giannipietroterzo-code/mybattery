@@ -489,12 +489,31 @@ dialog[open]{animation:sheet-up .28s ease-out}
 [data-style="mecha"] .q-mod{clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
 [data-style="hitech"] :is(.q-row,.q-mod){border-radius:3px}
 .q-sum{margin:10px 2px 0;font-size:.86rem;line-height:1.45}
+/* stanotte: badge in dashboard (verde ce la fai, giallo margine stretto, rosso stacco) */
+.night{--c:var(--good);--t:var(--good-tint);margin-top:16px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:14px;background:var(--t)}
+.night.warn{--c:var(--warn);--t:var(--warn-tint)}.night.bad{--c:var(--alert);--t:var(--alert-tint)}.night.wait{--c:var(--muted);--t:var(--surface)}
+.n-h{display:flex;align-items:center;gap:10px}
+.n-ico{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
+.n-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.n-t{font-weight:700;font-size:1rem;line-height:1.25}.n-t b{color:var(--c);font-family:var(--num);font-variant-numeric:tabular-nums}
+.n-d{margin:6px 0 0;font-size:.84rem;line-height:1.45;color:var(--ink)}.n-d small{color:var(--muted)}
+.n-tip{margin:9px 0 0;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--lith) 12%,transparent);font-size:.84rem;line-height:1.45}
+.n-tip .set-btn{margin-top:8px;padding:7px 12px;font-size:.84rem;background:var(--lith);color:#111}
+.n-tip .set-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sw-all{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.sw-all button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+.sw-all button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sw-all button[data-act="up"] svg{color:var(--sun)}.sw-all button:disabled{opacity:.45;cursor:default}
+.sw-all small{grid-column:1/-1;margin-top:-2px;font-size:.7rem;color:var(--muted);text-align:center}
+[data-style] .night{background:color-mix(in srgb,var(--c) 7%,transparent)}
+[data-style] .sw-all button{background:transparent;border-color:color-mix(in srgb,var(--lith) 30%,transparent)}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.night,.n-tip,.sw-all button){border-radius:0}
+[data-style="mecha"] .night{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
 .q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
 .q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
 a.q-chip{text-decoration:none}.fw-chip i{background:var(--sun)!important;box-shadow:0 0 8px var(--sun)!important}
 .q-chip i{flex:none;width:9px;height:9px;border-radius:2px;background:var(--lith);box-shadow:0 0 8px var(--lith)}.q-chip span{flex:1;min-width:0}.q-chip small{color:var(--muted)}
 [data-style] .q-chip{background:transparent;border-color:color-mix(in srgb,var(--lith) 35%,transparent)}
-.zones label.em{display:flex;align-items:center;gap:6px;font-size:.78rem;margin-top:2px}.zones label.em input{width:auto}
 [data-style] .set-btn.pri{background:var(--lith);color:var(--bg);border-color:var(--lith);box-shadow:0 0 14px -5px var(--lith)}
 .ntfy-steps{margin:8px 0 0;padding-left:1.3em;font-size:.9rem;line-height:1.5}.ntfy-steps li{margin:2px 0}
 .ntfy-ch{margin-top:10px;padding:10px 12px;border:1px dashed var(--line);background:var(--bg);font:600 .86rem var(--mono);color:var(--sun);overflow-wrap:anywhere;user-select:all}
@@ -1105,6 +1124,7 @@ footer{border-top:0;padding-top:0}
       <div class="eta" id="eta"></div>
       </div>
       </section>
+    <section class="night" id="night" aria-live="polite" hidden></section>
     <section class="flow-sec" aria-labelledby="h-flow">
       <h2 id="h-flow">Energia adesso</h2>
       <div class="flow-box"><svg class="flow" id="flow" viewBox="0 0 340 178" role="img" aria-label="Flussi di energia tra pannelli, batterie e casa"></svg></div>
@@ -1152,6 +1172,7 @@ footer{border-top:0;padding-top:0}
         <div class="quadro" id="quadro"></div>
         <p class="q-leg" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Su: solare</span><span><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Giù: Enel</span></p>
         <p class="set-note" id="q-unk" hidden>– = consumo non ancora misurato: la scheda lo misura da sola la prima volta che sposti quel deviatore.</p>
+        <div class="sw-all" id="q-all"></div>
         <p class="q-sum" id="q-sum"></p>
         <div class="q-last" id="q-last"></div>
       </section>
@@ -1384,7 +1405,7 @@ footer{border-top:0;padding-top:0}
 
     <h3>Zone del quadro</h3>
     <div class="names zones" id="set-zones"></div>
-    <p class="set-note">I deviatori A–G della pagina Pannelli. «Solo emergenza»: la app non consiglia mai di metterla su solare (per esempio la pompa del pozzo).</p>
+    <p class="set-note">I deviatori A–G della pagina Pannelli.</p>
 
     <h3>Regolatori e pannelli</h3>
     <div class="names" id="set-pvnames"></div>
@@ -1402,7 +1423,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.43"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.44"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1613,7 +1634,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, swEm: ["E"], rem: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1624,7 +1645,6 @@ function loadSettings(){
   if (l && typeof l.name === "string" && fin(l.lat) && fin(l.lon)) o.loc = { name: l.name.slice(0, 60), lat: +l.lat.toFixed(2), lon: +l.lon.toFixed(2) };
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
-  if (Array.isArray(s.swEm)) o.swEm = s.swEm.filter(z => /^[A-G]$/.test(z));
   if (s.rem && /^[A-Za-z0-9_-]{12,64}$/.test(s.rem.t) && /^[A-Za-z0-9_-]{43}$/.test(s.rem.k)) o.rem = { t: s.rem.t, k: s.rem.k };
   if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
     if (!/^\d{1,3}$/.test(a) || !c || typeof c !== "object") return;
@@ -1663,8 +1683,9 @@ function cutSoc(){
   return 100;
 }
 const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
+const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
-const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "swEm", "rem"];
+const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 // i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
@@ -1683,8 +1704,7 @@ let swAtSeen = -1, swNext = 0, swEstC = null, swHabC = null, swOverride = null, 
 const swOn = (m, z) => (m >> z & 1) === 1;
 const zName = z => S.names["sw" + ZONES[z]] || "";
 const zLab = z => ZONES[z] + (zName(z) ? ` (${zName(z)})` : "");
-const zList = zs => { const a = zs.map(zLab); return a.length > 1 ? a.slice(0, -1).join(", ") + " e " + a[a.length - 1] : a[0] || ""; };
-const zEm = z => (S.swEm || []).includes(ZONES[z]);
+const zList = zs => { const a = zs.map(zLab), l = a[a.length - 1] || ""; return a.length > 1 ? a.slice(0, -1).join(", ") + (/^[AEae]/.test(l) ? " ed " : " e ") + l : l; };
 const swSaveLocal = () => { try { localStorage.setItem(SW_KEY, JSON.stringify({ mask: SW.mask, at: SW.at, rows: SW.rows.slice(-2000) })); } catch (e) {} };
 const swT = r => fin(r[3]) && r[4] ? r[4] : r[0];          // ora del cambio vero: quella del salto, se misurato
 function maskAt(t){
@@ -1777,7 +1797,7 @@ function swSet(m, z){
   try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
   swLastTap = { z, prev, m, at: Date.now() };
   fc = null; fcAt = 0;
-  drawSw();
+  drawSw(); drawNight();
 }
 const Q_SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3 7 7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/></svg>';
 const Q_PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0V8zM12 17v4"/></svg>';
@@ -1800,20 +1820,108 @@ function drawSw(){
     b.setAttribute("aria-label", `${zLab(z)}: ${on ? "solare" : "Enel"}${w !== null ? `, circa ${power(w)}` : ""}`);
   });
   $("q-names").innerHTML = ZONES.map((z, i) => { const w = zW(i, now);
-    return `<span>${zName(i) ? `<b>${esc(zName(i))}</b>` : ""}<i>${w === null ? "–" : power(w)}</i>${zEm(i) ? "<em>emerg.</em>" : ""}</span>`; }).join("");
+    return `<span>${zName(i) ? `<b>${esc(zName(i))}</b>` : ""}<i>${w === null ? "–" : power(w)}</i></span>`; }).join("");
   $("q-unk").hidden = !ZONES.some((_, i) => zW(i, now) === null);
   const on = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z)), wOn = zonesW(now, SW.mask);
   $("q-sum").innerHTML = on.length ? `Su solare: <b>${esc(zList(on))}</b>${wOn > 0 ? ` · il banco alimenta circa <b>${power(wOn)}</b> di queste zone` : ""}.` : "Tutte le zone su Enel: il banco alimenta solo l'inverter acceso.";
   const last = $("q-last"), tap = swLastTap && Date.now() - swLastTap.at < 15e3 ? swLastTap : null;
   let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
-  if (tap) last.innerHTML = `<span>${esc(zLab(tap.z))} su ${swOn(tap.m, tap.z) ? "solare" : "Enel"}${canWrite() && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
+  if (tap) { const ch = ZONES.map((_, z) => z).filter(z => swOn(tap.m ^ tap.prev, z)), up = ch.filter(z => swOn(tap.m, z)), dn = ch.filter(z => !swOn(tap.m, z));
+    last.innerHTML = `<span>${up.length ? esc(zList(up)) + " su solare" : ""}${up.length && dn.length ? ", " : ""}${dn.length ? esc(zList(dn)) + " su Enel" : ""}${!ch.length ? "Nessun deviatore cambiato" : ""}${canWrite() && SW.board && ch.length ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`; }
   else if (r) { const ch = ZONES.map((_, z) => z).filter(z => swOn(r[1] ^ r[2], z)), t = swT(r);
     last.innerHTML = `<span>Ultimo cambio ${new Date(t * 1000).toDateString() === new Date().toDateString() ? "alle " + hm(t) : new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(t)}: ${esc(zList(ch))} su ${swOn(r[1], ch[0]) ? "solare" : "Enel"}` +
       `${fin(r[3]) ? ` · misurato ${r[3] >= 0 ? "+" : "−"}${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
   else last.innerHTML = "";
   const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev, t2.z); swLastTap = null; drawSw(); };
+  swAllDraw($("q-all"));
   const chip = $("q-chip");
   chip.innerHTML = `<i></i><span>Su solare: <b>${on.length ? esc(on.map(z => ZONES[z]).join(" ")) : "nessuna zona"}</b>${wOn > 0 ? ` <small>· ~${power(wOn)}</small>` : ""}</span><small>Quadro ›</small>`;
+}
+// tutti su / tutti giù: tutti i deviatori A–G insieme
+const SW_FREE = () => (1 << ZONES.length) - 1;
+const UP_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>', DN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+function swAll(up){
+  const free = SW_FREE(), m = up ? SW.mask | free : SW.mask & ~free;
+  if (m === SW.mask) { toast(up ? "Sono già tutti su solare" : "Sono già tutti su Enel"); return; }
+  swSet(m, -1);
+}
+function swAllDraw(box){
+  if (!box) return;
+  const free = SW_FREE();
+  if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if (b) swAll(b.dataset.act === "up"); }); }
+  const allUp = (SW.mask & free) === free, allDn = (SW.mask & free) === 0;
+  const html = `<button type="button" data-act="up"${allUp ? " disabled" : ""}>${UP_ICO}Tutti su solare</button><button type="button" data-act="dn"${allDn ? " disabled" : ""}>${DN_ICO}Tutti su Enel</button>`;
+  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+}
+// la notte con certi deviatori fermi così fino a quando riparte la carica: minimo previsto e ora della ripartenza
+function detNight(det){
+  const h0 = new Date(det.T[0] * 1000).getHours();
+  let dark = det.night[0] || h0 < 12, mn = det.S[0], res = null;
+  for (let i = 0; i < det.P.length; i++) {
+    if (det.night[i]) dark = true;
+    if (dark && !det.night[i] && det.P[i] - det.L[i] > 0) { res = i; break; }
+    mn = Math.min(mn, det.S[i + 1]);
+  }
+  return { min: mn, resume: res === null ? null : det.T[res] };    // null: nelle 48 ore i pannelli non ce la fanno a ricaricare
+}
+function nightWith(k, f, mask){
+  if (f && model && model.prof) return detNight(swSim(f, { mask, until: f.t[0] + 40 * HOUR }));
+  const now = nowOf(data), ns = nightSimple(k, now); if (!ns) return null;
+  // stima semplice: al consumo della notte si aggiunge (o si toglie) quello delle zone spostate
+  const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), hrs = (ns.resume - now) / 3600;
+  let dW = 0, unk = false;
+  ZONES.forEach((_, z) => { if (swOn(SW.mask, z) === swOn(mask, z)) return; const w = zW(z, now + 3 * HOUR); if (w === null) { unk = true; return; } dW += swOn(mask, z) ? w : -w; });
+  return { min: ns.min - dW * hrs / capWh * 100, resume: ns.resume, unk, simple: true };
+}
+const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+const WARN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
+let nightK = null, nightF = null;
+function drawNight(k, f){
+  const box = $("night"); if (!box) return;
+  if (k !== undefined) { nightK = k; nightF = f; } else { k = nightK; f = nightF; }
+  if (!data || !k || !k.on || !fin(k.soc)) { box.hidden = true; return; }
+  const cut = cutSoc(), mar = cut + (S.marg || 10), cur = nightWith(k, f, SW.mask);
+  if (!cur) {
+    box.hidden = false; box.className = "night wait";
+    const w = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Stanotte: lo dico verso sera</span></div>` +
+      `<p class="n-d">Con meno di 7 giorni di registro la notte si calcola dal pomeriggio, col consumo medio delle notti passate.</p><div class="sw-all" id="n-all"></div>`;
+    if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
+    swAllDraw($("n-all")); return;
+  }
+  const st = cur.min <= cut || cur.resume === null ? "bad" : cur.min <= mar ? "warn" : "ok", m0 = Math.max(0, cur.min);
+  const after = cur.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(cur.resume))}</b>`;
+  const title = st === "bad" ? "Stanotte rischi lo stacco" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
+  const free = SW_FREE(), allEnel = (SW.mask & free) === 0, now = nowOf(data);
+  const known = z => zW(z, now + 3 * HOUR) !== null;
+  let tip = "";
+  if (allEnel) {
+    // tutto su Enel: quante zone si possono rimettere su solare restando sopra il margine (prima le più leggere)
+    const cand = ZONES.map((_, z) => z).filter(z => known(z)).sort((a, b) => zW(a, now + 3 * HOUR) - zW(b, now + 3 * HOUR));
+    const unk = ZONES.map((_, z) => z).filter(z => !known(z));
+    let mask = SW.mask, set = [], last = null;
+    for (const z of cand) { const r = nightWith(k, f, mask | 1 << z); if (r && r.resume !== null && r.min > mar) { mask |= 1 << z; set.push(z); last = r; } }
+    set.sort((a, b) => a - b);
+    if (set.length && set.length === cand.length && !unk.length) tip = `Puoi rimettere <b>tutto su solare</b>: stanotte arrivi verso ${ilP(last.min)}, sopra lo stacco con margine.<br><button class="set-btn" type="button" data-mask="${mask}">${UP_ICO}Rimetti tutto su solare</button>`;
+    else if (set.length) tip = `Puoi rimettere su solare <b>${esc(zList(set))}</b>: stanotte arrivi verso ${ilP(last.min)}.${cand.length > set.length ? ` ${esc(zList(cand.filter(z => !set.includes(z)).sort((a, b) => a - b)))} meglio su Enel.` : ""}${unk.length ? ` <small>${esc(zList(unk))}: consumo non ancora misurato.</small>` : ""}<br><button class="set-btn" type="button" data-mask="${mask}">${UP_ICO}Metti ${esc(set.map(z => ZONES[z]).join(", "))} su solare</button>`;
+    else if (cand.length) tip = `Meglio restare <b>tutto su Enel</b>: anche con solo ${esc(zLab(cand[0]))} su solare scenderesti sotto il margine.`;
+    else if (unk.length) tip = `Per consigliarti quali zone rimettere su solare serve il consumo di ognuna: la scheda lo misura la prima volta che sposti ogni deviatore.`;
+  } else if (st !== "ok") {
+    // a rischio con zone su solare: quali portare su Enel (prima le più pesanti)
+    const cand = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z) && known(z)).sort((a, b) => zW(b, now + 3 * HOUR) - zW(a, now + 3 * HOUR));
+    let mask = SW.mask, set = [], last = null;
+    for (const z of cand) { mask &= ~(1 << z); set.push(z); last = nightWith(k, f, mask); if (last && last.resume !== null && last.min > mar) break; }
+    set.sort((a, b) => a - b);
+    if (set.length && last && last.min > cur.min + 1) tip = `Con <b>${esc(zList(set))}</b> su Enel ${last.min > mar ? `arrivi verso ${ilP(last.min)}, con margine` : `arrivi verso ${ilP(last.min)}`}.<br><button class="set-btn" type="button" data-mask="${mask}">${DN_ICO}Metti ${esc(set.map(z => ZONES[z]).join(", "))} su Enel</button>`;
+  }
+  box.hidden = false; box.className = "night " + st;
+  const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
+    `<p class="n-d">Minimo verso <b>${nf(m0, 0)}%</b>, ${after}. Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.` +
+    `${cur.simple ? ` <small>Stima semplice col consumo delle notti passate: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${cur.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
+    (tip ? `<div class="n-tip">${tip}</div>` : "") + `<div class="sw-all" id="n-all"></div>`;
+  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+  swAllDraw($("n-all"));
+  if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
+    const b = e.target.closest("button[data-mask]"); if (b) swSet(+b.dataset.mask & 127, -1); }); }
 }
 // energia adesso: i regolatori portano al nodo la potenza "lato batteria" (out_w); da lì va alle batterie o alla casa
 function drawFlow(k){
@@ -1887,7 +1995,7 @@ function swAlarms(k, f, now, hr){
     if (tF !== null && f.prob.full >= .7 && ss > 0 && sr2 > 0) {
       const until = f.t[0] + ss * HOUR;
       const ok = r => Math.max(...r.S.slice(0, ss + 1)) >= 95 && Math.min(...r.S.slice(ss, sr2 + 3)) >= lim + 10;
-      const cand = ZONES.map((_, z) => z).filter(z => !swOn(SW.mask, z) && !zEm(z) && known(z) && zW(z, now) > 50).sort((a, b) => zW(a, now) - zW(b, now));
+      const cand = ZONES.map((_, z) => z).filter(z => !swOn(SW.mask, z) && known(z) && zW(z, now) > 50).sort((a, b) => zW(a, now) - zW(b, now));
       let mask = SW.mask; const set = [];
       for (const z of cand) { const m2 = mask | (1 << z); if (ok(swSim(f, { mask: m2, until }))) { mask = m2; set.push(z); } }
       if (set.length) { const r = swSim(f, { mask, until }), mn = Math.min(...r.S.slice(ss, sr2 + 3));
@@ -2409,6 +2517,7 @@ function render(m){
   drawPv(data.pv, k);
   drawSw();
   drawFlow(k);
+  drawNight(k, f);
   const fwc = $("fw-chip"), nf2 = mode === "live" && data.fw_new;
   fwc.hidden = !nf2;
   if (nf2) fwc.innerHTML = `<i></i><span>Firmware <b>v${esc(data.fw_new)}</b> per la scheda <small>· ora v${esc(data.fw || "?")}</small></span><small>Aggiorna ›</small>`;
@@ -4635,8 +4744,7 @@ function fillSettings(){
   const pv = (data && Array.isArray(data.pv) && data.pv) || [];
   $("set-pvnames").innerHTML = pv.length ? pv.map(pvCard).join("") : `<p class="set-note">Compaiono quando la scheda legge i regolatori.</p>`;
   $("set-tilt-box").hidden = pv.length > 0; // con i regolatori l'inclinazione si imposta gruppo per gruppo
-  $("set-zones").innerHTML = ZONES.map((z, i) => `<label>Deviatore ${z}<input type="text" maxlength="24" data-k="sw${z}" value="${esc(S.names["sw" + z] || "")}" placeholder="Zona ${z}" autocomplete="off" enterkeyhint="done">` +
-    `<label class="em"><input type="checkbox" data-em="${z}"${zEm(i) ? " checked" : ""}>Solo emergenza</label></label>`).join("");
+  $("set-zones").innerHTML = ZONES.map((z, i) => `<label>Deviatore ${z}<input type="text" maxlength="24" data-k="sw${z}" value="${esc(S.names["sw" + z] || "")}" placeholder="Zona ${z}" autocomplete="off" enterkeyhint="done"></label>`).join("");
 }
 // scheda di un regolatore: nome, bussola a 8 direzioni, inclinazione, potenza e numero dei pannelli
 function pvCard(g){
@@ -4772,10 +4880,6 @@ $("settings").addEventListener("change", e => {
     else boardCfg({log_min: S.log}).catch(() => {});
   }
   if (data) render(mode);
-});
-$("set-zones").addEventListener("change", e => {
-  const t = e.target, z = t.dataset.em; if (!z) return;
-  S.swEm = ZONES.filter(x => x === z ? t.checked : S.swEm.includes(x)); saveSettings(); swEstC = null; if (data) render(mode);
 });
 ["set-names", "set-pvnames", "set-zones"].forEach(id => {
   $(id).addEventListener("input", e => {
