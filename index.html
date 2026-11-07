@@ -46,6 +46,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "out_w": 2340,                 // W che il regolatore porta alle batterie (3106H–3107H): li usa «Energia adesso»
       "v_max": 128.4, "v_max_at": 1793990000,   // picco della tensione dei pannelli oggi (ora italiana), tenuto dalla scheda
       "vmax": 150,                   // massimo del regolatore che usa la scheda per gli allarmi PV_HIGH (90 %) e PV_DANGER (96 %)
+      "voc": [[1793944200, 144.8]],  // albe degli ultimi 7 giorni: tensione più alta prima che il regolatore produca (= Voc) e ora
       "kwh_today": 3.42,             // energia prodotta oggi (330CH)
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
       "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
@@ -148,6 +149,37 @@ body{height:100%;overflow:hidden}
 .pv-r.low .pv-rb i{background:var(--warn)}
 .pv-rv{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
 .pv-rv small{font-weight:500;color:var(--muted);font-size:.78em}
+.vocw{--vs1:#2F6FDB;--vs2:#0E9F8E;--vs3:#B4479E;--vs4:#7A5AF0;padding:12px 10px 12px;border-radius:16px;background:var(--surface)}
+.vocg{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
+.vocg text{font-size:9px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.vocg .vax.now{fill:var(--ink);font-weight:700}
+.vocg .gr{stroke:var(--line);stroke-width:1}
+.vocg .fcz{fill:color-mix(in srgb,var(--ink) 4.5%,transparent)}
+.vocg .fct{font-size:8.5px;letter-spacing:.06em;text-transform:uppercase}
+.vocg .wz{fill:var(--warn-tint)}
+.vocg .lim{stroke:var(--alert);stroke-width:1.4;stroke-dasharray:5 3}
+.vocg .limt{fill:var(--alert);font-weight:700;font-size:8.5px}
+.vocg .today{stroke:var(--muted);stroke-width:1;stroke-dasharray:2 3}
+.vocg .sel{stroke:var(--ink);stroke-width:1;opacity:.55}
+.vocg .ln{fill:none;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.vocg .fcl{fill:none;stroke-width:2;stroke-dasharray:4 3.5;stroke-linecap:round}
+.vocg .band{opacity:.15}
+.vocg .pt{stroke:var(--surface);stroke-width:1.6}
+.vocg .fpt{fill:var(--surface);stroke-width:2}
+.vocg .bad{fill:none;stroke:var(--alert);stroke-width:1.6}
+.voc-when{margin:8px 4px 6px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.voc-leg{display:flex;flex-wrap:wrap;gap:6px}
+.voc-leg .vl{display:inline-flex;align-items:baseline;gap:6px;padding:6px 10px;border-radius:999px;background:color-mix(in srgb,var(--ink) 6%,transparent);font-size:.82rem}
+.voc-leg .vl i{width:9px;height:9px;border-radius:50%;align-self:center;flex:none}
+.voc-leg .vn{color:var(--muted)}
+.voc-leg b{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:650}
+.voc-leg small{color:var(--muted);font-size:.74rem;font-variant-numeric:tabular-nums}
+.voc-leg .vl.hot{background:var(--warn-tint)} .voc-leg .vl.hot b{color:var(--warn)}
+.voc-leg .vl.danger{background:var(--alert-tint)} .voc-leg .vl.danger b{color:var(--alert)}
+.voc-foot{margin-top:8px !important}
+.vocw-empty{margin:0 2px;padding:14px;border-radius:16px;background:var(--surface);font-size:.85rem;color:var(--muted)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}}
+:root[data-theme="dark"] .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}
 .pv-tab{width:100%;border-collapse:collapse;border-radius:16px;overflow:hidden;background:var(--surface);font-size:.85rem}
 .pv-tab th,.pv-tab td{padding:9px 12px;text-align:right;white-space:nowrap}
 .pv-tab th:first-child,.pv-tab td:first-child{text-align:left}
@@ -1430,7 +1462,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.46"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.47"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1566,11 +1598,11 @@ function vcalSample(g, now){
   const c = S.pv[g.addr] || {}, t = Math.floor(now / HOUR) * HOUR, ir = irrAt(t, false), h = new Date(now * 1000).getHours();
   if (!ir || !fin(ir.temp) || !(ir.ghi >= 15 && ir.ghi <= 400) || h >= 11 || !(g.w < 5) || g.v < 20) return;
   const pred = vocRaw(c, ir.temp - PANEL_COLD), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
-  const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), last = ds[ds.length - 1];
-  if (last && last.d === dk) { if (g.v <= last.v) return; ds.pop(); } // della giornata tengo la lettura più alta
-  const row = { d: dk, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4) }, k = panelGone(c, ds, r);
+  const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), j = ds.findIndex(d => d.d === dk);
+  if (j >= 0) { if (g.v <= ds[j].v) return; ds.splice(j, 1); }        // della giornata tengo la lettura più alta
+  const row = { d: dk, t: now, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4) }, k = panelGone(c, ds, r);
   if (k) { row.x = k; row.e = +(pred * vcalFrom(ds)).toFixed(1); } // alba anomala: fuori dalla correzione, così il guasto non diventa normale
-  ds.push(row);
+  ds.push(row); ds.sort((a, b) => (a.t || 0) - (b.t || 0));       // le albe della scheda possono arrivare in ritardo
   vcalSt[g.addr] = ds.slice(-30);
   try { localStorage.setItem(VCAL_KEY, JSON.stringify(vcalSt)); } catch (e) {}
 }
@@ -1580,8 +1612,9 @@ let pvPk = (() => { try { return JSON.parse(localStorage.getItem(PVMAX_KEY) || "
 function trackPv(pv){
   if (!Array.isArray(pv)) return;
   const real = isReal(), st = real ? pvPk : pvPkDemo, now = nowOf(data), dk = dkey(now);
-  let ch = false;
+  let ch = false, vch = false;
   pv.forEach(g => {
+    if (real && vocKeep(g)) vch = true;
     // il picco del giorno lo tiene la scheda (firmware 0.14): vale anche per le ore in cui la app era chiusa
     if (fin(g.v_max) && fin(g.v_max_at) && g.v_max > 0 && g.v_max <= 400 && dkey(g.v_max_at) === dk) {
       const o = st[g.addr] = st[g.addr] || {};
@@ -1592,9 +1625,173 @@ function trackPv(pv){
     const o = st[g.addr] = st[g.addr] || {};
     if (o.d !== dk || g.v > o.v) { o.d = dk; o.v = g.v; o.at = now; ch = true; }
     if (!(o.rv >= g.v)) { o.rv = g.v; o.rat = now; ch = true; }
-    if (real && S.loc && wx) vcalSample(g, now); });
+    if (real && S.loc && wx) {
+      vcalSample(g, now);
+      // le albe registrate dalla scheda (firmware 0.18): valgono anche quando la app all'alba era chiusa
+      if (Array.isArray(g.voc)) g.voc.forEach(r => { if (Array.isArray(r) && fin(r[0]) && fin(r[1])) vcalSample({ addr: g.addr, w: 0, v: r[1] }, r[0]); });
+    } });
   if (ch && real) try { localStorage.setItem(PVMAX_KEY, JSON.stringify(pvPk)); } catch (e) {}
+  if (vch) try { localStorage.setItem(VOCD_KEY, JSON.stringify(vocD)); } catch (e) {}
 }
+/* ---------- Voc dell'alba: storico e previsione per ogni regolatore ----------
+   Ogni mattina la scheda (firmware 0.18) segna la tensione più alta dei pannelli prima che il regolatore cominci a
+   produrre: è la Voc vera, a pannelli freddi. La app la tiene 60 giorni (anche senza meteo né targhetta) e la proietta
+   sulle prossime albe col meteo: Voc = k × (1 + 0,3 % per grado sotto i 25 °C), con k imparato dalle albe lette. */
+const VOCD_KEY = "mybattery.vocdawn.v1", VOC_DAYS = 14, VOC_FC = 4;
+let vocD = (() => { try { return JSON.parse(localStorage.getItem(VOCD_KEY) || "{}") || {}; } catch (e) { return {}; } })(), vocSel = null;
+function vocKeep(g){
+  if (!Array.isArray(g.voc)) return false;
+  const a = vocD[g.addr] = vocD[g.addr] || []; let ch = false;
+  g.voc.forEach(r => {
+    if (!Array.isArray(r) || !fin(r[0]) || !fin(r[1]) || r[0] < 1.6e9 || r[1] <= 20 || r[1] > 400) return;
+    const dk = dkey(r[0]), j = a.findIndex(x => dkey(x[0]) === dk);
+    if (j >= 0) { if (a[j][1] >= r[1]) return; a.splice(j, 1); }
+    a.push([r[0], r[1]]); ch = true;
+  });
+  if (ch) { a.sort((x, y) => x[0] - y[0]); vocD[g.addr] = a.slice(-60); }
+  return ch;
+}
+const midnight = t => { const d = new Date(t * 1000); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; };
+const dayAdd = (m, n) => { const d = new Date(m * 1000); d.setDate(d.getDate() + n); return d.getTime() / 1000; };
+const dayIdx = (t, m0) => Math.round((midnight(t) - m0) / DAY);
+const vocFac = air => 1 + VOC_K * (25 - (air - PANEL_COLD));
+// l'alba di un giorno: l'ora più fredda con un po' di sole prima delle 11, come per l'avviso della prossima alba
+function dawnOf(day0, asFc){
+  let best = null;
+  for (let h = 4; h < 11; h++) {
+    const d = new Date(day0 * 1000); d.setHours(h, 0, 0, 0); const t = d.getTime() / 1000, ir = irrAt(t, asFc);
+    if (!ir || !fin(ir.temp) || !(ir.ghi >= 15)) continue;
+    if (!best || ir.temp < best.air) best = { t, air: ir.temp };
+  }
+  return best;
+}
+const VOC_DEMO = { 1: 131.5, 2: 129, 3: 84.5 }; // V a 25 °C dei gruppi finti
+// albe lette di un regolatore, una per giorno (la più alta): scheda + quelle viste dalla app; x = alba anomala
+function vocHist(a){
+  const m = new Map(), put = (t, v, x) => { const k = dkey(t), o = m.get(k); if (!o || v > o.v) m.set(k, { t, v, x: x || 0 }); else if (x) o.x = x; };
+  if (logSrc === "demo" && !isReal()) {
+    const now = nowOf(data), m0 = midnight(now), base = VOC_DEMO[a] || 120;
+    for (let n = -VOC_DAYS - 2; n <= 0; n++) {
+      const dw = dawnOf(dayAdd(m0, n), false); if (!dw || dw.t + 1800 > now) continue;
+      put(dw.t + 1260, +(base * vocFac(dw.air) * (1 + .007 * Math.sin(n * 1.9 + a * 2.3))).toFixed(1), 0);
+    }
+  } else {
+    (vocD[a] || []).forEach(r => put(r[0], r[1], 0));
+    if (isReal()) (vcalSt[a] || []).forEach(d => {
+      const t = d.t || (d.d ? new Date(Math.floor(d.d / 10000), Math.floor(d.d / 100) % 100 - 1, d.d % 100, 8).getTime() / 1000 : 0);
+      if (t && fin(d.v)) put(t, d.v, d.x || 0);
+    });
+  }
+  return [...m.values()].sort((x, y) => x.t - y.t);
+}
+// k (Voc a 25 °C dei pannelli): dalle ultime 14 albe buone col meteo; se sono meno di 3, dalla targhetta
+function vocModel(a, hist){
+  const ks = hist.filter(h => !h.x).slice(-14).map(h => { const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); return ir && fin(ir.temp) ? h.v / vocFac(ir.temp) : NaN; }).filter(fin);
+  if (ks.length >= 3) {
+    const k = quant(ks, .5), sd = Math.sqrt(ks.reduce((s, x) => s + (x / k - 1) ** 2, 0) / ks.length);
+    return { k, rel: Math.max(.008, 1.5 * sd), how: "albe", n: ks.length };
+  }
+  const c = S.pv[a] || {}, r = vocRaw(c, 25);
+  return fin(r) ? { k: r * vcal(a).f, rel: .04, how: "targa", n: ks.length } : null;
+}
+function vocSeries(pv){
+  const now = nowOf(data), m0 = midnight(now);
+  return pv.map((g, i) => {
+    const all = vocHist(g.addr), md = vocModel(g.addr, all), fc = [];
+    if (md) for (let n = 0; n < VOC_FC; n++) {
+      const day = dayAdd(m0, n); if (all.some(h => dkey(h.t) === dkey(day + 12 * HOUR))) continue;
+      const dw = dawnOf(day, true); if (!dw || (n === 0 && dw.t + 2 * HOUR < now)) continue;
+      const v = md.k * vocFac(dw.air); fc.push({ t: dw.t, v, lo: v * (1 - md.rel), hi: v * (1 + md.rel), air: dw.air });
+    }
+    return { g, i, all, md, fc, vmax: vmaxOf(g.addr) };
+  });
+}
+const vocCol = i => `var(--vs${i % 4 + 1})`;
+const vDay = t => new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
+function drawVoc(pv){
+  const box = $("voc-box"); if (!box) return;
+  if (!Array.isArray(pv) || !pv.length) { box.innerHTML = ""; return; }
+  const now = nowOf(data), m0 = midnight(now), ser = vocSeries(pv);
+  const first0 = dayAdd(m0, -(VOC_DAYS - 1));
+  const ear = Math.min(m0, ...ser.flatMap(s => s.all.filter(h => h.t >= first0).map(h => midnight(h.t))));
+  const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
+  const nPast = dayIdx(m0 + 12 * HOUR, first) + 1, N = nPast + lastFc;           // colonne: giorni passati + oggi + previsione
+  ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); });
+  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli la mattina, appena prima che il regolatore cominci a produrre. Più fa freddo, più sale.</p>`;
+  if (!ser.some(s => s.hist.length || s.fc.length)) {
+    box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda (firmware 0.18 o successivo) registra ogni alba. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
+    return;
+  }
+  const W = 340, H = 200, L = 30, R = 6, T = 12, B = 22, cw = (W - L - R) / N, x = i => L + cw * (i + .5);
+  const vals = ser.flatMap(s => [...s.hist.map(h => h.v), ...s.fc.flatMap(f => [f.lo, f.hi])]);
+  const lims = [...new Set(ser.map(s => s.vmax))];
+  let lo = Math.floor((Math.min(...vals) - 4) / 5) * 5, hi = Math.ceil((Math.max(...vals, ...lims) + 3) / 5) * 5;
+  if (hi - lo < 20) lo = hi - 20;
+  const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B), st = hi - lo > 60 ? 20 : 10;
+  let g = "";
+  const tIdx = nPast - 1;
+  if (lastFc > 0) g += `<rect class="fcz" x="${(x(tIdx + 1) - cw / 2).toFixed(1)}" y="${T - 6}" width="${(W - R - x(tIdx + 1) + cw / 2).toFixed(1)}" height="${H - B - T + 6}" rx="6"/>` +
+    `<text class="fct" x="${W - R - 4}" y="${T + 3}" text-anchor="end">previsione</text>`;
+  for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) g += `<line class="gr" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="vax" x="${L - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v}</text>`;
+  lims.forEach(m => { const yw = y(m * PV_WARN), yl = y(m);
+    if (yl > H - B) return;
+    g += `<rect class="wz" x="${L}" y="${Math.max(T - 6, yl).toFixed(1)}" width="${W - R - L}" height="${Math.max(0, Math.min(H - B, yw) - Math.max(T - 6, yl)).toFixed(1)}"/>`;
+    if (yl >= T - 6) g += `<line class="lim" x1="${L}" x2="${W - R}" y1="${yl.toFixed(1)}" y2="${yl.toFixed(1)}"/><text class="limt" x="${L + 4}" y="${(yl - 3).toFixed(1)}">limite ${m} V</text>`; });
+  g += `<line class="today" x1="${x(tIdx).toFixed(1)}" x2="${x(tIdx).toFixed(1)}" y1="${T - 6}" y2="${H - B}"/>` +
+    `<text class="vax now" x="${(x(tIdx) - 3).toFixed(1)}" y="${T + 3}" text-anchor="end">oggi</text>`;
+  for (let i = 0; i < N; i++) {
+    const t = dayAdd(first, i) + 12 * HOUR, d = new Date(t * 1000), back = tIdx - i;
+    const lab = i > tIdx ? d.toLocaleDateString("it-IT", { weekday: "short" }).slice(0, 2) : back % 2 ? "" : String(d.getDate());
+    if (lab) g += `<text class="vax${i === tIdx ? " now" : ""}" x="${x(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${lab}</text>`;
+  }
+  const sel = vocSel !== null && vocSel >= -(nPast - 1) && vocSel <= lastFc ? vocSel : null;
+  if (sel !== null) g += `<line class="sel" x1="${x(tIdx + sel).toFixed(1)}" x2="${x(tIdx + sel).toFixed(1)}" y1="${T - 6}" y2="${H - B}"/>`;
+  ser.forEach(s => {
+    const col = vocCol(s.i), hp = s.hist.map(h => [x(dayIdx(h.t, first)), y(h.v)]), fp = s.fc.map(f => [x(dayIdx(f.t, first)), y(f.v), y(f.lo), y(f.hi)]);
+    const P = a => a.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+    if (fp.length) {
+      const last = s.hist.length && dayIdx(s.hist[s.hist.length - 1].t, m0) >= -1 ? [hp[hp.length - 1]] : [];
+      g += `<path class="band" style="fill:${col}" d="M${fp.map(p => p[0].toFixed(1) + "," + p[3].toFixed(1)).join(" L")} L${fp.slice().reverse().map(p => p[0].toFixed(1) + "," + p[2].toFixed(1)).join(" L")} Z"/>`;
+      g += `<polyline class="fcl" style="stroke:${col}" points="${P([...last, ...fp])}"/>`;
+    }
+    if (hp.length > 1) g += `<polyline class="ln" style="stroke:${col}" points="${P(hp)}"/>`;
+    s.hist.forEach((h, j) => { const [px, py] = hp[j], on = sel !== null && dayIdx(h.t, m0) === sel;
+      g += (h.x ? `<circle class="bad" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="6"/>` : "") +
+        `<circle class="pt" style="fill:${col}" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${on ? 4.6 : 3}"/>`; });
+    fp.forEach((p, j) => { const on = sel !== null && dayIdx(s.fc[j].t, m0) === sel;
+      g += `<circle class="fpt" style="stroke:${col}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${on ? 4.6 : 3.2}"/>`; });
+  });
+  // lettura: il giorno toccato, se no l'ultima alba letta (o la prossima prevista)
+  const lastH = Math.max(-99, ...ser.flatMap(s => s.hist.map(h => dayIdx(h.t, m0))));
+  const day = sel !== null ? sel : ser.some(s => s.fc.some(f => dayIdx(f.t, m0) === 1)) && lastH < 0 ? 1 : lastH > -99 ? lastH : 1;
+  let air = null, tt = null;
+  const rows = ser.map(s => {
+    const h = s.hist.find(z => dayIdx(z.t, m0) === day), f = s.fc.find(z => dayIdx(z.t, m0) === day), v = h ? h.v : f ? f.v : NaN;
+    if (h && tt === null) { tt = h.t; const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); if (ir && fin(ir.temp)) air = ir.temp; }
+    if (!h && f && tt === null) { tt = f.t; air = f.air; }
+    const hot = v >= s.vmax * PV_DANGER ? " danger" : v >= s.vmax * PV_WARN ? " hot" : "";
+    return `<span class="vl${hot}"><i style="background:${vocCol(s.i)}"></i><span class="vn">${esc(pvName(s.g))}</span>` +
+      `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : ""}</span>`;
+  }).join("");
+  const dt = dayAdd(m0, day) + 12 * HOUR, fcDay = !ser.some(s => s.hist.some(h => dayIdx(h.t, m0) === day));
+  const when = `${day === 0 ? "Oggi" : day === 1 ? "Domani" : day === -1 ? "Ieri" : vDay(dt)[0].toUpperCase() + vDay(dt).slice(1)}${tt ? (fcDay ? " · alba verso le " : " · alle ") + hm(tt) : ""}${fin(air) ? " · aria " + nf(air, 0).replace("-", "−") + " °C" : ""}${fcDay ? " · previsione" : ""}`;
+  const how = ser.filter(s => s.fc.length).map(s => s.md.how);
+  const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 albe lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
+    : how.every(h => h === "albe") ? "Previsione dal meteo delle prossime mattine e dalle tue albe lette; la fascia è l'incertezza." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 albe lette; la fascia è l'incertezza.";
+  box.innerHTML = head + `<div class="vocw"><svg class="vocg" viewBox="0 0 ${W} ${H}" data-n="${N}" data-l="${L}" data-r="${R}" data-t="${tIdx}" role="img" aria-label="Voc all'alba degli ultimi giorni e prevista per i prossimi">${g}</svg>` +
+    `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div><p class="note voc-foot">${foot}</p>`;
+}
+// tocca o trascina sul grafico per leggere un giorno; un secondo tocco sullo stesso giorno torna all'ultimo
+function vocPick(e, tap){
+  const svg = e.target.closest && e.target.closest("svg.vocg"); if (!svg) return;
+  const r = svg.getBoundingClientRect(), vb = 340, px = (e.clientX - r.left) / r.width * vb;
+  const N = +svg.dataset.n, L = +svg.dataset.l, R = +svg.dataset.r, t = +svg.dataset.t;
+  const i = clamp(Math.floor((px - L) / ((vb - L - R) / N)), 0, N - 1), d = i - t;
+  vocSel = tap && vocSel === d ? null : d;
+  drawVoc(data && data.pv);
+}
+document.addEventListener("pointerdown", e => vocPick(e, true));
+document.addEventListener("pointermove", e => { if (e.buttons && e.pointerType !== "touch") vocPick(e, false); });
 const dayWord = t => { const d = dkey(t) - dkey(nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
 const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d === dkey(nowOf(data)) ? o : null; };
 const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
@@ -2924,7 +3121,7 @@ async function loadWx(force){
   } catch (e) {}
   try {
     // una richiesta per falda: Open-Meteo dà il sole inclinato per un orientamento alla volta
-    const base = `https://api.open-meteo.com/v1/forecast?latitude=${S.loc.lat}&longitude=${S.loc.lon}&past_days=31&forecast_days=3&timezone=auto&timeformat=unixtime`;
+    const base = `https://api.open-meteo.com/v1/forecast?latitude=${S.loc.lat}&longitude=${S.loc.lon}&past_days=31&forecast_days=5&timezone=auto&timeformat=unixtime`;
     const js = await Promise.all(keys.map((k, i) => { const [az, tilt] = k.split("|");
       return fetch(base + `&tilt=${tilt}&azimuth=${az}&hourly=global_tilted_irradiance` + (i ? "" : ",shortwave_radiation,temperature_2m&daily=weather_code"))
         .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }); }));
@@ -4001,9 +4198,11 @@ function drawPv(pv, k){
     `<div class="pv-rows">${days.map(d => `<div class="pv-r${lowDay(d) ? " low" : ""}"><span>${esc(pvName(d.g))}</span>` +
       `<span class="pv-rb"><i style="width:${qBest && fin(d.q) ? Math.min(100, d.q / qBest * 100).toFixed(1) : 0}%"></i></span>` +
       `<span class="pv-rv">${nf(d.r, 2)} <small>kWh/kWp</small></span></div>`).join("")}</div>` : "") +
+    `<div id="voc-box"></div>` +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= vmaxOf(g.addr) * PV_WARN ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${vmaxOf(g.addr)}</small>` : ""}</td>` +
       `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
+  drawVoc(pv);
 }
 
 function drawCabinet(bs, lowSoc){
