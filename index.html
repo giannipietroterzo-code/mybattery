@@ -52,6 +52,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "az": 0, "tilt": 30,           // facoltativi: falda del gruppo, azimut da sud (−90 est, 90 ovest, 180 nord) e inclinazione
       "strings": 2                   // facoltativo: stringhe in parallelo (la app lo imposta con POST /api/config)
     }],
+    "inv": { "v": 48, "cuts": [[1794000000, 48.6, 12.0]] },   // stacco dell'inverter (impostazione) e stacchi veri visti: [t, V, carica]
     "limits": {                      // facoltativo: soglie lette con 80H dalla master
       "bal_start": 3400,             // mV, tensione di avvio bilanciamento (voce 102)
       "bal_diff": 30,                // mV, differenza di avvio bilanciamento (voce 103)
@@ -1281,7 +1282,28 @@ footer{border-top:0;padding-top:0}
       <label><input type="radio" name="reserve" value="20"><span>20%</span></label>
       <label><input type="radio" name="reserve" value="30"><span>30%</span></label>
     </fieldset>
-    <p class="set-note">L'autonomia in alto è calcolata fino a questa carica, così ti resta sempre un margine. Consigliato 10–20%: inverter e BMS staccano comunque prima dello 0%.</p>
+    <p class="set-note">L'autonomia in alto è calcolata fino a questa carica (o fino allo stacco dell'inverter, se è più alto), così ti resta sempre un margine.</p>
+
+    <h3>L'inverter stacca a</h3>
+    <fieldset class="seg" id="set-inv">
+      <legend>L'inverter stacca a</legend>
+      <label><input type="radio" name="inv" value="46"><span>46 V</span></label>
+      <label><input type="radio" name="inv" value="47"><span>47 V</span></label>
+      <label><input type="radio" name="inv" value="48"><span>48 V</span></label>
+      <label><input type="radio" name="inv" value="49"><span>49 V</span></label>
+      <label><input type="radio" name="inv" value="50"><span>50 V</span></label>
+    </fieldset>
+    <p class="set-note" id="inv-note"></p>
+
+    <h3>Margine per la notte</h3>
+    <fieldset class="seg" id="set-marg">
+      <legend>Margine per la notte</legend>
+      <label><input type="radio" name="marg" value="5"><span>5%</span></label>
+      <label><input type="radio" name="marg" value="10"><span>10%</span></label>
+      <label><input type="radio" name="marg" value="15"><span>15%</span></label>
+      <label><input type="radio" name="marg" value="20"><span>20%</span></label>
+    </fieldset>
+    <p class="set-note">Quanta carica vuoi avere ancora sopra lo stacco quando i pannelli ricominciano a caricare. Sotto questo margine la app ti avvisa la sera, anche con la app chiusa se hai le notifiche.</p>
 
     <h3>Allarmi</h3>
     <span class="set-lbl">Carica sotto il</span>
@@ -1380,7 +1402,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.41"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.43"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1590,8 +1612,8 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, swEm: ["E"], rem: null };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, swEm: ["E"], rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1623,7 +1645,26 @@ function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } 
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
 // restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
-const SHARED = ["reserve", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "swEm", "rem"];
+/* lo stacco dell'inverter in carica del banco: tensione a riposo tipica di una cella LiFePO4 (% → V) e circa 40 mV di caduta
+   col carico della notte. Con 48 V (3,00 V/cella) viene circa l'11%: sotto lì l'inverter può spegnersi anche se il BMS dice di più */
+const LFP_OCV = [[0, 2.50], [9, 3.00], [14, 3.10], [17, 3.15], [20, 3.20], [30, 3.22], [40, 3.25], [50, 3.26], [60, 3.27], [70, 3.30], [80, 3.32], [90, 3.33], [99, 3.35], [100, 3.40]];
+// gli stacchi veri visti dalla scheda (firmware 0.17: data.inv.cuts = [[t, V, carica]]), con la stessa soglia di adesso
+function invLearned(){
+  const c = data && data.inv && Array.isArray(data.inv.cuts) ? data.inv.cuts.filter(r => Array.isArray(r) && fin(r[1]) && fin(r[2]) && Math.abs(r[1] - (S.inv || 48)) <= 1) : [];
+  if (!c.length) return null;
+  const last = c.slice(0, 3);
+  return { soc: Math.round(last.reduce((a, r) => a + r[2], 0) / last.length), n: c.length, t: c[0][0], v: c[0][1] };
+}
+function cutSoc(){
+  const L = invLearned(); if (L) return L.soc;            // misurato sul tuo banco: vale più della curva
+  const v = (S.inv || 48) / 16 + .04;
+  for (let i = 1; i < LFP_OCV.length; i++) { const [s0, v0] = LFP_OCV[i - 1], [s1, v1] = LFP_OCV[i];
+    if (v <= v1) return Math.round(s0 + (s1 - s0) * Math.max(0, (v - v0) / (v1 - v0))); }
+  return 100;
+}
+const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
+const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
+const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "swEm", "rem"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 // i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
@@ -1821,7 +1862,7 @@ function swSim(f, ov){
   finally { swOverride = null; }
 }
 function swAlarms(k, f, now, hr){
-  const out = [], est = swEst(), known = z => est[z].n > 0, lim = Math.max(S.alLow, S.reserve || 0);
+  const out = [], est = swEst(), known = z => est[z].n > 0, lim = Math.max(S.alLow, S.reserve || 0, cutSoc() + (S.marg || 10));
   const onZ = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z));
   if (k.on && fin(k.soc) && k.soc < S.alLow) {
     const zs = onZ.filter(z => (zW(z, now) ?? 100) > 30);
@@ -2313,10 +2354,10 @@ function render(m){
     else setEta("chg", "Quasi pieno", "il BMS completa la carica");
   } else if (k.i < -0.5) {
     st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
-    const avail = k.rem - k.full * S.reserve / 100;
+    const fl = floorSoc(), byInv = fl > (S.reserve || 0), avail = k.rem - k.full * fl / 100;
     if (etaForecast(k, f)) {}
-    else if (avail > 0) setEta("dsg", S.reserve ? `Autonomia fino al ${S.reserve}%` : "Autonomia a questo consumo", dur(avail / -k.i), avail / -k.i);
-    else setEta("warn", `Sotto la riserva del ${S.reserve}%`, "riduci i consumi");
+    else if (avail > 0) setEta("dsg", byInv ? `Autonomia fino allo stacco (${S.inv} V)` : `Autonomia fino al ${fl}%`, dur(avail / -k.i), avail / -k.i);
+    else setEta("warn", byInv ? `Vicino allo stacco dell'inverter (${S.inv} V)` : `Sotto la riserva del ${fl}%`, "riduci i consumi");
   } else {
     st.className = "state idle"; st.textContent = "A riposo"; setEta();
   }
@@ -2599,10 +2640,11 @@ async function boardAlarms(){
   } catch (e) {}
 }
 const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
-      const g = { addr: e.addr, name: e.who }, who = e.pv ? pvName(g) : nameOf(g, e.addr);
+      const g = { addr: e.addr, name: e.who }, who = e.addr < 0 ? "Banco" : e.pv ? pvName(g) : nameOf(g, e.addr);
       const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile"
         : e.code === "PV_FAULT" ? "Guasto del regolatore" : e.code === "PV_HIGH" ? "Tensione dei pannelli alta"
-        : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : (MSG[e.code] || [e.code])[0];
+        : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : e.code === "INV_NEAR" ? "Vicino allo stacco dell'inverter"
+        : e.code === "INV_CUT" ? "L'inverter ha staccato" : (MSG[e.code] || [e.code])[0];
       return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0 };
     });
 // il registro fatto col cavo USB prima che ci fosse la scheda: lo si versa nella scheda, dal più recente al più vecchio
@@ -3068,13 +3110,15 @@ function forecast(t0, soc0, capBms, batW){
   const pvDay = arch ? arch.pvDay : cal.pvDay, extra = !arch && logSrc !== "demo"; // senza archivio, nella versione vera manca l'errore del meteo: lo aggiungo
   const R = 300, N = 48, rnd = rng(Math.floor(t0 / HOUR)), lb = M.lblocks.length ? M.lblocks : [Array(24).fill(1)];
   const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
-  const paths = [], firstFull = [], firstLow = [], firstAl = [], low = S.reserve || 5, alv = S.alLow;
+  const paths = [], firstFull = [], firstLow = [], firstAl = [], low = floorSoc(), alv = S.alLow;
+  // la notte: carica più bassa prima che i pannelli tornino a caricare più di quanto la casa consuma
+  const mins = [], resumes = [], h0 = new Date(t0 * 1000).getHours();
   const d0 = new Date(t0 * 1000); d0.setHours(0, 0, 0, 0);
   for (let r = 0; r < R; r++) {
     const blocks = [0, 1, 2].map(() => lb[Math.floor(rnd() * lb.length)]);
     const pf = [0, 1].map(l => { const s = pvDay[l]; let f = s.length >= 4 ? s[Math.floor(rnd() * s.length)] : Math.exp(gauss() * (l ? .3 : .2) - (l ? .045 : .02));
       if (extra) f *= Math.exp(gauss() * (l ? .22 : .12)); return f; });
-    let s = soc0; const a = [s]; let fF = null, fL = null, fA = null;
+    let s = soc0; const a = [s]; let fF = null, fL = null, fA = null, mn = soc0, res = null, dark = det.night[0] || h0 < 12;
     for (let i = 0; i < N; i++) {
       const t = det.T[i], d = Math.floor((t - d0.getTime() / 1000) / DAY), h = new Date((t + HOUR / 2) * 1000).getHours();
       let e = det.P[i] * pf[i < 24 ? 0 : 1] - det.L[i] * blocks[clamp(d, 0, 2)][h];
@@ -3084,8 +3128,10 @@ function forecast(t0, soc0, capBms, batW){
       if (fF === null && s >= 99.5) fF = i + 1;
       if (fL === null && s <= low) fL = i + 1;
       if (fA === null && s <= alv) fA = i + 1;
+      if (res === null) { if (det.night[i]) dark = true;
+        if (dark && !det.night[i] && e > 0) res = i; else mn = Math.min(mn, s); }
     }
-    paths.push(a); firstFull.push(fF); firstLow.push(fL); firstAl.push(fA);
+    paths.push(a); firstFull.push(fF); firstLow.push(fL); firstAl.push(fA); mins.push(mn); resumes.push(res === null ? N : res);
   }
   const q = p => det.S.map((_, i) => quant(paths.map(a => a[i]), p));
   const lo = q(.1).map((v, i) => Math.min(v, det.S[i])), hi = q(.9).map((v, i) => Math.max(v, det.S[i]));
@@ -3099,8 +3145,34 @@ function forecast(t0, soc0, capBms, batW){
   return { t: det.T, pv: det.P, load: det.L, night: nt, mid: det.S, lo, hi, cap, nc, arch,
     kind: logSrc === "demo" ? "demo" : M.sun && wx ? "meteo" : "media",
     prob: { full: frac(firstFull, fullBy), fullDay, low: frac(firstLow, lowBy), lowPct: low, alreadyLow: soc0 <= low,
-      al: frac(firstAl, lowBy), alPct: alv, alAt: etaQ(firstAl), alreadyAl: soc0 <= alv },
+      al: frac(firstAl, lowBy), alPct: alv, alAt: etaQ(firstAl), alreadyAl: soc0 <= alv,
+      night: nightRisk(mins, resumes, R) },
     eta: { full: etaQ(firstFull), low: etaQ(firstLow) } };
+}
+// rischio della notte dalle simulazioni: probabilità di arrivare allo stacco e di stare sotto il margine
+function nightRisk(mins, resumes, R){
+  const cut = cutSoc(), mar = cut + (S.marg || 10);
+  return { cut, mar, pCut: mins.filter(m => m <= cut).length / R, pMar: mins.filter(m => m <= mar).length / R,
+    min: quant(mins, .5), minLo: quant(mins, .1), resume: quant(resumes, .5) };
+}
+// senza previsione (meno di 7 giorni di registro): stima semplice col consumo medio delle ultime notti e il sole calcolato.
+// La carica riprende quando il sole è a 12° (prima i pannelli non bastano per la casa)
+function nightSimple(k, now){
+  if (!k.on || !fin(k.soc) || !fin(k.full) || k.full <= 0 || !data.history) return null;
+  const loc = here(), el = t => sinElev(t, loc.lat, loc.lon), SIN12 = Math.sin(12 * Math.PI / 180);
+  let low = el(now) < SIN12 ? now : null, resume = null;
+  for (let t = now; t < now + 30 * HOUR; t += 600) {
+    if (el(t) < SIN12) { if (low === null) low = t; } else if (low !== null) { resume = t; break; }
+  }
+  if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
+  const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data);
+  let w = 0, c = 0;
+  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { w -= p; c++; } });
+  const W = c >= 12 ? w / c : k.p < 0 ? -k.p : null;                             // almeno un'ora di notte vista, se no il consumo di adesso
+  if (!W) return null;
+  const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), min = k.soc - W * (resume - now) / 3600 / capWh * 100;
+  const cut = cutSoc();
+  return { cut, mar: cut + (S.marg || 10), min, resume, W, simple: true };
 }
 // prima ora (frazionaria) in cui la serie passa la soglia
 const crossAt = (a, test, target) => { for (let i = 1; i < a.length; i++) if (test(a[i])) return i - 1 + Math.max(0, Math.min(1, (target - a[i - 1]) / ((a[i] - a[i - 1]) || 1))); return null; };
@@ -3129,8 +3201,8 @@ function etaForecast(k, f){
     return false;
   }
   if (k.i < -0.5) {
-    const r = S.reserve, low = s => s <= r + .01, t = crossAt(f.mid, low, r);
-    if (t !== null) { setEta("dsg", (r ? `Autonomia fino al ${r}%` : "Autonomia prevista") + pm(f.eta.low), dur(t), hq(t)); return true; }
+    const r = floorSoc(), low = s => s <= r + .01, t = crossAt(f.mid, low, r);
+    if (t !== null) { setEta("dsg", (r > (S.reserve || 0) ? `Stacco dell'inverter tra` : `Autonomia fino al ${r}%`) + pm(f.eta.low), dur(t), hq(t)); return true; }
     const iMin = f.mid.slice(0, 37).reduce((b, s, i, a) => s < a[b] ? i : b, 0);
     if (iMin > 0) { setEta("dsg", "Prima del sole scendi a", nf(f.mid[iMin], 0) + "%", hq(iMin)); return true; }
   }
@@ -3256,7 +3328,9 @@ function drawForecast(){
       `<text x="${x.toFixed(1)}" y="150" text-anchor="middle" font-size="9.5" fill="${hr ? "var(--muted)" : "var(--ink)"}" font-weight="${hr ? 400 : 600}">${hr ? String(hr).padStart(2, "0") : WD[d.getDay()].slice(0, 3)}</text>`;
   });
   const grid = [0, 50, 100].map(v => `<line x1="0" x2="${FW}" y1="${fy(v)}" y2="${fy(v)}" stroke="var(--line)"/><text x="2" y="${fy(v) - 3}" font-size="9" fill="var(--muted)">${v}%</text>`).join("");
-  const res = S.reserve ? `<line x1="0" x2="${FW}" y1="${fy(S.reserve)}" y2="${fy(S.reserve)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` : "";
+  const cs = cutSoc(), res = (S.reserve > cs ? `<line x1="0" x2="${FW}" y1="${fy(S.reserve)}" y2="${fy(S.reserve)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` : "") +
+    `<line x1="0" x2="${FW}" y1="${fy(cs)}" y2="${fy(cs)}" stroke="var(--alert)" stroke-dasharray="4 3"/>` +
+    `<text x="${FW - 2}" y="${(fy(cs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--alert)">stacco ${S.inv} V</text>`;
 
   // forchetta tra scenario pessimista e ottimista, linea dello scenario normale
   const pts = a => a.map((s, i) => `${X(i).toFixed(1)},${fy(s).toFixed(1)}`);
@@ -3298,7 +3372,8 @@ function drawForecast(){
   // in probabilità, dalle 300 simulazioni
   const pr = fc.prob, pct = v => v > .99 ? "&gt;99%" : v < .01 ? "&lt;1%" : nf(v * 100, 0) + "%";
   const probs = [`<span class="fc-p"><b>${pct(pr.full)}</b> di arrivare al pieno ${pr.fullDay}</span>`];
-  if (!pr.alreadyLow) probs.push(`<span class="fc-p${pr.low >= .2 ? " warn" : ""}"><b>${pct(pr.low)}</b> di scendere sotto il ${pr.lowPct}% prima del sole</span>`);
+  if (pr.night && !pr.alreadyLow) probs.push(`<span class="fc-p${pr.night.pCut >= .2 ? " warn" : ""}"><b>${pct(pr.night.pCut)}</b> di arrivare allo stacco (${S.inv} V) prima che riprenda la carica</span>`,
+    `<span class="fc-p${pr.night.pMar >= .3 ? " warn" : ""}"><b>${pct(pr.night.pMar)}</b> di avere meno del ${S.marg}% di margine</span>`);
   read.innerHTML = l1 + "<br>" + l2 + `<span class="fc-ps">${probs.join("")}</span>`;
   note.textContent = (fc.kind === "meteo" ? `Meteo di Open-Meteo per ${S.loc.name}` : fc.kind === "demo" ? (S.loc ? `Meteo simulato per ${S.loc.name}` : "Meteo simulato: imposta la località nelle impostazioni")
     : "Senza meteo: uso il sole medio delle ultime due settimane") + ` · consumi imparati in ${dur(model.span * 24).replace(/ e .*/, "")}` +
@@ -3309,6 +3384,14 @@ function drawForecast(){
 const dkey = t => { const d = new Date(t * 1000); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
 function myAlarms(bs, k, f){
   const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours();
+  // stacco dell'inverter: adesso, dalla tensione del banco (la scheda manda la stessa cosa su ntfy)
+  if (k.on && fin(k.v) && fin(k.i)) {
+    const L = data.inv && Array.isArray(data.inv.cuts) && data.inv.cuts[0], cutNow = L && now - L[0] < 12 * HOUR && Math.abs(k.i) < .3;
+    if (cutNow) out.push({ id: "invcut" + L[0], sev: "prot", who: "Banco", t: `L'inverter ha staccato alle ${hm(L[0])}`,
+      d: `Con il banco a ${nf(L[1], 1)} V e il BMS al ${nf(L[2], 0)}%. Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano.` });
+    else if (k.i < -1 && k.v <= (S.inv || 48) + .8) out.push({ id: "invnear", sev: "prot", who: "Banco", t: `Banco a ${nf(k.v, 1)} V: vicino allo stacco`,
+      d: `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
+  }
   if (k.on && fin(k.soc) && k.soc < S.alLow) out.push({ id: "low", sev: "alarm", t: `Carica bassa: ${nf(k.soc, 0)}%`, d: `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.` });
   bs.forEach((b, i) => {
     if (!b.online) return;
@@ -3324,9 +3407,27 @@ function myAlarms(bs, k, f){
     }
   });
   if (S.alOff && Array.isArray(data.pv)) data.pv.forEach(g => { if (g.online === false) out.push({ id: "pvoff" + g.addr, sev: "mute", who: pvName(g), t: "Regolatore non raggiungibile", d: "Controlla il cavo RS485 tra i regolatori." }); });
+  let nightTold = false;
+  if (S.alFc && k.on) {
+    const nr = f ? f.prob.night : nightSimple(k, now);
+    if (nr) {
+      const at = t => hm(q15(t)), resT = f ? f.t[0] + nr.resume * HOUR : nr.resume;
+      const how = "Riduci i consumi stasera o porta qualche zona su Enel.";
+      if (f ? nr.pCut >= .2 : nr.min <= nr.cut) {
+        nightTold = true;
+        out.push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte rischi lo stacco dell'inverter",
+          d: `${f ? `Probabilità ${nf(nr.pCut * 100, 0)}%: ` : ""}il banco può scendere sotto ${ilP(nr.cut)} (${S.inv} V) prima che i pannelli tornino a caricare, verso le ${at(resT)}. ${how}${f ? "" : ` Stima con ${power(nr.W)} di consumo medio di notte.`}` });
+      } else if (f ? nr.pMar >= .3 : nr.min <= nr.mar) {
+        nightTold = true;
+        const m = Math.max(0, nr.min);
+        out.push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte margine stretto: verso ${ilP(m)}`,
+          d: `Lo stacco dell'inverter è verso ${ilP(nr.cut)} (${S.inv} V): alle ${at(resT)}, quando i pannelli riprendono, ti resterebbe meno del ${S.marg}% di margine. ${how}` });
+      }
+    }
+  }
   if (f && S.alFc) {
     const p = f.prob;
-    if (!p.alreadyAl && p.al >= .5) {
+    if (!nightTold && !p.alreadyAl && p.al >= .5) {
       const at = p.alAt ? hm(q15(f.t[0] + p.alAt[1] * HOUR)) : "";
       out.push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, verso le ${at}` : ""}. Riduci i consumi stasera.` });
     }
@@ -3462,7 +3563,7 @@ async function ntfyTest(urg){
     .then(r => toast(r.ok ? "Prova inviata" : "ntfy non risponde")).catch(() => toast("Nessuna rete"));
 }
 function scheduleOnClose(){
-  if (!S.ntfy || !isReal() || !fc || !data) return;
+  if (!S.ntfy || !isReal() || !data) return;            // anche senza previsione completa: la stima semplice della notte
   const now = Date.now() / 1000, sched = readSched();
   Object.keys(sched).forEach(q => { if (sched[q] < now - 2 * DAY) delete sched[q]; });
   myAlarms(data.batteries || [], bank(data.batteries || []), fc).filter(a => a.sev === "fc" || a.sev === "tip").forEach(a => {
@@ -3475,7 +3576,7 @@ function scheduleOnClose(){
     if (at < muteUntil) return;                                 // silenziati: questa salta
     sched[seq] = at;
     ntfyPub({ topic: S.ntfy, sequence_id: seq, delay: String(at), title: a.sev === "tip" ? "MyBattery · consiglio" : "MyBattery · previsione",
-      message: `${a.who ? a.who + ": " : ""}${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : pvfc ? "warning" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : pvfc ? 5 : 4, click: APP_URL }, true).catch(() => {});
+      message: `${a.who ? a.who + ": " : ""}${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : pvfc || a.id.startsWith("fccut") ? "warning" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : pvfc || a.id.startsWith("fccut") ? 5 : 4, click: APP_URL }, true).catch(() => {});
   });
   writeSched(sched);
 }
@@ -4515,10 +4616,17 @@ function simulate(){
 }
 
 /* ---------- pannello impostazioni ---------- */
+function fillInvNote(){
+  const n = $("inv-note"); if (!n) return;
+  const L = invLearned();
+  n.textContent = L ? `Misurato sul tuo banco: l'inverter ha staccato ${L.n > 1 ? L.n + " volte, l'ultima" : ""} il ${new Date(L.t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" })} a ${nf(L.v, 1)} V, con il BMS ${L.n > 1 ? "in media " : ""}${L.soc === 1 || L.soc === 11 || String(L.soc)[0] === "8" ? "all'" : "al "}${L.soc}%. Autonomia e previsioni si fermano lì.`
+    : `${nf(S.inv / 16, 2)} V per cella: circa ${ilP(cutSoc())} di carica del BMS (stima dalla curva tipica: la prima volta che l'inverter stacca, la scheda misura il valore vero). Autonomia e previsioni si fermano lì.`;
+}
 function fillSettings(){
   AL_BOOL.forEach(k => { const el = document.querySelector(`#settings input[name="${k}"]`); if (el) el.checked = !!S[k]; });
   fillNtfy(); fillRem();
   Object.keys(OPT).forEach(k => { const el = document.querySelector(`#settings input[name="${k}"][value="${S[k]}"]`); if (el) el.checked = true; });
+  fillInvNote();
   const bs = (data && data.batteries) || [];
   $("set-names").innerHTML = bs.length ? bs.map((b,i) => {
     const k = keyOf(b, i);
@@ -4657,6 +4765,7 @@ $("settings").addEventListener("change", e => {
   saveSettings();
   if (["theme", "palette", "style"].includes(t.name)) { applyTheme(); if (data) render(mode); }
   if (t.name === "poll") { schedule(); poll(); }
+  if (t.name === "inv" || t.name === "marg") { fillInvNote(); fc = null; fcAt = 0; if (data) render(mode); }
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (t.name === "log") {
     if (logSrc === "demo") { LOG = demoLog(); relearn(); }
