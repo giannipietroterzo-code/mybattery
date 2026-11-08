@@ -1105,7 +1105,7 @@ footer{border-top:0;padding-top:0}
 @keyframes led-blink{to{opacity:.2}}
 
 /* ---------- animazioni: autotest all'avvio e flusso di energia quando scorre corrente ---------- */
-.app-ver{font-size:.66rem;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:1px 7px;border-radius:999px;letter-spacing:.02em}
+.app-ver{white-space:nowrap;font-size:.66rem;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:1px 7px;border-radius:999px;letter-spacing:.02em}
 /* cometa: una scia luminosa con la coda sfumata (5 strati con la stessa testa) percorre la parte piena dell'arco,
    verso la punta in carica e all'indietro in scarica. La maschera ha la lunghezza del riempimento (--a), la durata
    dipende da strada e potenza (--flow-dur, --travel = --a + coda) */
@@ -1476,7 +1476,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.50"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.51"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2645,8 +2645,7 @@ function drawVolt(k){
   el.classList.toggle("low", v < V_WARN);
   el.classList.toggle("warn", v > 57.6);
   el.setAttribute("aria-label", `Tensione del banco ${nf(v, 2)} volt`);
-  const tag = v < V_WARN ? "quasi vuoto" : v >= V_BOOST - .05 ? "in boost" : k.i > .5 ? "in carica" : k.i < -.5 ? "in scarica" : "a riposo";
-  el.innerHTML = `<span class="eta-txt"><small>Tensione del banco · ${tag}</small>` +
+  el.innerHTML = `<span class="eta-txt">` +
     `<span class="volt-h"><b>${nf(v, 2)}<u>V</u></b></span>` +
     `<span class="volt-bar"><span class="lo" style="width:${x(V_WARN)}"></span><span class="bo" style="left:${x(V_BOOST)}"></span><i style="width:${x(v)}"></i><em style="left:${x(v)}"></em></span>` +
     `<span class="volt-sc"><span style="left:0">${nf(V_LO, 1)}</span><span style="left:${x(V_WARN)}">48</span><span style="left:${x(52)}">52</span><span style="left:${x(V_BOOST)}">56</span><span style="left:100%">${nf(V_HI, 1)}</span></span></span>`;
@@ -2768,7 +2767,10 @@ function render(m){
   $("gauge").classList.toggle("low", k.on > 0 && k.soc < lowG);
   $("gauge").classList.toggle("chg", k.on > 0 && k.i > 0.5);
   $("gauge").classList.toggle("dsg", k.on > 0 && k.i < -0.5);
-  $("g-sub").innerHTML = k.on ? `<b>${nf(k.kwh, 1)} kWh</b> disponibili` : "";
+  // energia che la casa può ancora usare: quella nel banco meno la parte sotto lo stacco dell'inverter
+  const useKwh = k.on && k.soc > 0 ? k.kwh * Math.max(0, k.soc - cutSoc()) / k.soc : NaN;
+  $("g-sub").innerHTML = fin(useKwh) ? `<b>${nf(useKwh, 1)} kWh</b> utilizzabili` : "";
+  $("app-ver").textContent = "v" + APP_VERSION + (data && data.fw ? " · f" + data.fw : "");
   drawVolt(k);
   setVal($("k-d"), fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–");
   $("k-d").className = k.dmax > 50 ? "warn" : "";
