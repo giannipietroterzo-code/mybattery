@@ -48,6 +48,8 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "vmax": 150,                   // massimo del regolatore che usa la scheda per gli allarmi PV_HIGH (90 %) e PV_DANGER (96 %)
       "voc": [[1793944200, 144.8]],  // ultimi 7 giorni: tensione più alta del mattino, prima delle 11 (= Voc), e ora
       "kwh_today": 3.42,             // energia prodotta oggi, contata dalla mezzanotte italiana (dalla 0.21)
+      "fault": true, "sus": true,    // il regolatore segnala un guasto; sus = non vede i pannelli ma la leva dice collegato
+      "fc": {"a": 1, "v": 139, "at": 1794000000, "n": 149, "nt": 1794090000, "l": 140.2, "b": 1794003600, "c": true},   // a = 0 ricollega, 1 ricollega ma stacca entro sera, 2 non ricollegare; v/at massimo del prossimo sole, n/nt di quello dopo, l limite, b da quando è sicuro, c = Voc calibrata
       "kwh_reg": 3.42,               // lo stesso registro 330CH com'è: si azzera col suo orologio
       "clk": -27720, "clk_est": -27600,   // s: orologio del regolatore meno ora italiana (9013H) e stima dall'azzeramento del contatore
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
@@ -355,6 +357,18 @@ a.set-btn{text-decoration:none}
 .hist-read b{color:var(--ink);font-weight:600}
 .hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
 .pv-tab small{display:block;color:var(--muted);font-size:.72rem;font-weight:400}
+.pv-in{margin-top:14px}.pv-in:empty{display:none}
+.pv-in h3{margin:24px 2px 4px;font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:0}
+.pvi-row{display:flex;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px}
+.pvi-row .q-let{font-size:.74rem;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+.pvi-row .q-st{width:auto;height:auto;font-size:.66rem;font-weight:600;line-height:1.2}
+.pvi-adv{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.pvi-adv li{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:12px;background:var(--surface);border:1px solid var(--line);font-size:.86rem;line-height:1.35}
+.pvi-adv li>i{flex:0 0 9px;width:9px;height:9px;margin-top:5px;border-radius:50%;background:var(--muted)}
+.pvi-adv li.ok>i{background:#3FB56B}.pvi-adv li.wait>i{background:var(--warn)}.pvi-adv li.no>i{background:var(--alert)}
+.pvi-adv b{font-weight:700}
+.pvi-yes{display:block;margin-top:7px;padding:6px 11px;border:1px solid var(--lith);border-radius:9px;background:transparent;color:var(--sun);font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+.pvi-note{margin:6px 2px 0;font-size:.76rem;color:var(--muted)}
 @media(max-width:480px){.pv-tab{font-size:.76rem}.pv-tab th,.pv-tab td{padding:9px 5px}.pv-tab th:first-child,.pv-tab td:first-child{padding-left:10px}.pv-tab th:last-child,.pv-tab td:last-child{padding-right:10px}.pv-tab small{font-size:.63rem}.pv-tab td:first-child{max-width:5.2rem}}
 .legend{margin:8px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
 .legend span{white-space:nowrap}
@@ -1214,6 +1228,7 @@ footer{border-top:0;padding-top:0}
         <div class="pv" id="pv" role="group" aria-label="Produzione dei gruppi di pannelli" hidden>
           <p class="pv-h"><span class="pv-k" id="pv-k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>Totale</span><span id="pv-tot"></span></p>
           <div class="pv-cols" id="pv-cols"></div>
+          <div class="pv-in" id="pv-in"></div>
         </div>
         <div class="pv-day" id="pv-day"></div>
         <p class="pv-empty" id="pv-empty" hidden>I gruppi di pannelli compaiono quando la scheda legge i regolatori Epever.</p>
@@ -1474,7 +1489,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.53"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.54"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1725,12 +1740,21 @@ function vocSeries(pv){
     return { g, i, all, md, fc, vmax: vmaxOf(g.addr) };
   });
 }
+// la Voc imparata va alla scheda: serve a lei per dire quando ricollegare e per la notifica della sera
+function vocPush(ser){
+  if (mode !== "live" && mode !== "remote") return;
+  let ch = false;
+  ser.forEach(s => { const c = S.pv[s.g.addr]; if (!s.md || !c) return; const va = s.md.how === "albe";
+    if (!(Math.abs((c.vk || 0) / s.md.k - 1) < .004) || !!c.va !== va || !(Math.abs((c.vr || 0) - s.md.rel) < .003)) { c.vk = +s.md.k.toFixed(1); c.vr = +s.md.rel.toFixed(3); c.va = va; ch = true; } });
+  if (ch) saveSettings();
+}
 const vocCol = i => `var(--vs${i % 4 + 1})`;
 const vDay = t => new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
 function drawVoc(pv){
   const box = $("voc-box"); if (!box) return;
   if (!Array.isArray(pv) || !pv.length) { box.innerHTML = ""; return; }
   const now = nowOf(data), m0 = midnight(now), ser = vocSeries(pv);
+  vocPush(ser);
   const first0 = dayAdd(m0, -(VOC_DAYS - 1));
   const ear = Math.min(m0, ...ser.flatMap(s => s.all.filter(h => h.t >= first0).map(h => midnight(h.t))));
   const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
@@ -2669,6 +2693,8 @@ function render(m){
   if (!data) return;
   mode = m;
   ntfySt(); remSt();
+  if (isReal()) pvOffKeep(data.pv_off_h);
+  if (fin(data.pv_off) && data.pv_off !== pvOffSeen) { if (pvOffSeen !== null) { fc = null; fcAt = 0; } pvOffSeen = data.pv_off; }
   const bs = data.batteries || [];
   const lim = data.limits || {};
   const k = bank(bs);
@@ -3019,7 +3045,7 @@ async function boardAlarms(){
 }
 const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
       const g = { addr: e.addr, name: e.who }, who = e.addr < 0 ? "Banco" : e.pv ? pvName(g) : nameOf(g, e.addr);
-      const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile"
+      const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile" : e.code === "PV_NOIN" ? "Non vede i pannelli"
         : e.code === "PV_FAULT" ? "Guasto del regolatore" : e.code === "PV_HIGH" ? "Tensione dei pannelli alta"
         : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : e.code === "INV_NEAR" ? "Vicino allo stacco dell'inverter"
         : e.code === "INV_CUT" ? "L'inverter ha staccato" : (MSG[e.code] || [e.code])[0];
@@ -3317,7 +3343,7 @@ function learnSun(M){
   M.H.forEach(o => {
     if (o.soc0 >= 90) return;                              // vicino al pieno i regolatori tagliano: la produzione non dice quanto sole c'era
     const ir = irrAt(o.t, false); if (!ir) return;
-    const r = effIrr(ir, o.t); if (!(r > 25)) return;
+    const r = effIrr(ir, o.t); if (!(r > 25) || pvOffDuring(o.t)) return;
     const pos = sunPos(o.t + HOUR / 2, L.lat, L.lon); if (pos.el < 2) return;
     let pv = o.pv;
     if (pv === null) { const d = new Date(o.t * 1000), p = M.prof[dayType(d)][d.getHours()]; pv = p ? o.net + p.med : null; } // senza regolatori: netto + consumi tipici
@@ -3339,9 +3365,9 @@ function pvBase(M, t, asFc){
     const r = effIrr(ir, t); if (!(r > 0)) return 0;
     const L = here(), pos = sunPos(t + HOUR / 2, L.lat, L.lon); if (pos.el < 0) return 0;
     const b = M.sun.map.get(elBin(Math.max(0, pos.el)) * 16 + azBin(pos.az)), g = b ? b.g : M.sun.g;
-    return capPv(g * r * (1 - .0035 * ((fin(ir.temp) ? ir.temp : 20) + .03 * r - 25)), ir, t);
+    return capPv(g * r * (1 - .0035 * ((fin(ir.temp) ? ir.temp : 20) + .03 * r - 25)), ir, t) * pvAvail(t);
   }
-  if (M.pvProf.some(v => v !== null)) return M.pvProf[new Date((t + HOUR / 2) * 1000).getHours()] || 0;
+  if (M.pvProf.some(v => v !== null)) return (M.pvProf[new Date((t + HOUR / 2) * 1000).getHours()] || 0) * pvAvail(t);
   return null;
 }
 // ogni regolatore Epever dà al massimo 100 A: la Tettoia da 6 kWp nelle giornate migliori ci sbatte contro
@@ -3646,6 +3672,26 @@ const ruleText = p => {
   return ["Ogni " + (ds.length > 1 ? ds.slice(0, -1).join(", ") + " e " + ds[ds.length - 1] : ds[0]), "Settimanale", when];
 };
 
+// periodi con un ingresso staccato: quelle ore non insegnano quanto rendono i pannelli
+const PVOH_KEY = "mybattery.pvoffh.v1";
+let pvOffH = (() => { try { return JSON.parse(localStorage.getItem(PVOH_KEY) || "[]") || []; } catch (e) { return []; } })();
+function pvOffKeep(h){
+  if (!Array.isArray(h)) return;
+  let ch = false; h.forEach(r => { if (Array.isArray(r) && fin(r[0]) && r[0] > 1.6e9 && !pvOffH.some(x => x[0] === r[0])) { pvOffH.push([r[0], r[1]]); ch = true; } });
+  if (ch) { pvOffH.sort((a, b) => a[0] - b[0]); pvOffH = pvOffH.slice(-200); try { localStorage.setItem(PVOH_KEY, JSON.stringify(pvOffH)); } catch (e) {} }
+}
+function pvOffDuring(t){   // qualche ingresso era staccato in quell'ora?
+  let m = 0; for (const r of pvOffH) { if (r[0] >= t + HOUR) break; if (r[0] > t && r[1]) return true; m = r[1]; }
+  return !!m;
+}
+// quota dei pannelli disponibile in un'ora futura: chi è staccato torna quando la scheda dice che è sicuro ricollegarlo
+function pvAvail(t){
+  if (!data || !Array.isArray(data.pv) || !pvMask() || t < nowOf(data)) return 1;
+  const ps = planes(), tot = ps.reduce((a, p) => a + p.kwp, 0); if (!tot) return 1;
+  const out = ps.reduce((a, p) => { const g = data.pv.find(x => x.addr === p.addr);
+    return a + (g && pvIsOff(g) && !(g.fc && g.fc.b > 0 && t >= g.fc.b) ? p.kwp : 0); }, 0);
+  return 1 - out / tot;
+}
 function relearn(){
   model = learn(LOG); fc = null; fcAt = 0; fcNull = false;
   drawHabits(); drawReliab();
@@ -4221,12 +4267,61 @@ function setEta(kind, label, value, hours){
 // pannello solare stilizzato: cornice in prospettiva con la griglia delle celle
 const PV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg>';
 const PV_ST = { off: "Non carica", boost: "In carica", float: "Mantenimento", equalize: "Equalizzazione" };
+/* ---------- interruttori d'ingresso degli Epever: leve dichiarate come i deviatori, stato tenuto dalla scheda ---------- */
+let pvOffTap = null, demoPvOff = 0, pvOffSeen = null;
+function pvMask(){
+  if (pvOffTap && Date.now() - pvOffTap.at < 25e3 && !(data && data.pv_off === pvOffTap.m)) return pvOffTap.m;
+  return data && fin(data.pv_off) ? data.pv_off & 7 : 0;
+}
+const pvIsOff = g => !!(pvMask() >> (g.addr - 1) & 1);
+const PV_POS = [/pannell/i, /tettoia/i, /pollaio/i];     // come sono messi davvero nel quadro
+const pvPos = g => { const i = PV_POS.findIndex(r => r.test(pvName(g))); return i < 0 ? 9 + g.addr : i; };
+function pvOffPut(m){
+  pvOffTap = { m, at: Date.now() };
+  if (canWrite()) boardCfg({ pv_off: m }).catch(e => { pvOffTap = null; if (data) render(mode); toast("Interruttore non salvato: " + e.message); });
+  else if (!isReal()) demoPvOff = m;
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+  fc = null; fcAt = 0;
+  if (data) render(mode);
+}
+const whenW = t => { const d = dayIdx(t, midnight(nowOf(data))); return d <= 0 ? "oggi alle " + hm(t) : d === 1 ? (new Date(t * 1000).getHours() < 12 ? "domattina" : "domani") : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
+function pvInAdv(g){
+  const n = esc(pvName(g)), f = g.fc, V = v => "~" + nf(v, 0) + " V";
+  if (g.sus && !pvIsOff(g)) return { c: "wait", yes: g.addr, h: `<b>${n}</b> non vede i pannelli: l'hai staccato tu?` };
+  if (!pvIsOff(g)) return f && f.c && f.a === 2 ? { c: "no", h: `<b>${n}</b>: ${whenW(f.at)} ${V(f.v)}, sopra il limite di ${V(f.l)}. Staccalo prima.` } : null;
+  if (!f) return { c: "", h: `<b>${n}</b> staccato. Senza meteo non so dirti quando ricollegarlo.` };
+  const est = !f.c;
+  if (f.a === 2) return { c: "no", est, h: `<b>${n}</b>: non ricollegare ora. ${whenW(f.at)[0].toUpperCase() + whenW(f.at).slice(1)} ${V(f.v)}, limite ${V(f.l)}${f.b ? `. Sicuro da ${whenW(f.b)}` : ""}.` };
+  if (f.a === 1) return { c: "wait", est, h: `<b>${n}</b>: ricollega ora, ma stacca entro stasera. ${whenW(f.nt)[0].toUpperCase() + whenW(f.nt).slice(1)} ${V(f.n)}, limite ${V(f.l)}.` };
+  return { c: "ok", est, h: `<b>${n}</b>: puoi ricollegare. Massimo ${V(f.v)}${f.nt ? `, ${whenW(f.nt)} ${V(f.n)}` : ""}, limite ${V(f.l)}.` };
+}
+function drawPvIn(pv){
+  const box = $("pv-in"); if (!box) return;
+  if (!data || !fin(data.pv_off)) { box.innerHTML = ""; delete box.dataset.sig; return; }
+  const ord = pv.slice().sort((a, b) => pvPos(a) - pvPos(b)), sig = ord.map(g => g.addr + pvName(g)).join("|");
+  if (box.dataset.sig !== sig) {
+    box.dataset.sig = sig;
+    box.innerHTML = `<h3>Interruttori dei pannelli</h3><div class="pvi-row" role="group" aria-label="Interruttori d'ingresso dei regolatori: su = collegato, giù = staccato">` +
+      ord.map(g => `<button class="q-mod" type="button" role="switch" data-a="${g.addr}"><span class="q-let">${esc(pvName(g))}</span><span class="q-slot"><span class="q-lev"></span></span><span class="q-st"></span></button>`).join("") +
+      `</div><div id="pvi-list"></div>`;
+    if (!box.dataset.on) { box.dataset.on = 1; box.addEventListener("click", e => {
+      const b = e.target.closest(".q-mod, .pvi-yes"); if (!b) return;
+      const bit = 1 << (+b.dataset.a - 1); pvOffPut(b.classList.contains("pvi-yes") ? pvMask() | bit : pvMask() ^ bit); }); }
+  }
+  box.querySelectorAll(".q-mod").forEach(b => { const g = pv.find(x => x.addr === +b.dataset.a), off = pvIsOff(g);
+    b.setAttribute("aria-checked", !off); b.setAttribute("aria-label", `${pvName(g)}: ${off ? "staccato" : "collegato"}`);
+    b.querySelector(".q-st").textContent = off ? "Staccato" : "Collegato"; });
+  const adv = ord.map(g => pvInAdv(g)).filter(Boolean), rows = adv.map(a => `<li class="${a.c}"><i></i><span>${a.h}${a.yes ? `<button class="pvi-yes" type="button" data-a="${a.yes}">Sì, l'ho staccato io</button>` : ""}</span></li>`).join("");
+  $("pvi-list").innerHTML = (adv.length ? `<ul class="pvi-adv">${rows}</ul>` : "") + (adv.some(a => a.est) ? `<p class="pvi-note">Stima dalla targa: diventa più precisa dopo 3 mattine lette.</p>` : "");
+}
 function drawPv(pv, k){
   const box = $("pv");
   box.hidden = !Array.isArray(pv) || !pv.length;
   $("pv-empty").hidden = !box.hidden;
   if (box.hidden) { $("pv-day").innerHTML = ""; return; }
-  const on = pv.filter(g => g.online !== false && fin(g.w));
+  const on = pv.filter(g => g.online !== false && fin(g.w) && !pvIsOff(g));
+  const night = on.length > 0 && on.every(g => !fin(g.v) || g.v < 20);
+  drawPvIn(pv);
   const kw = on.reduce((a, g) => a + g.w, 0), kwh = on.reduce((a, g) => a + (fin(g.kwh_today) ? g.kwh_today : 0), 0);
   $("pv-tot").innerHTML = (kw > 5 ? `<b>${power(kw)}</b> ora · ` : "") + `<b>${nf(kwh, 1)} kWh</b> oggi`;
   // resa di ogni gruppo rispetto alla sua potenza installata: chi rende molto meno degli altri va controllato.
@@ -4235,15 +4330,15 @@ function drawPv(pv, k){
   const ys = on.map(nowRatio).filter(fin), best = ys.length ? Math.max(...ys) : 0, sunNow = on.some(g => yieldOf(g) >= 0.12);
   const fair = ys.length > 1 && sunNow && !on.some(g => g.state === "float") && !(k.soc >= 95);
   $("pv-cols").innerHTML = pv.map(g => {
-    const off = g.online === false || !fin(g.w), y = yieldOf(g), yr = nowRatio(g);
+    const cut = pvIsOff(g), off = g.online === false || !fin(g.w) || cut, y = yieldOf(g), yr = nowRatio(g);
     const low = !off && fair && fin(yr) && yr < best * 0.7;
     const st = off ? "mute" : g.w < 5 ? "off" : (g.state in PV_ST ? g.state : "boost");
     const fill = off || !fin(y) ? 0 : Math.max(0, Math.min(1, y)) * 100;
-    const stTxt = off ? "Non risponde" : low ? `Rende −${nf((1 - yr / best) * 100, 0)}%`
-      : g.w < 5 ? (PV_ST[g.state] && g.state !== "boost" ? PV_ST[g.state] : "Fermo") : PV_ST[g.state] || "In carica";
+    const stTxt = off ? (cut ? "Staccato" : "Non risponde") : g.sus ? "Staccato?" : g.fault ? "Guasto" : low ? `Rende −${nf((1 - yr / best) * 100, 0)}%`
+      : g.w < 5 ? (night ? "Notte" : PV_ST[g.state] && g.state !== "boost" ? PV_ST[g.state] : "Fermo") : PV_ST[g.state] || "In carica";
     const [num, unit] = off ? ["–", ""] : power(g.w).split(" ");
     const arc = (fill / 100 * 179.1).toFixed(1); // 270° di un cerchio di raggio 38 = 179,1 su 238,8
-    return `<div class="pv-col ${st}${low ? " low" : ""}" style="--f:${(fill / 100).toFixed(2)}" role="group" aria-label="${esc(pvName(g))}: ${off ? "non risponde" : power(g.w) + ", " + nf(fill, 0) + "% della potenza installata" + (low ? ", rende meno degli altri gruppi" : "")}">` +
+    return `<div class="pv-col ${st}${low ? " low" : ""}" style="--f:${(fill / 100).toFixed(2)}" role="group" aria-label="${esc(pvName(g))}: ${cut ? "staccato" : off ? "non risponde" : power(g.w) + ", " + nf(fill, 0) + "% della potenza installata" + (low ? ", rende meno degli altri gruppi" : "")}">` +
       `<span class="pv-n">${PV_ICON}<span>${esc(pvName(g))}</span></span>` +
       `<span class="pv-g" aria-hidden="true"><svg viewBox="0 0 100 88"><circle class="t" cx="50" cy="50" r="38" stroke-dasharray="179.1 238.8" transform="rotate(135 50 50)"/>` +
       `<circle class="f" cx="50" cy="50" r="38" stroke-dasharray="${arc} 238.8" transform="rotate(135 50 50)"/></svg>` +
@@ -5029,7 +5124,9 @@ function simulate(){
       kwh_today: +(kwhSoFar * shareDay).toFixed(2),
       state: !sunUp ? "off" : bankSoc >= 98 ? "float" : "boost" };
   });
-  return { time: Math.round(now), rssi: -61, pv,
+  const offDemo = pv.map(g => { const c = demoPvOff >> (g.addr - 1) & 1, hi = g.addr === 3 ? 92 : 141, lim = 140.2, a = g.addr === 1 ? 2 : g.addr === 2 ? 1 : 0;
+    return { ...g, ...(c ? { w: 0, out_w: 0, v: .4, a: 0, state: "off" } : {}), fc: { a, v: a === 2 ? 146 : hi, at: now + 14 * HOUR, n: a === 1 ? 149 : hi - 2, nt: now + 38 * HOUR, l: lim, b: a === 2 ? now + 16 * HOUR : now, c: g.addr !== 3 } }; });
+  return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo,
     limits: { bal_start: 3400, bal_diff: 30, cell_ov: 3650, cell_uv: 2500, low_soc: 10 },
     batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})),
     history: { step: hs.step, soc: [...hs.soc], p: [...hs.p] } };
