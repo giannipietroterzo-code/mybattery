@@ -106,7 +106,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
   }
 }
 :root[data-theme="dark"]{
-  color-scheme: dark;
+  color-scheme: only dark;
   --bg:#161615; --surface:#20201E; --ink:#EDEDE8; --muted:#A09F98; --line:#33332F;
   --frame:#0E0E0D; --frame-ink:#75746E;
   --lith:#FFC929; --lith-tint:rgba(255,201,41,.18); --fill-tint:rgba(255,201,41,.2);
@@ -151,7 +151,7 @@ body{height:100%;overflow:hidden}
 .pv-rows{display:grid;gap:10px;padding:14px;border-radius:16px;background:var(--surface)}
 .pv-r{display:grid;grid-template-columns:5.6rem 1fr auto;align-items:center;gap:10px;font-size:.85rem}
 .pv-r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pv-rb{position:relative;height:10px;border-radius:5px;background:color-mix(in srgb,var(--ink) 9%,transparent);overflow:hidden}
+.pv-rb{position:relative;height:10px;border-radius:5px;background:color-mix(in srgb,var(--ink) 9%,var(--surface));overflow:hidden}
 .pv-rb i{position:absolute;inset:0 auto 0 0;border-radius:5px;background:var(--sun);transition:width .7s ease}
 .pv-r.low .pv-rb i{background:var(--warn)}
 .pv-rv{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
@@ -176,7 +176,7 @@ body{height:100%;overflow:hidden}
 .vocg .bad{fill:none;stroke:var(--alert);stroke-width:1.6}
 .voc-when{margin:8px 4px 6px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .voc-leg{display:flex;flex-wrap:wrap;gap:6px}
-.voc-leg .vl{display:inline-flex;align-items:baseline;gap:6px;padding:6px 10px;border-radius:999px;background:color-mix(in srgb,var(--ink) 6%,transparent);font-size:.82rem}
+.voc-leg .vl{display:inline-flex;align-items:baseline;gap:6px;padding:6px 10px;border-radius:999px;background:color-mix(in srgb,var(--ink) 6%,var(--surface));font-size:.82rem}
 .voc-leg .vl i{width:9px;height:9px;border-radius:50%;align-self:center;flex:none}
 .voc-leg .vn{color:var(--muted)}
 .voc-leg b{font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:650}
@@ -311,8 +311,8 @@ section{margin-top:26px}
 .fc-note:empty{display:none}
 .wx{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 12px}
 .wx:empty{display:none}
-.wx-d{display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:14px;background:color-mix(in srgb,var(--ink) 5%,transparent);min-width:0}
-.wx-i{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
+.wx-d{display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:14px;background:color-mix(in srgb,var(--ink) 5%,var(--surface));min-width:0}
+.wx-i{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,var(--surface));color:var(--muted)}
 .wx-i svg{width:19px;height:19px}
 .wx-d.sun .wx-i,.wx-d.part .wx-i{background:var(--sun-tint);color:var(--sun)}
 .wx-t{display:flex;flex-direction:column;line-height:1.15;min-width:0}
@@ -590,7 +590,7 @@ a.q-chip{text-decoration:none}.fw-chip i{background:var(--sun)!important;box-sha
 .conn.usb .dot{background:var(--good);box-shadow:0 0 0 0 var(--good);animation:pulse 2.4s ease-out infinite}
 .notice .set-btn{display:flex;margin-top:10px}
 .usb-card{display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;border-radius:12px;background:var(--bg)}
-.usb-ico{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
+.usb-ico{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:color-mix(in srgb,var(--ink) 8%,var(--surface));color:var(--muted)}
 .usb-ico svg{width:20px;height:20px}
 .usb-card.on .usb-ico{background:var(--good-tint);color:var(--good)}
 .usb-card.err .usb-ico{background:var(--warn-tint);color:var(--warn)}
@@ -648,7 +648,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .pv-g{display:block;position:relative;width:min(100%,92px);margin:4px auto 0}
 .pv-g svg{display:block;width:100%;height:auto}
 .pv-g circle{fill:none;stroke-width:8;stroke-linecap:round}
-.pv-g .t{stroke:color-mix(in srgb,var(--ink) 10%,transparent)}
+.pv-g .t{stroke:color-mix(in srgb,var(--ink) 10%,var(--surface))}
 .pv-g .f{stroke:var(--c);transition:stroke-dasharray .8s ease,stroke .3s}
 .pv-gv{position:absolute;left:0;right:0;top:57%;transform:translateY(-50%);line-height:1}
 .pv-w{display:block;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.3rem;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
@@ -656,7 +656,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .pv-s{display:block;margin-top:-4px;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .pv-s b{color:var(--ink);font-weight:600}
 .pv-st{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-top:7px;padding:3px 7px;border-radius:999px;font-size:.7rem;font-weight:600;
-  color:var(--muted);background:color-mix(in srgb,var(--ink) 7%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  color:var(--muted);background:color-mix(in srgb,var(--ink) 7%,var(--surface));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pv-st::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:currentColor}
 .pv-col.boost .pv-st,.pv-col.equalize .pv-st{color:var(--sun);background:var(--sun-tint)}
 .pv-col.float{--c:var(--good)}
@@ -1020,7 +1020,7 @@ footer{border-top:0;padding-top:0}
 
 /* ---------- card del tempo stimato ---------- */
 .eta{display:flex;align-items:center;gap:12px;margin:12px auto 0;max-width:340px;padding:9px 14px 9px 9px;border-radius:18px;
-  background:color-mix(in srgb,var(--ink) 6%,transparent);text-align:left;color:var(--ink)}
+  background:color-mix(in srgb,var(--ink) 6%,var(--surface));text-align:left;color:var(--ink)}
 .eta:empty{display:none}
 /* tensione del banco: scala LiFePO4 16S da 44,8 V (2,80 V a cella, il BMS stacca) a 58,4 V (3,65 V, pieno) */
 .volt:not(:empty)+.eta{margin-top:8px}
@@ -1037,7 +1037,7 @@ footer{border-top:0;padding-top:0}
 .volt.low .volt-bar i{background:linear-gradient(90deg,color-mix(in srgb,var(--alert) 35%,transparent),var(--alert))}
 .volt.low .volt-bar em{border-color:var(--alert);box-shadow:0 0 10px -1px var(--alert)}
 .volt-h b u{text-decoration:none;font-size:.72em;font-weight:500;color:var(--muted);margin-left:2px}
-.volt-bar{position:relative;height:6px;margin:8px 0 2px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.volt-bar{position:relative;height:6px;margin:8px 0 2px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,var(--surface))}
 .volt-bar .lo{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;background:color-mix(in srgb,var(--alert) 45%,transparent)}
 .volt-bar .bo{position:absolute;top:0;bottom:0;right:0;border-radius:0 3px 3px 0;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--lith) 45%,transparent) 0 3px,transparent 3px 6px)}
 .volt-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 35%,transparent),var(--lith));transition:width .6s}
@@ -1489,7 +1489,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.54"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.55"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2297,7 +2297,7 @@ function applyTheme(){
   metas.forEach(m => m.content = STYLE_BG[S.style] || (theme === "light" ? bl : theme === "dark" ? bd : m.media.includes("dark") ? bd : bl));
   // il tema vero, non "light dark": se no Chrome per Android col tema scuro dei siti "scurisce" la pagina già scura e schiarisce il logo
   const cs = document.querySelector('meta[name="color-scheme"]');
-  if (cs) cs.content = theme === "dark" ? "dark" : theme === "light" ? "only light" : "light dark";
+  if (cs) cs.content = theme === "dark" ? "only dark" : theme === "light" ? "only light" : "light dark";
 }
 
 /* ---------- numeri: negli stili diversi da Classico l'unità è scritta piccola ---------- */
@@ -4347,15 +4347,7 @@ function drawPv(pv, k){
       `<span class="pv-st">${esc(stTxt)}</span></div>`;
   }).join("");
 
-  // resa di oggi: kWh per kW installato, il confronto più giusto tra gruppi di taglia diversa
-  const days = on.filter(g => fin(g.kwh_today) && fin(g.kwp) && g.kwp > 0).map(g => ({ g, r: g.kwh_today / g.kwp, q: dayRatio(g) }));
-  const qBest = Math.max(0, ...days.map(d => d.q).filter(fin)), oriented = days.some(d => planeOf(d.g).key !== planeOf(days[0].g).key);
-  const lowDay = d => days.length > 1 && fin(d.q) && d.r >= 0 && qBest > 0 && days.some(x => x.r >= 0.5) && d.q < qBest * 0.75;
-  $("pv-day").innerHTML = (days.length ? `<h3>Resa di oggi</h3><p class="note">kWh prodotti per ogni kW di pannelli${oriented ? ". La barra confronta ogni gruppo con il sole arrivato sulla sua falda: a parità di salute sono tutte piene." : ": con lo stesso sole i gruppi dovrebbero essere simili."}</p>` +
-    `<div class="pv-rows">${days.map(d => `<div class="pv-r${lowDay(d) ? " low" : ""}"><span>${esc(pvName(d.g))}</span>` +
-      `<span class="pv-rb"><i style="width:${qBest && fin(d.q) ? Math.min(100, d.q / qBest * 100).toFixed(1) : 0}%"></i></span>` +
-      `<span class="pv-rv">${nf(d.r, 2)} <small>kWh/kWp</small></span></div>`).join("")}</div>` : "") +
-    `<div id="voc-box"></div>` +
+  $("pv-day").innerHTML = `<div id="voc-box"></div>` +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= vmaxOf(g.addr) * PV_WARN ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${vmaxOf(g.addr)}</small>` : ""}</td>` +
       `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
