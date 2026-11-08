@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.63"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.64"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1608,14 +1608,17 @@ const vocAt = (c, temp, a) => vocRaw(c, temp) * vcal(a).f;
 // autocorrezione: ogni alba, a pannelli fermi (il regolatore non sta ancora caricando) la tensione letta è la Voc vera.
 // Il rapporto tra letta e prevista, mediana delle ultime 14 albe, corregge in un colpo targhetta, gradi di raffreddamento e coefficiente.
 const VCAL_KEY = "mybattery.voccal.v1";
+// con poca luce la tensione a vuoto viene bassa: una mattina scura insegnerebbe una Voc ottimistica (il meteo è la media dell'ora di quella lettura)
+const VOC_LIT = 120;
+function vocLit(t){ if (logSrc === "demo" && !isReal()) return true; const ir = t ? irrAt(t, false) : null; return !ir || !fin(ir.ghi) || ir.ghi >= VOC_LIT; }
 let vcalSt = (() => { try { return JSON.parse(localStorage.getItem(VCAL_KEY) || "{}") || {}; } catch (e) { return {}; } })();
 function vcal(a){
-  const ds = (vcalSt[a] || []).filter(d => !d.x).slice(-14), n = ds.length;
+  const ds = (vcalSt[a] || []).filter(d => !d.x && vocLit(d.t)).slice(-14), n = ds.length;
   if (n < 3) return { f: 1, n };
   return { f: clamp(quant(ds.map(d => d.r), .5), .85, 1.15), n, last: ds[n - 1] };
 }
 // mediana delle albe buone già registrate (senza quella di oggi); null se sono meno di 3
-function vcalFrom(ds){ const ok = ds.filter(d => !d.x).slice(-14); return ok.length >= 3 ? quant(ok.map(d => d.r), .5) : null; }
+function vcalFrom(ds){ const ok = ds.filter(d => !d.x && vocLit(d.t)).slice(-14); return ok.length >= 3 ? quant(ok.map(d => d.r), .5) : null; }
 // pannelli che sembrano mancare: un diodo di bypass o un pannello in corto toglie circa 1/N della tensione di una stringa da N.
 // Con più stringhe in parallelo quella sana tiene su la tensione e il calo si vede meno, per questo la soglia è al 60% di un pannello.
 function panelGone(c, ds, r){
@@ -1625,7 +1628,7 @@ function panelGone(c, ds, r){
 }
 function vcalSample(g, now){
   const c = S.pv[g.addr] || {}, t = Math.floor(now / HOUR) * HOUR, ir = irrAt(t, false), h = new Date(now * 1000).getHours();
-  if (!ir || !fin(ir.temp) || !(ir.ghi >= 15 && ir.ghi <= 400) || h >= 11 || !(g.w < 5) || g.v < 20) return;
+  if (!ir || !fin(ir.temp) || !(ir.ghi >= VOC_LIT && ir.ghi <= 400) || h >= 11 || !(g.w < 5) || g.v < 20) return;
   const pred = vocRaw(c, cellT(ir, g.addr, t)), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
   const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), j = ds.findIndex(d => d.d === dk);
   if (j >= 0) { if (g.v <= ds[j].v) return; ds.splice(j, 1); }        // della giornata tengo la lettura più alta
@@ -1722,11 +1725,11 @@ function vocHist(a){
       if (t && fin(d.v) && (d.x || vocOk(a, d.v))) put(t, d.v, d.x || 0);
     });
   }
-  return [...m.values()].sort((x, y) => x.t - y.t);
+  return [...m.values()].map(h => ({ ...h, dim: !vocLit(h.t) })).sort((x, y) => x.t - y.t);
 }
-// k (Voc a 25 °C dei pannelli): dalle ultime 14 albe buone col meteo; se sono meno di 3, dalla targhetta
+// k (Voc a 25 °C dei pannelli): dalle ultime 14 albe buone e abbastanza luminose col meteo; se sono meno di 3, dalla targhetta
 function vocModel(a, hist){
-  const ks = hist.filter(h => !h.x).slice(-14).map(h => { const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false); return ir && fin(ir.temp) ? h.v / (1 + VOC_K * (25 - cellT(ir, a, t))) : NaN; }).filter(fin);
+  const ks = hist.filter(h => !h.x && !h.dim).slice(-14).map(h => { const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false); return ir && fin(ir.temp) ? h.v / (1 + VOC_K * (25 - cellT(ir, a, t))) : NaN; }).filter(fin);
   if (ks.length >= 3) {
     const k = quant(ks, .5), sd = Math.sqrt(ks.reduce((s, x) => s + (x / k - 1) ** 2, 0) / ks.length);
     return { k, rel: Math.max(.008, 1.5 * sd), how: "albe", n: ks.length };
@@ -1766,7 +1769,7 @@ function drawVoc(pv){
   const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
   const nPast = dayIdx(m0 + 12 * HOUR, first) + 1, N = nPast + lastFc;           // colonne: giorni passati + oggi + previsione
   ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); });
-  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale; le letture con troppa poca luce non contano.</p>`;
+  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale. I punti chiari sono mattine troppo scure: restano nel grafico ma non tarano la previsione.</p>`;
   if (!ser.some(s => s.hist.length || s.fc.length)) {
     box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda registra ogni mattina la tensione più alta. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
     return;
@@ -1805,7 +1808,7 @@ function drawVoc(pv){
     if (hp.length > 1) g += `<polyline class="ln" style="stroke:${col}" points="${P(hp)}"/>`;
     s.hist.forEach((h, j) => { const [px, py] = hp[j], on = sel !== null && dayIdx(h.t, m0) === sel;
       g += (h.x ? `<circle class="bad" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="6"/>` : "") +
-        `<circle class="pt" style="fill:${col}" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${on ? 4.6 : 3}"/>`; });
+        `<circle class="pt" style="fill:${col}${h.dim ? ";opacity:.35" : ""}" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${on ? 4.6 : 3}"/>`; });
     fp.forEach((p, j) => { const on = sel !== null && dayIdx(s.fc[j].t, m0) === sel;
       g += `<circle class="fpt" style="stroke:${col}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${on ? 4.6 : 3.2}"/>`; });
   });
@@ -1819,13 +1822,13 @@ function drawVoc(pv){
     if (!h && f && tt === null) { tt = f.t; air = f.air; }
     const hot = v >= pvDangerAt(s.vmax) ? " danger" : v >= pvWarnAt(s.vmax) ? " hot" : "";
     return `<span class="vl${hot}"><i style="background:${vocCol(s.i)}"></i><span class="vn">${esc(pvName(s.g))}</span>` +
-      `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : ""}</span>`;
+      `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : h && h.dim ? `<small>poca luce</small>` : ""}</span>`;
   }).join("");
   const dt = dayAdd(m0, day) + 12 * HOUR, fcDay = !ser.some(s => s.hist.some(h => dayIdx(h.t, m0) === day));
   const when = `${day === 0 ? "Oggi" : day === 1 ? "Domani" : day === -1 ? "Ieri" : vDay(dt)[0].toUpperCase() + vDay(dt).slice(1)}${tt ? (fcDay ? " · alba verso le " : " · alle ") + hm(tt) : ""}${fin(air) ? " · aria " + nf(air, 0).replace("-", "−") + " °C" : ""}${fcDay ? " · previsione" : ""}`;
   const how = ser.filter(s => s.fc.length).map(s => s.md.how);
-  const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 albe lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
-    : how.every(h => h === "albe") ? "Previsione dal meteo delle prossime mattine e dalle tue albe lette; la fascia è l'incertezza." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 albe lette; la fascia è l'incertezza.";
+  const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 mattine luminose lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
+    : how.every(h => h === "albe") ? "Previsione dal meteo delle prossime mattine e dalle tue albe lette; la fascia è l'incertezza." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 mattine luminose lette; la fascia è l'incertezza.";
   box.innerHTML = head + `<div class="vocw"><svg class="vocg" viewBox="0 0 ${W} ${H}" data-n="${N}" data-l="${L}" data-r="${R}" data-t="${tIdx}" role="img" aria-label="Voc all'alba degli ultimi giorni e prevista per i prossimi">${g}</svg>` +
     `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div><p class="note voc-foot">${foot}</p>`;
 }
