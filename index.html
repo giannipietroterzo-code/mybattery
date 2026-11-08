@@ -1439,9 +1439,10 @@ footer{border-top:0;padding-top:0}
       <button class="set-btn" id="bk-out" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 19.5h16"/></svg>Esporta tutto</button>
       <button class="set-btn" id="bk-in" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M4 19.5h16"/></svg>Importa</button>
     </div>
+    <div class="chk bk-keys"><label><input type="checkbox" id="bk-keys"><span><b>Includi le chiavi</b><small>Solo per passare a un altro telefono. Con le chiavi, il file va tenuto al sicuro: chi lo apre legge e comanda la scheda da fuori casa.</small></span></label></div>
     <input type="file" id="bk-file" accept=".json,application/json" hidden>
     <div id="bk-prev"></div>
-    <p class="set-note">Un solo file con impostazioni, registro, previsioni archiviate, cronologia degli allarmi, grafico delle 24 ore e quello che la app ha imparato. Ogni indirizzo ha la sua memoria: serve a passare a un altro telefono, o dalla versione di prova col cavo USB a quella servita dalla scheda.</p>
+    <p class="set-note">Un solo file con impostazioni, registro, previsioni archiviate, cronologia degli allarmi, grafico delle 24 ore e quello che la app ha imparato. Ogni indirizzo ha la sua memoria: serve a passare a un altro telefono, o dalla versione di prova col cavo USB a quella servita dalla scheda. Normalmente il file non contiene i canali e la chiave da fuori casa.</p>
 
     <h3>Meteo per le previsioni</h3>
     <div id="set-loc"></div>
@@ -1491,7 +1492,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.64"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.65"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5015,6 +5016,7 @@ $("notice").addEventListener("click", e => { if (e.target.closest("#notice-cab")
 /* ---------- backup completo: impostazioni, registro, previsioni archiviate, cronologia degli allarmi, quello che ha imparato ---------- */
 const BK_LS = [ALH_KEY, UHIST_KEY, ULAST_KEY, "mybattery.page", PVMAX_KEY, VCAL_KEY]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
 const LEARN_SKIP = new Set(["H", "Hmap", "days", "socT", "socV", "lblocks"]); // si ricalcolano dal registro
+const BK_SECRET = ["rem", "ntfy"];   // canale e chiave da fuori casa, canale delle notifiche
 let bkPending = null;
 async function backupOut(){
   const log = ((await db.all()) || []).filter(validRow).sort((a, b) => a[0] - b[0]);
@@ -5022,13 +5024,15 @@ async function backupOut(){
   const storage = {}; BK_LS.forEach(k => { const v = lsGet(k); if (v !== null) storage[k] = v; });
   const learned = logSrc === "live" && model ? JSON.parse(JSON.stringify(model, (k, v) => LEARN_SKIP.has(k) || v instanceof Map ? undefined : v)) : null;
   const out = { app: "MyBattery", kind: "backup", format: 1, version: APP_VERSION, created: Math.round(nowS()), from: location.host || "file",
-    settings: S, storage, log, forecasts: fcs, learned };
+    settings: { ...S }, storage, log, forecasts: fcs, learned };
+  const keys = $("bk-keys").checked;
+  if (!keys) { BK_SECRET.forEach(k => { delete out.settings[k]; }); out.noKeys = true; }
   const d = new Date(), p2 = n => String(n).padStart(2, "0");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: "application/json" }));
-  a.download = `mybattery-backup-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.json`;
+  a.download = `mybattery-backup-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}${keys ? "-con-chiavi" : ""}.json`;
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast(log.length ? `Backup salvato: ${log.length} righe di registro` : "Backup salvato: impostazioni (il registro è ancora vuoto)");
+  toast((log.length ? `Backup salvato: ${log.length} righe di registro` : "Backup salvato: impostazioni (il registro è ancora vuoto)") + (keys ? " · contiene le chiavi" : " · senza chiavi"));
 }
 const dShort = t => new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
 function bkShow(err){
@@ -5040,7 +5044,7 @@ function bkShow(err){
   el.innerHTML = `<div class="usb-card on"><span class="usb-ico">${ico(AL_ICON.ok)}</span><span class="usb-t"><b>Backup del ${esc(fin(j.created) ? new Date(j.created * 1000).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" }) : "?")}</b>` +
     `<small>da ${esc(String(j.from || "?"))} · versione ${esc(String(j.version || "?"))}</small></span></div>` +
     `<dl class="usb-stats"><div><dt>Registro</dt><dd>${p.log.length}</dd></div><div><dt>Previsioni</dt><dd>${p.fcs.length}</dd></div><div><dt>Allarmi</dt><dd>${al}</dd></div></dl>` +
-    `<p class="set-note">Registro: ${esc(span)}. Le impostazioni di questo telefono vengono sostituite; registro, previsioni e allarmi si uniscono a quelli che ci sono già. Quello che la app ha imparato si ricalcola dal registro.</p>` +
+    `<p class="set-note">Registro: ${esc(span)}. Le impostazioni di questo telefono vengono sostituite${BK_SECRET.some(k => j.settings && j.settings[k]) ? ", <b>chiavi comprese</b>" : ", tranne le chiavi, che restano quelle di qui"}; registro, previsioni e allarmi si uniscono a quelli che ci sono già. Quello che la app ha imparato si ricalcola dal registro.</p>` +
     `<div class="ntfy-row"><button class="set-btn" id="bk-go" type="button">Importa e riavvia</button><button class="link-btn plain" id="bk-no" type="button">Annulla</button></div>`;
 }
 async function backupIn(file){
@@ -5056,7 +5060,11 @@ async function backupApply(){
   if (cable) await cabClose(false);
   if (p.log.length) await db.put(p.log);
   if (p.fcs.length) await db.put(p.fcs, "fc", r => r.t0);
-  if (p.j.settings && typeof p.j.settings === "object") lsSet(SKEY, p.j.settings); // loadSettings la ricontrolla al riavvio
+  if (p.j.settings && typeof p.j.settings === "object") { // loadSettings la ricontrolla al riavvio
+    const mine = lsGet(SKEY) || {}, inc = { ...p.j.settings };
+    BK_SECRET.forEach(k => { if (!(k in inc) && k in mine) inc[k] = mine[k]; }); // un backup senza chiavi non cancella quelle di questo telefono
+    lsSet(SKEY, inc);
+  }
   const st = p.j.storage || {}, A = st[ALH_KEY];
   if (A && Array.isArray(A.ev)) { // cronologia degli allarmi: unione, senza doppioni
     const seen = new Set(alh.ev.map(e => e.k + "@" + e.s));
