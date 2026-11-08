@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.59"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.60"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4296,7 +4296,7 @@ function pvMask(){
   return data && fin(data.pv_off) ? data.pv_off & 7 : 0;
 }
 const pvIsOff = g => !!(pvMask() >> (g.addr - 1) & 1);
-const PV_POS = [/pannell/i, /tettoia/i, /pollaio/i];     // come sono messi davvero nel quadro
+const PV_POS = [/tettoia/i, /pollaio/i, /pannell/i];     // come sono messi davvero nel quadro
 const pvPos = g => { const i = PV_POS.findIndex(r => r.test(pvName(g))); return i < 0 ? 9 + g.addr : i; };
 function pvOffPut(m){
   pvOffTap = { m, at: Date.now() };
