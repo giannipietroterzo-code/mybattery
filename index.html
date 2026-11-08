@@ -46,8 +46,10 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "out_w": 2340,                 // W che il regolatore porta alle batterie (3106H–3107H): li usa «Energia adesso»
       "v_max": 128.4, "v_max_at": 1793990000,   // picco della tensione dei pannelli oggi (ora italiana), tenuto dalla scheda
       "vmax": 150,                   // massimo del regolatore che usa la scheda per gli allarmi PV_HIGH (90 %) e PV_DANGER (96 %)
-      "voc": [[1793944200, 144.8]],  // albe degli ultimi 7 giorni: tensione più alta prima che il regolatore produca (= Voc) e ora
-      "kwh_today": 3.42,             // energia prodotta oggi (330CH)
+      "voc": [[1793944200, 144.8]],  // ultimi 7 giorni: tensione più alta del mattino, prima delle 11 (= Voc), e ora
+      "kwh_today": 3.42,             // energia prodotta oggi, contata dalla mezzanotte italiana (dalla 0.21)
+      "kwh_reg": 3.42,               // lo stesso registro 330CH com'è: si azzera col suo orologio
+      "clk": -27720, "clk_est": -27600,   // s: orologio del regolatore meno ora italiana (9013H) e stima dall'azzeramento del contatore
       "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
       "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
       "az": 0, "tilt": 30,           // facoltativi: falda del gruppo, azimut da sud (−90 est, 90 ovest, 180 nord) e inclinazione
@@ -353,6 +355,9 @@ a.set-btn{text-decoration:none}
 .hist-read b{color:var(--ink);font-weight:600}
 .hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
 .pv-tab small{display:block;color:var(--muted);font-size:.72rem;font-weight:400}
+@media(max-width:480px){.pv-tab{font-size:.76rem}.pv-tab th,.pv-tab td{padding:9px 5px}.pv-tab th:first-child,.pv-tab td:first-child{padding-left:10px}.pv-tab th:last-child,.pv-tab td:last-child{padding-right:10px}.pv-tab small{font-size:.63rem}.pv-tab td:first-child{max-width:5.2rem}}
+.pv-clk{margin:8px 2px 0;font-size:.82rem;color:var(--muted)}
+.pv-clk b{color:var(--ink);font-weight:600}
 .legend{margin:8px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
 .legend span{white-space:nowrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 5px 0 0;vertical-align:-1px}
@@ -1007,6 +1012,8 @@ footer{border-top:0;padding-top:0}
 .eta:empty{display:none}
 /* tensione del banco: scala LiFePO4 16S da 44,8 V (2,80 V a cella, il BMS stacca) a 58,4 V (3,65 V, pieno) */
 .volt:not(:empty)+.eta{margin-top:8px}
+.flow-box.in-hero{max-width:340px;margin:8px auto 0;box-sizing:border-box}
+.flow-box.in-hero+.eta{margin-top:8px}
 .volt{padding:14px 14px 10px}
 .volt .volt-h{margin:6px 0 4px}
 .volt .eta-txt>small{text-align:center}
@@ -1169,14 +1176,11 @@ footer{border-top:0;padding-top:0}
       </div>
       <p class="state idle" id="state">In attesa dei dati</p>
       <div class="eta volt" id="volt" role="img"></div>
+      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 0 340 178" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
       <div class="eta" id="eta"></div>
       </div>
       </section>
     <section class="night" id="night" aria-live="polite" hidden></section>
-    <section class="flow-sec" aria-labelledby="h-flow">
-      <h2 id="h-flow">Energia adesso</h2>
-      <div class="flow-box"><svg class="flow" id="flow" viewBox="0 0 340 178" role="img" aria-label="Flussi di energia tra pannelli, batterie e casa"></svg></div>
-    </section>
     <div class="notice" id="notice" role="status" hidden></div>
     <button class="q-chip" id="q-chip" type="button"></button>
     <button class="q-chip fw-chip" id="fw-chip" type="button" hidden></button>
@@ -1472,7 +1476,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.49"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.50"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1607,7 +1611,7 @@ function panelGone(c, ds, r){
 function vcalSample(g, now){
   const c = S.pv[g.addr] || {}, t = Math.floor(now / HOUR) * HOUR, ir = irrAt(t, false), h = new Date(now * 1000).getHours();
   if (!ir || !fin(ir.temp) || !(ir.ghi >= 15 && ir.ghi <= 400) || h >= 11 || !(g.w < 5) || g.v < 20) return;
-  const pred = vocRaw(c, ir.temp - PANEL_COLD), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
+  const pred = vocRaw(c, cellT(ir, g.addr, t)), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
   const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), j = ds.findIndex(d => d.d === dk);
   if (j >= 0) { if (g.v <= ds[j].v) return; ds.splice(j, 1); }        // della giornata tengo la lettura più alta
   const row = { d: dk, t: now, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4) }, k = panelGone(c, ds, r);
@@ -1665,6 +1669,13 @@ const midnight = t => { const d = new Date(t * 1000); d.setHours(0, 0, 0, 0); re
 const dayAdd = (m, n) => { const d = new Date(m * 1000); d.setDate(d.getDate() + n); return d.getTime() / 1000; };
 const dayIdx = (t, m0) => Math.round((midnight(t) - m0) / DAY);
 const vocFac = air => 1 + VOC_K * (25 - (air - PANEL_COLD));
+// temperatura delle celle in un'ora di meteo: all'alba poco sotto l'aria, col sole salgono di ~0,03 °C per W/m² (NOCT 45)
+function cellT(ir, a, t){
+  const gt = planeGti(ir, planeOf({ addr: a }), t);
+  return ir.temp - PANEL_COLD + .03 * Math.max(0, fin(gt) ? gt : ir.ghi);
+}
+// una lettura vale come Voc solo se è vicina alla targa: troppo bassa = poca luce, troppo alta = disturbo
+function vocOk(a, v){ const r = v / vocRaw(S.pv[a] || {}, 25); return !fin(r) || (r >= .85 && r <= 1.25); }
 // l'alba di un giorno: l'ora più fredda con un po' di sole prima delle 11, come per l'avviso della prossima alba
 function dawnOf(day0, asFc){
   let best = null;
@@ -1686,17 +1697,17 @@ function vocHist(a){
       put(dw.t + 1260, +(base * vocFac(dw.air) * (1 + .007 * Math.sin(n * 1.9 + a * 2.3))).toFixed(1), 0);
     }
   } else {
-    (vocD[a] || []).forEach(r => put(r[0], r[1], 0));
+    (vocD[a] || []).forEach(r => { if (vocOk(a, r[1])) put(r[0], r[1], 0); });
     if (isReal()) (vcalSt[a] || []).forEach(d => {
       const t = d.t || (d.d ? new Date(Math.floor(d.d / 10000), Math.floor(d.d / 100) % 100 - 1, d.d % 100, 8).getTime() / 1000 : 0);
-      if (t && fin(d.v)) put(t, d.v, d.x || 0);
+      if (t && fin(d.v) && (d.x || vocOk(a, d.v))) put(t, d.v, d.x || 0);
     });
   }
   return [...m.values()].sort((x, y) => x.t - y.t);
 }
 // k (Voc a 25 °C dei pannelli): dalle ultime 14 albe buone col meteo; se sono meno di 3, dalla targhetta
 function vocModel(a, hist){
-  const ks = hist.filter(h => !h.x).slice(-14).map(h => { const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); return ir && fin(ir.temp) ? h.v / vocFac(ir.temp) : NaN; }).filter(fin);
+  const ks = hist.filter(h => !h.x).slice(-14).map(h => { const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false); return ir && fin(ir.temp) ? h.v / (1 + VOC_K * (25 - cellT(ir, a, t))) : NaN; }).filter(fin);
   if (ks.length >= 3) {
     const k = quant(ks, .5), sd = Math.sqrt(ks.reduce((s, x) => s + (x / k - 1) ** 2, 0) / ks.length);
     return { k, rel: Math.max(.008, 1.5 * sd), how: "albe", n: ks.length };
@@ -1727,9 +1738,9 @@ function drawVoc(pv){
   const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
   const nPast = dayIdx(m0 + 12 * HOUR, first) + 1, N = nPast + lastFc;           // colonne: giorni passati + oggi + previsione
   ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); });
-  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli la mattina, appena prima che il regolatore cominci a produrre. Più fa freddo, più sale.</p>`;
+  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale; le letture con troppa poca luce non contano.</p>`;
   if (!ser.some(s => s.hist.length || s.fc.length)) {
-    box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda (firmware 0.18 o successivo) registra ogni alba. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
+    box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda registra ogni mattina la tensione più alta. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
     return;
   }
   const W = 340, H = 200, L = 30, R = 6, T = 12, B = 22, cw = (W - L - R) / N, x = i => L + cw * (i + .5);
@@ -1760,9 +1771,8 @@ function drawVoc(pv){
     const col = vocCol(s.i), hp = s.hist.map(h => [x(dayIdx(h.t, first)), y(h.v)]), fp = s.fc.map(f => [x(dayIdx(f.t, first)), y(f.v), y(f.lo), y(f.hi)]);
     const P = a => a.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
     if (fp.length) {
-      const last = s.hist.length && dayIdx(s.hist[s.hist.length - 1].t, m0) >= -1 ? [hp[hp.length - 1]] : [];
       g += `<path class="band" style="fill:${col}" d="M${fp.map(p => p[0].toFixed(1) + "," + p[3].toFixed(1)).join(" L")} L${fp.slice().reverse().map(p => p[0].toFixed(1) + "," + p[2].toFixed(1)).join(" L")} Z"/>`;
-      g += `<polyline class="fcl" style="stroke:${col}" points="${P([...last, ...fp])}"/>`;
+      g += `<polyline class="fcl" style="stroke:${col}" points="${P(fp)}"/>`;
     }
     if (hp.length > 1) g += `<polyline class="ln" style="stroke:${col}" points="${P(hp)}"/>`;
     s.hist.forEach((h, j) => { const [px, py] = hp[j], on = sel !== null && dayIdx(h.t, m0) === sel;
@@ -4211,6 +4221,20 @@ function setEta(kind, label, value, hours){
 // pannello solare stilizzato: cornice in prospettiva con la griglia delle celle
 const PV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg>';
 const PV_ST = { off: "Non carica", boost: "In carica", float: "Mantenimento", equalize: "Equalizzazione" };
+// quanto è sfasato l'orologio di un regolatore: conta l'ora del giorno, perché il contatore dei kWh si azzera alla sua mezzanotte
+function pvClk(g){
+  const est = !fin(g.clk), s = est ? g.clk_est : g.clk; if (!fin(s)) return null;
+  let ph = ((s % DAY) + DAY) % DAY; if (ph > DAY / 2) ph -= DAY;
+  const wrong = !est && Math.abs(s) >= 1.5 * DAY;
+  if (Math.abs(ph) < 600 && !wrong) return null;
+  const m = Math.round(Math.abs(ph) / 60), h = Math.floor(m / 60);
+  return { est, wrong, t: `${ph < 0 ? "indietro" : "avanti"} di ${h ? h + " h " : ""}${h ? String(m % 60).padStart(2, "0") : m + " min"}` };
+}
+function pvClkNote(pv){
+  const r = pv.map(g => ({ g, c: pvClk(g) })).filter(x => x.c);
+  if (!r.length) return "";
+  return `<p class="pv-clk">${r.map(x => `Orologio di <b>${esc(pvName(x.g))}</b> ${x.c.t}${x.c.est ? " (stima)" : ""}${x.c.wrong ? ", e anche la data è sbagliata" : ""}.`).join(" ")} I kWh di oggi sono contati lo stesso dalla mezzanotte italiana.</p>`;
+}
 function drawPv(pv, k){
   const box = $("pv");
   box.hidden = !Array.isArray(pv) || !pv.length;
@@ -4253,7 +4277,7 @@ function drawPv(pv, k){
     `<div id="voc-box"></div>` +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= vmaxOf(g.addr) * PV_WARN ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${vmaxOf(g.addr)}</small>` : ""}</td>` +
-      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
+      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>` + pvClkNote(pv);
   drawVoc(pv);
 }
 
