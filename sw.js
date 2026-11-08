@@ -1,7 +1,7 @@
 // Service worker: app offline, aggiornamento in background (stale-while-revalidate)
 // Cambiando VERSION (insieme ad APP_VERSION in index.html) i telefoni scaricano tutto di nuovo.
 // Funziona solo in HTTPS (GitHub Pages): servita dalla scheda in HTTP la pagina non lo registra.
-const VERSION = '1.55';
+const VERSION = '1.56';
 const CACHE = 'mybattery-v' + VERSION;
 const ASSETS = [
   './',
