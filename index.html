@@ -1494,7 +1494,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.68"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.69"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1615,13 +1615,14 @@ const VCAL_KEY = "mybattery.voccal.v1";
 const VOC_LIT = 120;
 function vocLit(t){ if (logSrc === "demo" && !isReal()) return true; const ir = t ? irrAt(t, false) : null; return !ir || !fin(ir.ghi) || ir.ghi >= VOC_LIT; }
 let vcalSt = (() => { try { return JSON.parse(localStorage.getItem(VCAL_KEY) || "{}") || {}; } catch (e) { return {}; } })();
+const vcalGood = d => !d.x && vocLit(d.t) && d.r >= .85 && d.r <= 1.2;   // fuori scala: letta con una targa sbagliata, o oltre il filtro
 function vcal(a){
-  const ds = (vcalSt[a] || []).filter(d => !d.x && vocLit(d.t)).slice(-14), n = ds.length;
+  const ds = (vcalSt[a] || []).filter(vcalGood).slice(-14), n = ds.length;
   if (n < 3) return { f: 1, n };
   return { f: clamp(quant(ds.map(d => d.r), .5), .85, 1.15), n, last: ds[n - 1] };
 }
 // mediana delle albe buone già registrate (senza quella di oggi); null se sono meno di 3
-function vcalFrom(ds){ const ok = ds.filter(d => !d.x && vocLit(d.t)).slice(-14); return ok.length >= 3 ? quant(ok.map(d => d.r), .5) : null; }
+function vcalFrom(ds){ const ok = ds.filter(vcalGood).slice(-14); return ok.length >= 3 ? quant(ok.map(d => d.r), .5) : null; }
 // pannelli che sembrano mancare: un diodo di bypass o un pannello in corto toglie circa 1/N della tensione di una stringa da N.
 // Con più stringhe in parallelo quella sana tiene su la tensione e il calo si vede meno, per questo la soglia è al 60% di un pannello.
 function panelGone(c, ds, r){
@@ -3352,7 +3353,8 @@ function learn(rows){
     pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, chg: o.nmin ? o.cwh / (o.nmin / 60) : 0, dsg: o.nmin ? o.dwh / (o.nmin / 60) : 0 }));
   H.forEach(o => o.net = o.chg - o.dsg);
   const Hmap = new Map(H.map(o => [o.t, o]));
-  const first = rows[0][0], last = rows[rows.length - 1][0] + rows[rows.length - 1][1] * 60, span = (last - first) / DAY;
+  const first = rows[0][0], last = rows[rows.length - 1][0] + rows[rows.length - 1][1] * 60;
+  const span = Math.min((last - first) / DAY, rows.reduce((a, r) => a + r[1], 0) / 1440 * 1.25);   // i giorni davvero registrati: un buco lungo non conta, i piccoli (aggiornamenti) sì
   const M = { span, rows: rows.length, step: rows[rows.length - 1][1], first, last, H, Hmap, pvKnown: pvRows > rows.length * .5, patterns: [], insight: {} };
   M.socT = rows.map(r => r[0] + r[1] * 60); M.socV = rows.map(r => r[2]);
 
@@ -3701,10 +3703,11 @@ function nightSimple(k, now){
   }
   if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
   const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data);
-  let w = 0, c = 0;
-  // il consumo di quelle ore, riportato ai deviatori di adesso: zone su solare ora ma su Enel allora (o il contrario)
-  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { w += -p + zonesW(t, SW.mask) - zonesW(t, maskAt(t)); c++; } });
-  const W = c >= 12 ? Math.max(30, w / c) : k.p < 0 ? -k.p : null;                             // almeno un'ora di notte vista, se no il consumo di adesso
+  let w = 0, c = 0, ws = 0, cs = 0;
+  // il consumo di quelle ore, riportato ai deviatori di adesso: zone su solare ora ma su Enel allora (o il contrario).
+  // Se i deviatori stanno così da almeno un'ora vale il consumo misurato così: la stima delle zone sbaglia di molto la sera
+  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { const m = maskAt(t); if (m === SW.mask) { ws += -p; cs++; } w += -p + zonesW(t, SW.mask) - zonesW(t, m); c++; } });
+  const W = cs >= 12 ? Math.max(30, ws / cs) : c >= 12 ? Math.max(30, w / c) : k.p < 0 ? -k.p : null;   // almeno un'ora di notte vista, se no il consumo di adesso
   if (!W) return null;
   const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), min = k.soc - W * (resume - now) / 3600 / capWh * 100;
   const cut = cutSoc();
@@ -4012,7 +4015,7 @@ function myAlarms(bs, k, f){
     const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim;
     if (cold) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
       t: `${dayWord(dc.t)[0].toUpperCase() + dayWord(dc.t).slice(1)} all'alba ~${nf(v, 0)} V${peak ? `, oggi ${nf(peak.v, 0)} V` : ""}`,
-      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}, ${L}. ${over ? "Stasera apri il sezionatore di questo gruppo e richiudilo a sole alto." : "Tienilo d'occhio se scende ancora la temperatura."}` });
+      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}, ${L}. ${over ? `${dkey(dc.t) === dkey(now) ? "Prima dell'alba" : "Stasera"} apri il sezionatore di questo gruppo e richiudilo a sole alto.` : "Tienilo d'occhio se scende ancora la temperatura."}` });
     else out.push({ id: "pvv" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi pannelli a ${nf(peak.v, 0)} V`, d: `Alle ${hm(peak.at)}, ${L}. Con il freddo la tensione sale ancora.` });
   });
   if (Array.isArray(data.pv)) data.pv.forEach(g => { const ds = vcalSt[g.addr] || [], l = ds[ds.length - 1], c = S.pv[g.addr] || {};
@@ -4236,8 +4239,9 @@ function drawAlHist(){
   list.innerHTML = ev.slice(0, 8).map(e => `<li class="${e.sev}"><span class="ri">${ico(AL_ICON[e.sev])}</span><span><b>${esc(e.t)}</b>` +
     `<small>${e.who ? esc(e.who) + " · " : ""}${dm(e.s)} alle ${hm(e.s)} · ${durTxt(e)}</small></span></li>`).join("");
   note.textContent = logSrc === "demo" ? "Gli allarmi qui sopra sono di esempio."
-    : ev.length ? "Gli altri allarmi li registra la app mentre è aperta: quelli scattati a app chiusa li terrà la scheda."
-    : "Gli allarmi di batterie e regolatori compaiono qui quando scattano (la app li registra mentre è aperta).";
+    : boardEv ? (ev.length ? "Il diario lo tiene la scheda: registra anche a app chiusa." : "Il diario lo tiene la scheda: qui compaiono gli allarmi di batterie e regolatori, anche quelli a app chiusa.")
+    : ev.length ? "Senza la scheda gli allarmi li registra la app, solo mentre è aperta."
+    : "Gli allarmi di batterie e regolatori compaiono qui quando scattano (senza la scheda, solo a app aperta).";
 }
 
 /* ---------- pannello "Quanto è affidabile": errori misurati, correzioni imparate, mappa del sole ---------- */
