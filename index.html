@@ -29,6 +29,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
     "time": 1793460000,              // epoch secondi UTC (RTC della scheda); se l'RTC non è impostato
                                      // (valore < 1600000000) la pagina usa l'ora del telefono
     "rssi": -58,                     // segnale WiFi dBm
+    "fc_last": 1794000000,           // ora dell'ultima previsione archiviata sulla scheda: GET /api/fc (firmware 0.27)
     "voc_at": 1794000000,            // cambia quando cambiano taratura della Voc e albe sulla scheda: GET /api/voc (firmware 0.26)
     "log_min": 30,                   // minuti tra le righe del registro a lungo termine: GET /api/log (docs/storico-e-previsioni.md)
     "batteries": [{
@@ -1493,7 +1494,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.67"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.68"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1713,9 +1714,12 @@ function vocLacks(kind, mine, board){
 let vocBoard = null, vocBusy = false, vocPushAt = 0, vocSeen = null; // vocBoard = quello che ha la scheda (null: firmware senza /api/voc o non ancora letto)
 async function vocSend(){
   if (!vocBoard || vocBusy || !canWrite() || Date.now() - vocPushAt < 6e5) return;
-  if (!vocLacks("cal", vcalSt, vocBoard.cal) && !vocLacks("dawn", vocD, vocBoard.dawn)) return;
+  const bpk = vocObj(vocBoard.pk), boff = new Set((Array.isArray(vocBoard.off) ? vocBoard.off : []).map(r => r[0])), myOff = pvOffH.slice(-100);
+  const pkNew = Object.keys(pvPk).some(k => fin(pvPk[k].rv) && !((bpk[k] || {}).rv >= pvPk[k].rv - .05)), offNew = myOff.some(r => !boff.has(r[0]));
+  if (!pkNew && !offNew && !vocLacks("cal", vcalSt, vocBoard.cal) && !vocLacks("dawn", vocD, vocBoard.dawn)) return;
   vocBusy = true; vocPushAt = Date.now();
-  const out = { cal: vcalSt, dawn: vocD }, copy = JSON.parse(JSON.stringify(out));
+  const pk = {}; Object.keys(pvPk).forEach(k => { if (fin(pvPk[k].rv)) pk[k] = { rv: pvPk[k].rv, rat: pvPk[k].rat }; });
+  const out = { cal: vcalSt, dawn: vocD, pk, off: myOff }, copy = JSON.parse(JSON.stringify(out));
   try { const j = await boardCfg({ voc: out }); if (j && j.ok) vocBoard = copy; } catch (e) {}
   vocBusy = false;
 }
@@ -1726,8 +1730,12 @@ function vocTake(b){
   const ch = JSON.stringify(cal) !== JSON.stringify(vocUnion("cal", vcalSt)) || JSON.stringify(dawn) !== JSON.stringify(vocUnion("dawn", vocD));
   vcalSt = cal; vocD = dawn; vocBoard = b;
   if (ch) { lsSet(VCAL_KEY, cal); lsSet(VOCD_KEY, dawn); }
+  let pkCh = false; const bpk = vocObj(b.pk);
+  Object.keys(bpk).forEach(k => { const x = bpk[k]; if (/^[1-9]$/.test(k) && x && fin(x.rv) && x.rv > 0 && x.rv <= 400 && !((pvPk[k] || {}).rv >= x.rv)) { pvPk[k] = pvPk[k] || {}; pvPk[k].rv = x.rv; pvPk[k].rat = x.rat; pkCh = true; } });
+  if (pkCh) lsSet(PVMAX_KEY, pvPk);
+  pvOffKeep(b.off);
   vocSend();
-  return ch;
+  return ch || pkCh;
 }
 async function vocPull(at){
   if (vocBusy) return;
@@ -2459,6 +2467,7 @@ async function remApply(b, fresh){
     if (JSON.stringify(sharedOf()) !== before && $("settings").open) { fillSettings(); fillLoc(); }
   }
   if (b.voc && !(fin(b.t) && b.t < remCmdAt)) vocTake(b.voc);
+  fcCap = fin(b.s.fc_last);
   if (fresh && Array.isArray(b.log)) { const rows = b.log.filter(validRow); if (rows.length) await db.put(rows); logSrc = ""; await realLog(); relearn(); }
 }
 // la diretta: MQTT 3.1.1 su WebSocket sicuro, solo iscrizione al messaggio "trattenuto" che la scheda rinnova ogni 10 s
@@ -2620,12 +2629,14 @@ async function remotePoll(){
     const last = name => msgs.filter(m => m.attachment.name === name).pop(), c = lsGet(REM_KEY) || {};
     const lg = last("log.bin");
     if (lg && lg.id !== c.log) { const rows = remLogRows(await remOpen(lg.attachment.url)); if (rows.length) await db.put(rows); c.log = lg.id; }
+    const fb = last("fc.bin");
+    if (fb && fb.id !== c.fc) { const rows = remFcRows(await remOpen(fb.attachment.url)), have = new Set(((await db.all("fc")) || []).map(r => r && r.t0)), fresh = rows.filter(r => !have.has(r.t0)); if (fresh.length) { await db.put(fresh, "fc", r => r.t0); fresh.forEach(r => fcArchive.push(r)); } c.fc = fb.id; }
     const mb = last("mb.bin");
     if (!mb) throw new Error("nessun pacchetto nelle ultime 3 ore");
     if (mb.id !== c.id || !data || mode !== "remote") {
       const b = JSON.parse(new TextDecoder().decode(await remOpen(mb.attachment.url)));
       await remApply(b, true);
-      lsSet(REM_KEY, { t: S.rem.t, id: mb.id, log: c.log, b });
+      lsSet(REM_KEY, { t: S.rem.t, id: mb.id, log: c.log, fc: c.fc, b });
     } else lsSet(REM_KEY, c);
     remErr = "";
     render("remote");
@@ -2707,6 +2718,8 @@ async function poll(){
     render("live");
     if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();
     if (fin(j.voc_at) && j.voc_at !== vocSeen) vocPull(j.voc_at);
+    fcCap = fin(j.fc_last);
+    if (fcCap && j.fc_last !== fcSeen) fcSync(j.fc_last);
     swSync(j);
     if (fin(j.mute_until) && Math.abs(j.mute_until - muteUntil) > 60 && !muted()) { muteUntil = j.mute_until; try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {} }
     syncLog();
@@ -3548,8 +3561,49 @@ async function saveSnapshot(det){
   if (logSrc !== "live") return;
   const h = Math.floor(det.T[0] / HOUR) * HOUR; if (h === lastSnap) return;
   lastSnap = h;
+  if (fcArchive.some(r => r.t0 === h)) return;            // per quest'ora c'è già quella di un altro dispositivo: per tutti vale quella
   const rec = { t0: h, s: det.S.map(v => +v.toFixed(1)), p: det.P.map(Math.round), l: det.L.map(Math.round) };
   fcArchive.push(rec); db.put([rec], "fc", r => r.t0);
+  if (fcCap && mode === "live") fcPost([rec]).catch(() => {});
+  else if (fcCap && mode === "remote") boardCfg({ fc: rec }).catch(() => {});
+}
+/* l'archivio vero sta sulla scheda (firmware 0.27), qui ne resta una copia: all'apertura e a ogni previsione nuova ci si mette in pari nei due sensi */
+let fcSeen = null, fcCap = false, fcBusy = false, fcTry = 0;
+const fcOk = r => r && fin(r.t0) && Array.isArray(r.s) && Array.isArray(r.p) && Array.isArray(r.l);
+async function fcPost(rows){
+  const r = await fetch("/api/fc", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ rows }) });
+  if (!r.ok) throw new Error(r.status);
+}
+async function fcSync(at){
+  if (fcBusy || Date.now() - fcTry < 3e4) return;
+  fcBusy = true; fcTry = Date.now();
+  try {
+    await realLog();
+    const idx = await (await fetch("/api/fc?idx=1", { cache: "no-store" })).json();
+    if (!idx || !Array.isArray(idx.t)) return;
+    const board = new Set(idx.t), have = new Set(fcArchive.map(r => r.t0)), miss = idx.t.filter(t => !have.has(t));
+    let got = 0;
+    if (miss.length) {
+      let from = Math.min(...miss);
+      for (let g = 0; g < 40; g++) {
+        const j = await (await fetch(`/api/fc?from=${from}`, { cache: "no-store" })).json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(fcOk);
+        if (!rows.length) break;
+        const fresh = rows.filter(r => !have.has(r.t0));
+        if (fresh.length) { await db.put(fresh, "fc", r => r.t0); fresh.forEach(r => { have.add(r.t0); fcArchive.push(r); }); got += fresh.length; }
+        from = rows[rows.length - 1].t0 + 1;
+        if (!j.more) break;
+      }
+    }
+    const old = nowS() - 31 * DAY, send = fcArchive.filter(r => !board.has(r.t0) && r.t0 >= old && fcOk(r)).sort((a, b) => a.t0 - b.t0);
+    for (let i = 0; i < send.length; i += 40) await fcPost(send.slice(i, i + 40));
+    fcSeen = at;
+    if (got) relearn();
+  } catch (e) {} finally { fcBusy = false; }
+}
+function remFcRows(u8){ // righe da 304 byte di /fc.bin: t0, poi 50 valori per carica (decimi di %), sole e consumi; -32768 = finita
+  const v = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), out = [], arr = (o, k) => { const a = []; for (let i = 0; i < 50; i++) { const x = v.getInt16(o + i * 2, true); if (x === -32768) break; a.push(x / k); } return a; };
+  for (let o = 0; o + 304 <= u8.byteLength; o += 304) out.push({ t0: v.getUint32(o, true), s: arr(o + 4, 10), p: arr(o + 104, 1), l: arr(o + 204, 1) });
+  return out.filter(fcOk);
 }
 async function loadArchive(){ if (logSrc !== "live") return; fcArchive = ((await db.all("fc")) || []).filter(r => r && fin(r.t0) && Array.isArray(r.s)); }
 function archiveCal(M){
@@ -4142,8 +4196,7 @@ let alhSig = "";
 function drawAlHist(){
   const thr = S.alLow, now = Date.now() / 1000, t0 = new Date(); t0.setHours(0, 0, 0, 0); t0.setDate(t0.getDate() - 29);
   const from = t0.getTime() / 1000, rows = LOG.filter(r => r[0] >= from && fin(r[2]));
-  const bFrom = boardEv && (mode === "live" || mode === "remote") ? Math.min(fin(data && data.log_first) ? data.log_first : now, ...boardEv.map(e => e.s)) : Infinity;
-  const ev = (logSrc === "demo" ? demoAlh() : boardEv && (mode === "live" || mode === "remote") ? [...boardEv, ...alh.ev.filter(e => e.s < bFrom)] : alh.ev)
+  const ev = (logSrc === "demo" ? demoAlh() : boardEv && (mode === "live" || mode === "remote") ? boardEv : alh.ev)   // con la scheda fa fede solo il suo diario, uguale per tutti
     .filter(e => (e.e || now) >= from).sort((a, b) => b.s - a.s);
   const sig = [thr, LOG.length, LOG.length && LOG[LOG.length - 1][0], ev.length, ev[0] && ev[0].e, dkey(now)].join();
   if (sig === alhSig) return; alhSig = sig;
@@ -5069,6 +5122,11 @@ async function backupOut(){
   const log = ((await db.all()) || []).filter(validRow).sort((a, b) => a[0] - b[0]);
   const fcs = ((await db.all("fc")) || []).filter(r => r && fin(r.t0));
   const storage = {}; BK_LS.forEach(k => { const v = lsGet(k); if (v !== null) storage[k] = v; });
+  if (mode === "live") await boardAlarms();
+  if (boardEv && (mode === "live" || mode === "remote")) { // nel file anche il diario della scheda; quello del browser solo per il periodo che la scheda non copre
+    const from = boardEv.length ? Math.min(...boardEv.map(e => e.s)) : Infinity, A = storage[ALH_KEY] || { seen: 0, ev: [] };
+    storage[ALH_KEY] = { ...A, ev: [...(Array.isArray(A.ev) ? A.ev : []).filter(e => e && e.s < from), ...boardEv].sort((a, b) => a.s - b.s) };
+  }
   const learned = logSrc === "live" && model ? JSON.parse(JSON.stringify(model, (k, v) => LEARN_SKIP.has(k) || v instanceof Map ? undefined : v)) : null;
   const out = { app: "MyBattery", kind: "backup", format: 1, version: APP_VERSION, created: Math.round(nowS()), from: location.host || "file",
     settings: { ...S }, storage, log, forecasts: fcs, learned };
@@ -5116,7 +5174,7 @@ async function backupApply(){
   if (A && Array.isArray(A.ev)) { // cronologia degli allarmi: unione, senza doppioni
     const seen = new Set(alh.ev.map(e => e.k + "@" + e.s));
     A.ev.filter(e => e && typeof e.k === "string" && fin(e.s) && !seen.has(e.k + "@" + e.s)).forEach(e => alh.ev.push(e));
-    alh.ev.sort((a, b) => a.s - b.s); alh.ev = alh.ev.slice(-300); saveAlh();
+    alh.ev.sort((a, b) => a.s - b.s); alh.ev = alh.ev.slice(-1000); saveAlh();
   }
   const H = st[UHIST_KEY], mine = lsGet(UHIST_KEY);
   if (H && Array.isArray(H.soc) && H.soc.length === 288 && (!mine || H.t > mine.t)) lsSet(UHIST_KEY, H);
