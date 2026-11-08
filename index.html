@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.56"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.57"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2321,7 +2321,7 @@ const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
 /* ---------- da fuori casa: la scheda manda ogni 10 minuti un pacchetto cifrato (AES-256-GCM) su un canale ntfy segreto.
    Qui lo si scarica, lo si apre con la chiave avuta in casa e lo si mostra come se si fosse in rete con la scheda ---------- */
 const REM_APP = "https://giannipietroterzo-code.github.io/mybattery/", REM_KEY = "mybattery.rem.v1";
-let remAt = 0, remBusy = false, remKeyC = null, remErr = "";
+let remAt = 0, remBusy = false, remBusyAt = 0, remKeyC = null, remErr = "";
 // a casa l'app di GitHub salta da sola a quella della scheda: stesso indirizzo internet della scheda = stessa rete di casa
 const HOME_KEY = "mybattery.home.v1", JUMP_KEY = "mybattery.jump.v1";
 let homeAt = 0, homeWhy = ""; // homeWhy: perché l'ultima prova non ha riconosciuto casa (si mostra nell'avviso)
@@ -2360,7 +2360,14 @@ function remNew(){
   const r = crypto.getRandomValues(new Uint8Array(18));
   return { t: "mbr-" + Array.from(r, b => (b % 36).toString(36)).join(""), k: b64u(crypto.getRandomValues(new Uint8Array(32))) };
 }
-async function remOpen(url){ return remDecrypt(new Uint8Array(await (await fetch(url, { cache: "no-store" })).arrayBuffer())); }
+// con la rete mobile una richiesta può restare appesa per sempre (telefono in tasca, app congelata): si abbandona dopo 20 s
+async function remFetch(url){
+  const c = new AbortController(), to = setTimeout(() => c.abort(), 20e3);
+  try { const r = await fetch(url, { cache: "no-store", signal: c.signal }); if (!r.ok) throw new Error("ntfy risponde " + r.status); return await r.arrayBuffer(); }
+  catch (e) { throw e && e.name === "AbortError" ? new Error("ntfy non risponde") : e; }
+  finally { clearTimeout(to); }
+}
+async function remOpen(url){ return remDecrypt(new Uint8Array(await remFetch(url))); }
 async function remKeyOf(){
   if (!remKeyC || remKeyC.k !== S.rem.k) remKeyC = { k: S.rem.k, key: await crypto.subtle.importKey("raw", unb64u(S.rem.k), "AES-GCM", false, ["encrypt", "decrypt"]) };
   return remKeyC.key;
@@ -2408,13 +2415,14 @@ function mqStart(){
   const pkt = (h, body) => { const rl = []; let n = body.length; do { let d = n % 128; n = Math.floor(n / 128); if (n) d |= 128; rl.push(d); } while (n); return new Uint8Array([h, ...rl, ...body]); };
   let ws; try { ws = new WebSocket(`wss://${host}:8884/mqtt`, ["mqtt"]); } catch (e) { return; }
   ws.binaryType = "arraybuffer";
-  const me = mq = { ws, buf: new Uint8Array(0), ping: 0, ready: false, pkt, str };
+  const me = mq = { ws, buf: new Uint8Array(0), ping: 0, ready: false, pkt, str, at: Date.now() };
   ws.onopen = () => {
     ws.send(pkt(0x10, [...str("MQTT"), 4, 0x02 | (user ? 0x80 : 0) | (pass ? 0x40 : 0), 0, 60,
       ...str("mbapp-" + Math.random().toString(36).slice(2, 10)), ...(user ? str(user) : []), ...(pass ? str(pass) : [])]));
     me.ping = setInterval(() => { try { ws.send(new Uint8Array([0xC0, 0])); } catch (e) {} }, 30e3);
   };
   ws.onmessage = e => {
+    me.at = Date.now();
     const add = new Uint8Array(e.data), b = new Uint8Array(me.buf.length + add.length); b.set(me.buf); b.set(add, me.buf.length); me.buf = b;
     for (;;) {                                         // un pacchetto MQTT può arrivare a pezzi, o più pacchetti insieme
       const u = me.buf; if (u.length < 2) break;
@@ -2535,20 +2543,22 @@ async function mqMsg(u8){
     if (fin(b.s.mute_until) && Date.now() / 1000 - remCmdAt > 25) muteUntil = b.s.mute_until;
     mqLive = Date.now(); remErr = "";
     render("remote");
-  } catch (e) {}
+  } catch (e) { if (e && e.name === "OperationError") remErr = "la chiave non apre il pacchetto: ricollega questo telefono da casa"; }
 }
-document.addEventListener("visibilitychange", () => { if (document.hidden) mqStop(); });
+// tornando sulla app si riparte da capo: quello che era in corso quando il telefono l'ha congelata può non finire mai
+document.addEventListener("visibilitychange", () => { if (document.hidden) mqStop(); else if (S.rem) { remAt = 0; remBusy = false; } });
 async function remotePoll(){
+  if (mq && Date.now() - mq.at > 45e3) mqStop();         // la scheda pubblica ogni 10 s e il broker risponde ai ping: 45 s di silenzio = connessione morta
   mqStart();
-  if (remBusy) return;
+  if (remBusy && Date.now() - remBusyAt < 60e3) return;
   if (!data || mode !== "remote") { // all'apertura: l'ultimo pacchetto visto, mentre arriva quello nuovo
     const c = lsGet(REM_KEY);
     if (c && c.b && c.t === S.rem.t) { try { await remApply(c.b, false); if (!LOG.length) { logSrc = ""; await realLog(); relearn(); } render("remote"); } catch (e) {} }
   }
   if (Date.now() - remAt < 60e3) { if (data && mode === "remote") render("remote"); return; }
-  remBusy = true; remAt = Date.now();
+  remBusy = true; remBusyAt = remAt = Date.now();
   try {
-    const txt = await (await fetch(`https://ntfy.sh/${S.rem.t}/json?poll=1&since=3h`, { cache: "no-store" })).text();
+    const txt = new TextDecoder().decode(await remFetch(`https://ntfy.sh/${S.rem.t}/json?poll=1&since=3h`));
     const msgs = txt.split("\n").map(l => { try { return JSON.parse(l); } catch (e) { return null; } })
       .filter(m => m && m.event === "message" && m.attachment && m.attachment.url && m.attachment.expires * 1000 > Date.now());
     const last = name => msgs.filter(m => m.attachment.name === name).pop(), c = lsGet(REM_KEY) || {};
@@ -2723,7 +2733,7 @@ function render(m){
     const age = (Date.now() / 1000 - nowOf(data)) / 60, old = age > 25;
     n.hidden = false; n.className = "notice" + (old ? " lost" : ""); n.dataset.k = "";
     const home = DEMO_ONLY && lsGet(HOME_KEY);
-    n.innerHTML = esc(old ? `La scheda non manda dati da ${dur(age / 60)}: è spenta o non raggiunge internet. Vedi l'ultimo pacchetto, delle ${hm(nowOf(data))}.`
+    n.innerHTML = esc(old ? `Nessun dato nuovo da ${dur(age / 60)}: vedi quelli delle ${hm(nowOf(data))}. ${remErr ? "Questo telefono non riesce a leggerli: " + remErr + "." : "O la scheda è senza internet, o il telefono non li riceve: riprovo da solo."}`
       : Date.now() - mqLive < 45e3 ? `Da fuori casa, in diretta: aggiornato alle ${new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT")}. Le modifiche arrivano alla scheda in pochi secondi.`
       : `Da fuori casa: dati della scheda delle ${hm(nowOf(data))}, si aggiornano ogni 10 minuti. Per cambiare qualcosa serve la diretta: si ricollega da sola.`) +
       (home && home.ip ? `<a class="set-btn" href="http://${esc(home.ip)}/">Sono a casa: apri l'app della scheda</a>` : "") +
