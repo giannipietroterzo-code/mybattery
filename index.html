@@ -1010,7 +1010,7 @@ footer{border-top:0;padding-top:0}
 .eta:empty{display:none}
 /* tensione del banco: scala LiFePO4 16S da 44,8 V (2,80 V a cella, il BMS stacca) a 58,4 V (3,65 V, pieno) */
 .volt:not(:empty)+.eta{margin-top:8px}
-.flow-box.in-hero{max-width:340px;margin:8px auto 0;padding-bottom:12px;box-sizing:border-box}
+.flow-box.in-hero{max-width:340px;margin:8px auto 0;padding-bottom:6px;box-sizing:border-box}
 .flow-box.in-hero+.eta{margin-top:8px}
 .volt{padding:10px 14px 10px}
 .volt .volt-h{margin:4px 0 4px}
@@ -1174,7 +1174,7 @@ footer{border-top:0;padding-top:0}
       </div>
       <p class="state idle" id="state">In attesa dei dati</p>
       <div class="eta volt" id="volt" role="img"></div>
-      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 12 340 166" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
+      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 9 340 169" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
       <div class="eta" id="eta"></div>
       </div>
       </section>
@@ -1474,7 +1474,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.52"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.53"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
