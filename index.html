@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.60"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.61"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3889,22 +3889,25 @@ function myAlarms(bs, k, f){
       out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
   out.push(...swAlarms(k, f, now, hr));
-  // tensione dei pannelli vicina al massimo del regolatore: sempre attivo, è una protezione dell'impianto
+  // tensione dei pannelli vicina al massimo del regolatore: un solo avviso per gruppo, col caso peggiore tra adesso, oggi e la prossima alba.
+  // È una protezione dell'impianto: sempre attivo. Il controllo fisso delle stringhe sta nelle impostazioni del gruppo.
+  const dc = Array.isArray(data.pv) ? dawnCold() : null;
   if (Array.isArray(data.pv)) data.pv.forEach(g => {
-    const max = vmaxOf(g.addr), pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
-    if (cur >= max * PV_DANGER) out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= max ? "Oltre i" : "Quasi ai"} ${max} V che il regolatore regge: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` });
-    else if (pk && pk.v >= max * PV_WARN) out.push({ id: "pvv" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi pannelli a ${nf(pk.v, 0)} V`, d: `Alle ${hm(pk.at)}, vicino ai ${max} V del regolatore. Con il freddo la tensione sale ancora: valuta un pannello in meno per stringa.` });
+    if (pvIsOff(g)) return;                                  // staccato: lo dicono le leve nella pagina Pannelli
+    const c = S.pv[g.addr] || {}, max = vmaxOf(g.addr), lim = g.fc && fin(g.fc.l) ? g.fc.l : max, pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
+    if (cur >= max * PV_DANGER) { out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= max ? "Oltre i" : "Quasi ai"} ${max} V che il regolatore regge: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` }); return; }
+    const t25 = vocRaw(c, 25), peak = pk && pk.v >= max * PV_WARN && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
+    const v = dc ? vocAt(c, dc.panel, g.addr) : NaN, cold = fin(v) && v >= max * PV_WARN;
+    if (!peak && !cold) return;
+    const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim;
+    if (cold) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
+      t: `${dayWord(dc.t)[0].toUpperCase() + dayWord(dc.t).slice(1)} all'alba ~${nf(v, 0)} V${peak ? `, oggi ${nf(peak.v, 0)} V` : ""}`,
+      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}, ${L}. ${over ? "Stasera apri il sezionatore di questo gruppo e richiudilo a sole alto." : "Tienilo d'occhio se scende ancora la temperatura."}` });
+    else out.push({ id: "pvv" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi pannelli a ${nf(peak.v, 0)} V`, d: `Alle ${hm(peak.at)}, ${L}. Con il freddo la tensione sale ancora.` });
   });
   if (Array.isArray(data.pv)) data.pv.forEach(g => { const ds = vcalSt[g.addr] || [], l = ds[ds.length - 1], c = S.pv[g.addr] || {};
     if (l && l.x && l.d === dkey(now)) out.push({ id: "pvdiode" + g.addr + "-" + l.d, sev: "alarm", who: pvName(g),
       t: `All'alba ${nf(l.v, 0)} V invece di ${nf(l.e, 0)}`, d: `Manca ${l.x > 1 ? "la tensione di circa " + l.x + " pannelli" : "circa un pannello"} su ${c.n / (c.s || 1)} in serie: un diodo di bypass o un pannello in corto. Misura col tester la Voc dei pannelli di questo gruppo.` }); });
-  const dc = Array.isArray(data.pv) ? dawnCold() : null;
-  if (dc) data.pv.forEach(g => { const c = S.pv[g.addr] || {}, v = vocAt(c, dc.panel, g.addr), max = vmaxOf(g.addr);
-    if (fin(v) && v >= max * PV_WARN) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
-      t: `${dayWord(dc.t)[0].toUpperCase() + dayWord(dc.t).slice(1)} all'alba pannelli verso ${nf(v, 0)} V`,
-      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}: ${v >= max ? "oltre i" : "vicino ai"} ${max} V del regolatore. ${v >= max ? "Stasera apri il sezionatore di questo gruppo e richiudilo a sole alto." : "Tienilo d'occhio: se scende ancora la temperatura, togli un pannello per stringa."}` }); });
-  if (S.alPv && Array.isArray(data.pv)) data.pv.forEach(g => { const k = vocCheck(S.pv[g.addr] || {}, g.addr);
-    if (k && k.st === "over") out.push({ id: "pvvoc" + g.addr, sev: "alarm", who: pvName(g), t: `Stringhe fino a ${nf(k.v, 0)} V col freddo`, d: `Il regolatore regge ${k.max} V: d'inverno, a pannelli freddi e scollegati, si può rompere. Riduci i pannelli in serie.` }); });
   if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
     const gs = data.pv.filter(g => g.online !== false && fin(dayRatio(g))), rs = gs.map(dayRatio), best = Math.max(0, ...rs);
     if (gs.length > 1 && best >= .25) gs.forEach((g, j) => { if (rs[j] < best * .7)
@@ -4013,6 +4016,7 @@ function scheduleOnClose(){
   const now = Date.now() / 1000, sched = readSched();
   Object.keys(sched).forEach(q => { if (sched[q] < now - 2 * DAY) delete sched[q]; });
   myAlarms(data.batteries || [], bank(data.batteries || []), fc).filter(a => a.sev === "fc" || a.sev === "tip").forEach(a => {
+    const pa = /^pvfc(\d+)-/.exec(a.id); if (pa && (S.pv[pa[1]] || {}).va) return;   // con la Voc calibrata la notifica della sera la manda la scheda
     const seq = "mb-" + a.id;
     if (sched[seq] && sched[seq] <= now) return;                // già arrivata: non la ripete
     const d = new Date(); d.setHours(a.sev === "tip" ? 9 : a.id.startsWith("fclow") ? 20 : 19, 0, 0, 0);
