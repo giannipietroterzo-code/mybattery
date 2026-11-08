@@ -1492,7 +1492,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.65"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.66"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3964,7 +3964,7 @@ function ringNew(items){
 
 // ntfy: canale privato casuale. Gli allarmi li manda la scheda (le arriva con le impostazioni condivise);
 // la app manda solo le previsioni, programmate quando la chiudi e annullate quando la riapri
-const NTFY = "https://ntfy.sh", NTFY_KEY = "mybattery.ntfy.v1", APP_URL = new URL("./", location.href).href;
+const NTFY = "https://ntfy.sh", NTFY_KEY = "mybattery.ntfy.v1", APP_URL = "https://giannipietroterzo-code.github.io/mybattery/"; // il tocco sulla notifica apre sempre questa: funziona anche da fuori casa
 const newTopic = () => "mybattery-" + Array.from(crypto.getRandomValues(new Uint8Array(12)), b => (b % 36).toString(36)).join("");
 const ntfyPub = (msg, keep) => fetch(NTFY + "/", { method: "POST", body: JSON.stringify(msg), keepalive: !!keep });
 const readSched = () => { try { return JSON.parse(localStorage.getItem(NTFY_KEY) || "{}") || {}; } catch (e) { return {}; } };
