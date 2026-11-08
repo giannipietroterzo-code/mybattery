@@ -45,7 +45,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "w": 2410, "v": 112.4, "a": 21.4,   // pannelli: W, V, A (registri 3100H–3103H)
       "out_w": 2340,                 // W che il regolatore porta alle batterie (3106H–3107H): li usa «Energia adesso»
       "v_max": 128.4, "v_max_at": 1793990000,   // picco della tensione dei pannelli oggi (ora italiana), tenuto dalla scheda
-      "vmax": 150,                   // massimo del regolatore che usa la scheda per gli allarmi PV_HIGH (90 %) e PV_DANGER (96 %)
+      "vmax": 150,                   // massimo del regolatore, da cui la scheda calcola, con la temperatura della stanza, gli allarmi PV_HIGH e PV_DANGER
       "voc": [[1793944200, 144.8]],  // ultimi 7 giorni: tensione più alta del mattino, prima delle 11 (= Voc), e ora
       "kwh_today": 3.42,             // energia prodotta oggi, contata dalla mezzanotte italiana (dalla 0.21)
       "fault": true, "sus": true,    // il regolatore segnala un guasto; sus = non vede i pannelli ma la leva dice collegato
@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.62"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.63"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1588,7 +1588,7 @@ function strArr(c){
 // e se supera il massimo del regolatore lo rompe. Tracer xx15 = 150 V, xx20 = 200 V, xx10 = 100 V.
 const VMAX = [100, 150, 200], T_MIN = -10, VOC_K = 0.003;
 // tensione letta dai pannelli: avviso dal 90% del massimo (135 V su 150, sotto i 138 V che Epever dà a 25 °C), pericolo dal 96% (144 V)
-const PV_WARN = .9, PV_DANGER = .96, PVMAX_KEY = "mybattery.pvmax.v1";
+const PV_WARN = .9, PV_WARN_V = 5, PV_DANGER_V = 1, PVMAX_KEY = "mybattery.pvmax.v1";
 // la prossima alba col meteo: la Voc è quasi piena già con poca luce, quindi conta l'ora più fredda tra quelle con un po' di sole.
 // Nelle notti serene i pannelli all'alba stanno un paio di gradi sotto l'aria.
 const PANEL_COLD = 2;
@@ -1636,6 +1636,10 @@ function vcalSample(g, now){
   try { localStorage.setItem(VCAL_KEY, JSON.stringify(vcalSt)); } catch (e) {}
 }
 const vmaxOf = a => (S.pv[a] && S.pv[a].vmax) || 150;
+// il massimo del regolatore vale solo a -25 °C: come nel firmware (vocLimAt), il limite vero dipende dalla temperatura della stanza
+function pvEnv(){ const b = ((data && data.batteries) || []).find(x => x.online !== false && fin(x.t_env) && x.t_env > -30 && x.t_env < 60); return b ? b.t_env : 15; }
+function pvLim(m){ const lo = m === 100 ? 92 : m === 200 ? 180 : 138, T = Math.min(25, Math.max(-25, pvEnv())); return lo + (m - lo) * (25 - T) / 50; }
+const pvWarnAt = m => Math.min(m * PV_WARN, pvLim(m) - PV_WARN_V), pvDangerAt = m => pvLim(m) - PV_DANGER_V;
 // il picco di oggi e il record di ogni regolatore; in demo restano in memoria, così non sporcano quelli veri
 let pvPk = (() => { try { return JSON.parse(localStorage.getItem(PVMAX_KEY) || "{}") || {}; } catch (e) { return {}; } })(), pvPkDemo = {};
 function trackPv(pv){
@@ -1770,7 +1774,7 @@ function drawVoc(pv){
   const W = 340, H = 200, L = 30, R = 6, T = 12, B = 22, cw = (W - L - R) / N, x = i => L + cw * (i + .5);
   const vals = ser.flatMap(s => [...s.hist.map(h => h.v), ...s.fc.flatMap(f => [f.lo, f.hi])]);
   const lims = [...new Set(ser.map(s => s.vmax))];
-  let lo = Math.floor((Math.min(...vals) - 4) / 5) * 5, hi = Math.ceil((Math.max(...vals, ...lims) + 3) / 5) * 5;
+  let lo = Math.floor((Math.min(...vals) - 4) / 5) * 5, hi = Math.ceil((Math.max(...vals, ...lims.map(pvLim)) + 3) / 5) * 5;
   if (hi - lo < 20) lo = hi - 20;
   const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B), st = hi - lo > 60 ? 20 : 10;
   let g = "";
@@ -1778,7 +1782,7 @@ function drawVoc(pv){
   if (lastFc > 0) g += `<rect class="fcz" x="${(x(tIdx + 1) - cw / 2).toFixed(1)}" y="${T - 6}" width="${(W - R - x(tIdx + 1) + cw / 2).toFixed(1)}" height="${H - B - T + 6}" rx="6"/>` +
     `<text class="fct" x="${W - R - 4}" y="${T + 3}" text-anchor="end">previsione</text>`;
   for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) g += `<line class="gr" x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="vax" x="${L - 5}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v}</text>`;
-  lims.forEach(m => { const yw = y(m * PV_WARN), yl = y(m);
+  lims.forEach(mx => { const m = Math.round(pvLim(mx)), yw = y(pvWarnAt(mx)), yl = y(m);
     if (yl > H - B) return;
     g += `<rect class="wz" x="${L}" y="${Math.max(T - 6, yl).toFixed(1)}" width="${W - R - L}" height="${Math.max(0, Math.min(H - B, yw) - Math.max(T - 6, yl)).toFixed(1)}"/>`;
     if (yl >= T - 6) g += `<line class="lim" x1="${L}" x2="${W - R}" y1="${yl.toFixed(1)}" y2="${yl.toFixed(1)}"/><text class="limt" x="${L + 4}" y="${(yl - 3).toFixed(1)}">limite ${m} V</text>`; });
@@ -1813,7 +1817,7 @@ function drawVoc(pv){
     const h = s.hist.find(z => dayIdx(z.t, m0) === day), f = s.fc.find(z => dayIdx(z.t, m0) === day), v = h ? h.v : f ? f.v : NaN;
     if (h && tt === null) { tt = h.t; const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); if (ir && fin(ir.temp)) air = ir.temp; }
     if (!h && f && tt === null) { tt = f.t; air = f.air; }
-    const hot = v >= s.vmax * PV_DANGER ? " danger" : v >= s.vmax * PV_WARN ? " hot" : "";
+    const hot = v >= pvDangerAt(s.vmax) ? " danger" : v >= pvWarnAt(s.vmax) ? " hot" : "";
     return `<span class="vl${hot}"><i style="background:${vocCol(s.i)}"></i><span class="vn">${esc(pvName(s.g))}</span>` +
       `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : ""}</span>`;
   }).join("");
@@ -1841,22 +1845,22 @@ const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d
 const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
 function vocCheck(c, a){
   if (!c.voc || !c.n || c.n % (c.s || 1)) return null;
-  const per = c.n / (c.s || 1), v = per * c.voc * (1 + VOC_K * (25 - T_MIN)) * vcal(a).f, max = c.vmax || 150;
-  return { per, v, max, st: v > max ? "over" : v > max * PV_WARN ? "near" : "ok" };
+  const per = c.n / (c.s || 1), v = per * c.voc * (1 + VOC_K * (25 - T_MIN)) * vcal(a).f, max = Math.round(pvLim(c.vmax || 150)), warn = pvWarnAt(c.vmax || 150);
+  return { per, v, max, warn, st: v > max ? "over" : v > warn ? "near" : "ok" };
 }
 function vocBox(c, a){
-  const k = vocCheck(c, a), r = pvRec(a), vc = vcal(a), rec = r ? `<p class="voc-rec">Il più alto letto dal regolatore: <b>${nf(r.rv, 1)} V</b> il ${new Date(r.rat * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}${r.rv >= (c.vmax || 150) * PV_WARN ? " · troppo vicino al limite" : ""}</p>` : "";
+  const k = vocCheck(c, a), r = pvRec(a), vc = vcal(a), rec = r ? `<p class="voc-rec">Il più alto letto dal regolatore: <b>${nf(r.rv, 1)} V</b> il ${new Date(r.rat * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}${r.rv >= pvWarnAt(c.vmax || 150) ? " · troppo vicino al limite" : ""}</p>` : "";
   if (!k) return rec + `<p class="voc-note">${c.voc ? "Imposta pannelli e stringhe" : "Scrivi la Voc dalla targhetta del pannello"}: la app controlla che le stringhe non superino il limite del regolatore col freddo.</p>`;
   const top = Math.max(k.max, k.v) * 1.08, f = x => (x / top * 100).toFixed(1);
-  const msg = k.st === "over" ? `Oltre i ${k.max} V: con il freddo il regolatore si può rompere. Metti meno pannelli in serie per stringa.`
-    : k.st === "near" ? `Vicino al limite di ${k.max} V: va bene, ma senza margine nelle mattine più gelide.`
-    : `Margine di ${nf(k.max - k.v, 0)} V sotto il limite di ${k.max} V.`;
+  const room = ` (con la stanza a ${nf(pvEnv(), 0)} °C)`, msg = k.st === "over" ? `Oltre i ${k.max} V${room}: con il freddo il regolatore si può rompere. Metti meno pannelli in serie per stringa.`
+    : k.st === "near" ? `Vicino al limite di ${k.max} V${room}: va bene, ma senza margine nelle mattine più gelide.`
+    : `Margine di ${nf(k.max - k.v, 0)} V sotto il limite di ${k.max} V${room}.`;
   const dc = dawnCold(), dv = dc ? vocAt(c, dc.panel, a) : NaN;
   const bad = (vcalSt[a] || []).filter(d => d.x).slice(-1)[0];
   const badTxt = bad ? `<p class="voc-fc"><b>Alba anomala il ${new Date(Math.floor(bad.d / 10000), Math.floor(bad.d / 100) % 100 - 1, bad.d % 100).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}: ${nf(bad.v, 0)} V invece di ${nf(bad.e, 0)}</b>, come se mancasse${bad.x > 1 ? "ro " + bad.x + " pannelli" : " un pannello"}.</p>` : "";
   const cal = vc.n >= 3 ? `<p class="voc-fc">Corretta su ${vc.n} albe lette: i tuoi pannelli danno il ${nf(Math.abs(vc.f - 1) * 100, 0)}% ${vc.f >= 1 ? "in più" : "in meno"} del calcolo di targa.</p>`
     : `<p class="voc-fc">Si corregge da sola: ${vc.n ? `${vc.n} ${vc.n > 1 ? "albe lette" : "alba letta"} su 3` : "dopo 3 albe lette dal regolatore"}, poi la previsione usa le tensioni vere.</p>`;
-  const dawn = fin(dv) ? `<p class="voc-fc">Prossima alba (${dayWord(dc.t)} alle ${hm(dc.t)}): ${nf(dc.air, 0).replace("-", "−")} °C di aria, pannelli verso ${nf(dv, 0)} V${dv >= k.max ? " · <b>oltre il limite</b>" : dv >= k.max * PV_WARN ? " · <b>vicino al limite</b>" : ""}</p>`
+  const dawn = fin(dv) ? `<p class="voc-fc">Prossima alba (${dayWord(dc.t)} alle ${hm(dc.t)}): ${nf(dc.air, 0).replace("-", "−")} °C di aria, pannelli verso ${nf(dv, 0)} V${dv >= k.max ? " · <b>oltre il limite</b>" : dv >= k.warn ? " · <b>vicino al limite</b>" : ""}</p>`
     : `<p class="voc-fc">${S.loc ? "Il meteo della prossima alba non è ancora arrivato." : "Imposta la località: la app ti avvisa la sera prima delle albe troppo fredde."}</p>`;
   return `<div class="voc ${k.st}"><div class="voc-h"><span>Tensione a vuoto a ${String(T_MIN).replace("-", "−")} °C</span><b>${nf(k.v, 0)} V</b></div>` +
     `<div class="voc-bar" role="img" aria-label="${nf(k.v, 0)} volt su ${k.max} massimi"><i style="width:${f(k.v)}%"></i><u style="left:${f(k.max)}%"></u></div>` +
@@ -3895,10 +3899,10 @@ function myAlarms(bs, k, f){
   const dc = Array.isArray(data.pv) ? dawnCold() : null;
   if (Array.isArray(data.pv)) data.pv.forEach(g => {
     if (pvIsOff(g)) return;                                  // staccato: lo dicono le leve nella pagina Pannelli
-    const c = S.pv[g.addr] || {}, max = vmaxOf(g.addr), lim = g.fc && fin(g.fc.l) ? g.fc.l : max, pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
-    if (cur >= max * PV_DANGER) { out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= max ? "Oltre i" : "Quasi ai"} ${max} V che il regolatore regge: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` }); return; }
-    const t25 = vocRaw(c, 25), peak = pk && pk.v >= max * PV_WARN && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
-    const v = dc ? vocAt(c, dc.panel, g.addr) : NaN, cold = fin(v) && v >= max * PV_WARN;
+    const c = S.pv[g.addr] || {}, max = vmaxOf(g.addr), lim = g.fc && fin(g.fc.l) ? g.fc.l : pvLim(max), pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
+    if (cur >= pvDangerAt(max)) { out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= lim ? "Oltre i" : "Quasi ai"} ${nf(lim, 0)} V che il regolatore regge a questa temperatura: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` }); return; }
+    const t25 = vocRaw(c, 25), peak = pk && pk.v >= pvWarnAt(max) && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
+    const v = dc ? vocAt(c, dc.panel, g.addr) : NaN, cold = fin(v) && v >= pvWarnAt(max);
     if (!peak && !cold) return;
     const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim;
     if (cold) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
@@ -4377,7 +4381,7 @@ function drawPv(pv, k){
 
   $("pv-day").innerHTML = `<div id="voc-box"></div>` +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
-    pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= vmaxOf(g.addr) * PV_WARN ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${vmaxOf(g.addr)}</small>` : ""}</td>` +
+    pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= pvWarnAt(vmaxOf(g.addr)) ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${nf(pvLim(vmaxOf(g.addr)), 0)}</small>` : ""}</td>` +
       `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
   drawVoc(pv);
 }
