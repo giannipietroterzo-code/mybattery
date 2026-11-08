@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.58"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.59"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2746,7 +2746,7 @@ function render(m){
     n.innerHTML = esc(old ? `Nessun dato nuovo da ${dur(age / 60)}: vedi quelli delle ${hm(nowOf(data))}. ${remErr ? "Questo telefono non riesce a leggerli: " + remErr + "." : "O la scheda è senza internet, o il telefono non li riceve: riprovo da solo."}`
       : Date.now() - mqLive < 45e3 ? `Da fuori casa, in diretta: aggiornato alle ${new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT")}. Le modifiche arrivano alla scheda in pochi secondi.`
       : `Da fuori casa: dati della scheda delle ${hm(nowOf(data))}, si aggiornano ogni 10 minuti. Per cambiare qualcosa serve la diretta: si ricollega da sola.`) +
-      (home && home.ip ? `<a class="set-btn" href="http://${esc(home.ip)}/">Sono a casa: apri l'app della scheda</a>` : "") +
+      (home && home.ip ? `<a class="set-btn" href="http://${esc(home.ip)}/">Sono sul WiFi della scheda</a>` : "") +
       (homeWhy ? `<small class="home-why">Non ti riconosco a casa: ${esc(homeWhy)}.</small>` : "");
   }
   else if (mode === "stale") {
