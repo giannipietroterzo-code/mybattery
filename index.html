@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.57"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.58"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1934,7 +1934,7 @@ const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0
 const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
 const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem"];
-let cfgAt = -1, cfgPushT = 0, cfgPulling = false;
+let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 // i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
 // nome "" e kwp 0 = torna al valore della scheda
@@ -2257,8 +2257,9 @@ function pushShared(){
   clearTimeout(cfgPushT);
   cfgPushT = setTimeout(async () => {
     try {
-      const j = await boardCfg({app: sharedOf(), pv: pvCfgOf()});
-      if (j && j.ok) { cfgAt = j.app_at; if (mode === "remote") toast("Impostazioni salvate sulla scheda"); }
+      const rs = remSet;                                  // il canale cambia solo se l'ha chiesto questa app (firmware 0.23)
+      const j = await boardCfg({app: sharedOf(), pv: pvCfgOf(), ...(rs ? {rem_set: true} : {})});
+      if (j && j.ok) { if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote") toast("Impostazioni salvate sulla scheda"); }
     } catch (e) { if (mode === "remote") toast("Impostazioni non salvate sulla scheda: " + e.message); }
     cfgPushT = 0;
   }, 1500);
@@ -2268,10 +2269,11 @@ async function pullShared(){
   try {
     const j = await (await fetch("/api/config", {cache: "no-store"})).json();
     if (!j || cfgPushT) return;
-    if (!j.app) { pushShared(); return; } // scheda nuova: prende le impostazioni di questo telefono
+    if (!j.app) { remSet = !!S.rem; pushShared(); return; } // scheda nuova: prende le impostazioni di questo telefono
     let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
     const before = JSON.stringify(sharedOf()), loc0 = JSON.stringify(S.loc);
     SHARED.forEach(k => { if (k in j.app) raw[k] = j.app[k]; });
+    if (!("rem" in j.app) && !remSet) raw.rem = null;       // il canale è quello della scheda, anche quando non ce l'ha
     cfgPulling = true;
     try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
     S = loadSettings(); cfgAt = j.app_at;
@@ -2620,10 +2622,18 @@ function remSt(){
   }
   el.className = "ntfy-st " + c; el.innerHTML = `<i></i><span>${t}</span>`;
 }
+// se la scheda ha già un canale si usa quello: un canale nuovo staccherebbe tutti i telefoni già collegati
+async function remOn(){
+  let cur = null;
+  if (mode === "live") try { const j = await (await fetch("/api/config", { cache: "no-store" })).json(); cur = j && j.app && j.app.rem; } catch (e) { toast("Scheda non raggiungibile: riprova"); return; }
+  if (cur && cur.t && cur.k) { S.rem = cur; toast("La scheda ha già un canale: uso quello"); }
+  else { S.rem = remNew(); remSet = true; }
+  saveSettings(); fillRem();
+}
 $("set-rem").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
-  if (b.id === "rem-on") { S.rem = remNew(); saveSettings(); fillRem(); }
-  else if (b.id === "rem-off") { S.rem = null; saveSettings(); try { localStorage.removeItem(REM_KEY); } catch (x) {} fillRem(); if (DEMO_ONLY) { data = null; offline(); } }
+  if (b.id === "rem-on") { remOn(); }
+  else if (b.id === "rem-off") { S.rem = null; remSet = true; saveSettings(); try { localStorage.removeItem(REM_KEY); } catch (x) {} fillRem(); if (DEMO_ONLY) { data = null; offline(); } }
 });
 
 async function poll(){
