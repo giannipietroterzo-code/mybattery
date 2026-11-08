@@ -356,8 +356,6 @@ a.set-btn{text-decoration:none}
 .hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
 .pv-tab small{display:block;color:var(--muted);font-size:.72rem;font-weight:400}
 @media(max-width:480px){.pv-tab{font-size:.76rem}.pv-tab th,.pv-tab td{padding:9px 5px}.pv-tab th:first-child,.pv-tab td:first-child{padding-left:10px}.pv-tab th:last-child,.pv-tab td:last-child{padding-right:10px}.pv-tab small{font-size:.63rem}.pv-tab td:first-child{max-width:5.2rem}}
-.pv-clk{margin:8px 2px 0;font-size:.82rem;color:var(--muted)}
-.pv-clk b{color:var(--ink);font-weight:600}
 .legend{margin:8px 0 0;font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 14px}
 .legend span{white-space:nowrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 5px 0 0;vertical-align:-1px}
@@ -1012,10 +1010,10 @@ footer{border-top:0;padding-top:0}
 .eta:empty{display:none}
 /* tensione del banco: scala LiFePO4 16S da 44,8 V (2,80 V a cella, il BMS stacca) a 58,4 V (3,65 V, pieno) */
 .volt:not(:empty)+.eta{margin-top:8px}
-.flow-box.in-hero{max-width:340px;margin:8px auto 0;box-sizing:border-box}
+.flow-box.in-hero{max-width:340px;margin:8px auto 0;padding-bottom:12px;box-sizing:border-box}
 .flow-box.in-hero+.eta{margin-top:8px}
-.volt{padding:14px 14px 10px}
-.volt .volt-h{margin:6px 0 4px}
+.volt{padding:10px 14px 10px}
+.volt .volt-h{margin:4px 0 4px}
 .volt .eta-txt>small{text-align:center}
 .volt-h{display:flex;align-items:baseline;justify-content:center;gap:8px}
 .volt .volt-h b{margin:0;font-size:2.1rem;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -1176,7 +1174,7 @@ footer{border-top:0;padding-top:0}
       </div>
       <p class="state idle" id="state">In attesa dei dati</p>
       <div class="eta volt" id="volt" role="img"></div>
-      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 0 340 178" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
+      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 12 340 166" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
       <div class="eta" id="eta"></div>
       </div>
       </section>
@@ -1476,7 +1474,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.51"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.52"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4223,20 +4221,6 @@ function setEta(kind, label, value, hours){
 // pannello solare stilizzato: cornice in prospettiva con la griglia delle celle
 const PV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg>';
 const PV_ST = { off: "Non carica", boost: "In carica", float: "Mantenimento", equalize: "Equalizzazione" };
-// quanto è sfasato l'orologio di un regolatore: conta l'ora del giorno, perché il contatore dei kWh si azzera alla sua mezzanotte
-function pvClk(g){
-  const est = !fin(g.clk), s = est ? g.clk_est : g.clk; if (!fin(s)) return null;
-  let ph = ((s % DAY) + DAY) % DAY; if (ph > DAY / 2) ph -= DAY;
-  const wrong = !est && Math.abs(s) >= 1.5 * DAY;
-  if (Math.abs(ph) < 600 && !wrong) return null;
-  const m = Math.round(Math.abs(ph) / 60), h = Math.floor(m / 60);
-  return { est, wrong, t: `${ph < 0 ? "indietro" : "avanti"} di ${h ? h + " h " : ""}${h ? String(m % 60).padStart(2, "0") : m + " min"}` };
-}
-function pvClkNote(pv){
-  const r = pv.map(g => ({ g, c: pvClk(g) })).filter(x => x.c);
-  if (!r.length) return "";
-  return `<p class="pv-clk">${r.map(x => `Orologio di <b>${esc(pvName(x.g))}</b> ${x.c.t}${x.c.est ? " (stima)" : ""}${x.c.wrong ? ", e anche la data è sbagliata" : ""}.`).join(" ")} I kWh di oggi sono contati lo stesso dalla mezzanotte italiana.</p>`;
-}
 function drawPv(pv, k){
   const box = $("pv");
   box.hidden = !Array.isArray(pv) || !pv.length;
@@ -4279,7 +4263,7 @@ function drawPv(pv, k){
     `<div id="voc-box"></div>` +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= vmaxOf(g.addr) * PV_WARN ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${vmaxOf(g.addr)}</small>` : ""}</td>` +
-      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>` + pvClkNote(pv);
+      `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
   drawVoc(pv);
 }
 
