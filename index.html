@@ -1491,7 +1491,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.61"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.62"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2164,7 +2164,7 @@ function drawNight(k, f){
   box.hidden = false; box.className = "night " + st;
   const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
     `<p class="n-d">Minimo verso <b>${nf(m0, 0)}%</b>, ${after}. Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.` +
-    `${cur.simple ? ` <small>Stima semplice col consumo delle notti passate: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${cur.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
+    `${cur.simple ? ` <small>Stima semplice col consumo delle notti passate e i deviatori di adesso: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${cur.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
     (tip ? `<div class="n-tip">${tip}</div>` : "");
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
   if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
@@ -3593,8 +3593,9 @@ function nightSimple(k, now){
   if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
   const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data);
   let w = 0, c = 0;
-  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { w -= p; c++; } });
-  const W = c >= 12 ? w / c : k.p < 0 ? -k.p : null;                             // almeno un'ora di notte vista, se no il consumo di adesso
+  // il consumo di quelle ore, riportato ai deviatori di adesso: zone su solare ora ma su Enel allora (o il contrario)
+  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { w += -p + zonesW(t, SW.mask) - zonesW(t, maskAt(t)); c++; } });
+  const W = c >= 12 ? Math.max(30, w / c) : k.p < 0 ? -k.p : null;                             // almeno un'ora di notte vista, se no il consumo di adesso
   if (!W) return null;
   const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), min = k.soc - W * (resume - now) / 3600 / capWh * 100;
   const cut = cutSoc();
