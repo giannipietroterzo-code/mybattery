@@ -1494,7 +1494,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.71"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.72"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3186,7 +3186,7 @@ const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev)
       const g = { addr: e.addr, name: e.who }, who = e.addr < 0 ? "Banco" : e.pv ? pvName(g) : nameOf(g, e.addr);
       const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile" : e.code === "PV_NOIN" ? "Non vede i pannelli"
         : e.code === "PV_FAULT" ? "Guasto del regolatore" : e.code === "PV_HIGH" ? "Tensione dei pannelli alta"
-        : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : e.code === "INV_NEAR" ? "Vicino allo stacco dell'inverter"
+        : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : e.code === "INV_RISK" ? "L'inverter rischia di staccare" : e.code === "INV_NEAR" ? "Vicino allo stacco dell'inverter"
         : e.code === "INV_CUT" ? "L'inverter ha staccato" : (MSG[e.code] || [e.code])[0];
       return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0 };
     });
@@ -3996,6 +3996,8 @@ function myAlarms(bs, k, f){
     const L = data.inv && Array.isArray(data.inv.cuts) && data.inv.cuts[0], cutNow = L && now - L[0] < 12 * HOUR && Math.abs(k.i) < .3;
     if (cutNow) out.push({ id: "invcut" + L[0], sev: "prot", who: "Banco", t: `L'inverter ha staccato alle ${hm(L[0])}`,
       d: `Con il banco a ${nf(L[1], 1)} V e il BMS al ${nf(L[2], 0)}%. Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano.` });
+    else if (data.inv && data.inv.risk) out.push({ id: "invrisk", sev: "prot", who: "Banco", t: "L'inverter può staccare a momenti",
+      d: `${data.inv.rmv && data.inv.rmv <= 3000 ? `Una cella è scesa a ${nf(data.inv.rmv / 1000, 2)} V con il banco che scarica. ` : `Banco a ${nf(k.v, 1)} V con molta corrente. `}Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
     else if (k.i < -1 && k.v <= (S.inv || 48) + .8) out.push({ id: "invnear", sev: "prot", who: "Banco", t: `Banco a ${nf(k.v, 1)} V: vicino allo stacco`,
       d: `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
   }
