@@ -1494,7 +1494,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.70"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.71"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2410,7 +2410,7 @@ let openIdx = null, selCell = null, scrubI = null, scrubTimer = 0, hist = null;
 // Su GitHub Pages la scheda non è raggiungibile (e una pagina HTTPS non può chiamare la scheda in HTTP): solo demo
 const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
 
-/* ---------- da fuori casa: la scheda manda ogni 10 minuti un pacchetto cifrato (AES-256-GCM) su un canale ntfy segreto.
+/* ---------- da fuori casa: la scheda manda ogni 10 minuti un pacchetto cifrato (AES-256-GCM) sul broker MQTT, trattenuto (fino alla 0.30: allegato su ntfy).
    Qui lo si scarica, lo si apre con la chiave avuta in casa e lo si mostra come se si fosse in rete con la scheda ---------- */
 const REM_APP = "https://giannipietroterzo-code.github.io/mybattery/", REM_KEY = "mybattery.rem.v1";
 let remAt = 0, remBusy = false, remBusyAt = 0, remKeyC = null, remErr = "";
@@ -2509,7 +2509,7 @@ function mqStart(){
   const pkt = (h, body) => { const rl = []; let n = body.length; do { let d = n % 128; n = Math.floor(n / 128); if (n) d |= 128; rl.push(d); } while (n); return new Uint8Array([h, ...rl, ...body]); };
   let ws; try { ws = new WebSocket(`wss://${host}:8884/mqtt`, ["mqtt"]); } catch (e) { return; }
   ws.binaryType = "arraybuffer";
-  const me = mq = { ws, buf: new Uint8Array(0), ping: 0, ready: false, pkt, str, at: Date.now() };
+  const me = mq = { ws, buf: new Uint8Array(0), ping: 0, ready: false, pkt, str, at: Date.now(), t0: Date.now() };
   ws.onopen = () => {
     ws.send(pkt(0x10, [...str("MQTT"), 4, 0x02 | (user ? 0x80 : 0) | (pass ? 0x40 : 0), 0, 60,
       ...str("mbapp-" + Math.random().toString(36).slice(2, 10)), ...(user ? str(user) : []), ...(pass ? str(pass) : [])]));
@@ -2529,10 +2529,11 @@ function mqStart(){
       if (type === 2) {
         if (body[1] !== 0) { remErr = "il broker rifiuta l'accesso: controlla le credenziali"; ws.close(); return; }
         mqTry = 0; me.ready = true;
-        ws.send(pkt(0x82, [0, 1, ...str(`mybattery/${S.rem.t}/live`), 0, ...str(`mybattery/${S.rem.t}/ack`), 0]));
+        ws.send(pkt(0x82, [0, 1, ...["live", "ack", "pack", "log", "fc"].flatMap(x => [...str(`mybattery/${S.rem.t}/${x}`), 0])]));
       } else if (type === 3) {
         const tl = body[0] << 8 | body[1], off = 2 + tl + ((h >> 1) & 3 ? 2 : 0), topic = new TextDecoder().decode(body.subarray(2, 2 + tl));
-        if (topic.endsWith("/ack")) mqAck(body.slice(off)); else mqMsg(body.slice(off));
+        const leaf = topic.slice(topic.lastIndexOf("/") + 1);
+        if (leaf === "ack") mqAck(body.slice(off)); else if (leaf === "live") mqMsg(body.slice(off)); else mqPack(leaf, body.slice(off));
       }
     }
   };
@@ -2624,6 +2625,23 @@ $("fw-chip").addEventListener("click", async () => {
   } catch (e) { fwSent = 0; fwErr = e.message; }
   drawFw();
 });
+/* i pacchetti pesanti, dalla 0.31 trattenuti sul broker come la diretta: pack ogni 10 minuti, log una volta al giorno, fc ogni 3 ore.
+   Il broker li ridà a ogni connessione: il nonce dice se sono già stati letti. Uno alla volta, scrivono tutti nello stesso posto. */
+let mqPackAt = 0, mqPackQ = Promise.resolve();
+const mqPack = (kind, u8) => { if (u8.length) mqPackQ = mqPackQ.then(() => mqPackDo(kind, u8)).catch(e => { if (e && e.name === "OperationError") remErr = "la chiave non apre il pacchetto: ricollega questo telefono da casa"; }); };
+async function mqPackDo(kind, u8){
+  if (!S.rem || mode === "live") return;
+  const id = [...u8.subarray(4, 16)].map(x => x.toString(16).padStart(2, "0")).join(""), c = lsGet(REM_KEY) || {};
+  if (kind === "log") { if (id === c.log) return; const rows = remLogRows(await remDecrypt(u8)); if (rows.length) await db.put(rows); c.log = id; lsSet(REM_KEY, c); return; }
+  if (kind === "fc") { if (id === c.fc) return; const rows = remFcRows(await remDecrypt(u8)), have = new Set(((await db.all("fc")) || []).map(r => r && r.t0)), fresh = rows.filter(r => !have.has(r.t0)); if (fresh.length) { await db.put(fresh, "fc", r => r.t0); fresh.forEach(r => fcArchive.push(r)); } c.fc = id; lsSet(REM_KEY, c); return; }
+  if (kind !== "pack") return;
+  mqPackAt = Date.now();
+  if (id === c.id && data && mode === "remote") return;
+  const b = JSON.parse(new TextDecoder().decode(await remDecrypt(u8)));
+  await remApply(b, true);
+  lsSet(REM_KEY, { t: S.rem.t, id, log: c.log, fc: c.fc, b });
+  remErr = ""; render("remote"); remSt();
+}
 function mqStop(){ const m = mq; mq = null; if (m) { clearInterval(m.ping); try { m.ws.close(); } catch (e) {} } }
 async function mqMsg(u8){
   if (!u8.length) return;
@@ -2650,6 +2668,8 @@ async function remotePoll(){
     if (c && c.b && c.t === S.rem.t) { try { await remApply(c.b, false); if (!LOG.length) { logSrc = ""; await realLog(); relearn(); } render("remote"); } catch (e) {} }
   }
   if (Date.now() - remAt < 60e3) { if (data && mode === "remote") render("remote"); return; }
+  // i pacchetti arrivano dal broker: ntfy si guarda solo per le schede con firmware più vecchio della 0.31
+  if ((mqPackAt && Date.now() - mqPackAt < 30 * 60e3) || (mq && !mqPackAt && Date.now() - mq.t0 < 15e3)) { if (data && mode === "remote") render("remote"); return; }
   remBusy = true; remBusyAt = remAt = Date.now();
   try {
     const txt = new TextDecoder().decode(await remFetch(`https://ntfy.sh/${S.rem.t}/json?poll=1&since=3h`));
@@ -2670,7 +2690,7 @@ async function remotePoll(){
     remErr = "";
     render("remote");
   } catch (e) {
-    remErr = e && e.name === "OperationError" ? "la chiave non apre il pacchetto: ricollega questo telefono da casa" : (e && e.message) || "ntfy non raggiungibile";
+    remErr = e && e.name === "OperationError" ? "la chiave non apre il pacchetto: ricollega questo telefono da casa" : Date.now() - mqLive < 60e3 ? "" : (e && e.message) || "ntfy non raggiungibile";
     if (data && mode === "remote") render("remote"); else offline();
   } finally { remBusy = false; remSt(); }
 }
