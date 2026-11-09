@@ -552,6 +552,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .night{--c:var(--good);--t:var(--good-tint);margin-top:16px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:14px;background:var(--t)}
 .night.warn{--c:var(--warn);--t:var(--warn-tint)}.night.bad{--c:var(--alert);--t:var(--alert-tint)}.night.wait{--c:var(--muted);--t:var(--surface)}
 .n-h{display:flex;align-items:center;gap:10px}
+.mem-g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 0}.mem-g div{padding:8px 10px;border:1px solid var(--line);background:var(--bg)}.mem-g dt{font-size:.72rem;color:var(--muted)}.mem-g dd{margin:2px 0 0;font:600 1.02rem var(--mono)}
+.mem-ev{list-style:none;margin:10px 0 0;padding:0}.mem-ev li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:.82rem;line-height:1.35}.mem-ev b{color:var(--ink)}.mem-ev i{font-style:normal;color:var(--warn)}.mem-ev i.c{color:var(--alert)}.mem-ev small{grid-column:1/-1;color:var(--muted)}
 .n-ico{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
 .n-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .n-t{font-weight:700;font-size:1rem;line-height:1.25}.n-t b{color:var(--c);font-family:var(--num);font-variant-numeric:tabular-nums}
@@ -1280,6 +1282,7 @@ footer{border-top:0;padding-top:0}
     </section>
     </div>
     <div class="page" id="pg-4" role="tabpanel" aria-labelledby="tab-4">
+      <section class="night wait" id="bankmem" hidden></section>
     <section class="panel plain" aria-labelledby="h-hab">
       <h2 id="h-hab">Abitudini di consumo</h2>
       <p class="hist-read" id="hab-read"></p>
@@ -1426,13 +1429,6 @@ footer{border-top:0;padding-top:0}
     <div id="set-rem"></div>
 
     <h3>Registrazione dello storico</h3>
-    <fieldset class="seg" id="set-log">
-      <legend>Salva una riga ogni</legend>
-      <label><input type="radio" name="log" value="15"><span>15 min</span></label>
-      <label><input type="radio" name="log" value="30"><span>30 min</span></label>
-      <label><input type="radio" name="log" value="45"><span>45 min</span></label>
-      <label><input type="radio" name="log" value="60"><span>60 min</span></label>
-    </fieldset>
     <p class="set-note">La scheda salva carica, energia entrata e uscita e, se legge i regolatori, la produzione dei pannelli. Non cancella mai niente: a 30 minuti sono circa 300 KB l'anno.</p>
     <button class="set-btn" id="set-csv" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 19.5h16"/></svg>Esporta lo storico (CSV)</button>
 
@@ -1494,7 +1490,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.72"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.74"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1671,9 +1667,9 @@ function trackPv(pv){
     if (o.d !== dk || g.v > o.v) { o.d = dk; o.v = g.v; o.at = now; ch = true; }
     if (!(o.rv >= g.v)) { o.rv = g.v; o.rat = now; ch = true; }
     if (real && S.loc && wx) {
-      vcalSample(g, now);
+      if (!fin(data.epoch)) vcalSample(g, now);       // dalla 0.33 lo fa solo la scheda
       // le albe registrate dalla scheda (firmware 0.18): valgono anche quando la app all'alba era chiusa
-      if (Array.isArray(g.voc)) g.voc.forEach(r => { if (Array.isArray(r) && fin(r[0]) && fin(r[1])) vcalSample({ addr: g.addr, w: 0, v: r[1] }, r[0]); });
+      if (!fin(data.epoch) && Array.isArray(g.voc)) g.voc.forEach(r => { if (Array.isArray(r) && fin(r[0]) && fin(r[1])) vcalSample({ addr: g.addr, w: 0, v: r[1] }, r[0]); });
     } });
   if (ch && real) try { localStorage.setItem(PVMAX_KEY, JSON.stringify(pvPk)); } catch (e) {}
   if (vch) try { localStorage.setItem(VOCD_KEY, JSON.stringify(vocD)); } catch (e) {}
@@ -1972,7 +1968,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ir: null, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2006,9 +2002,11 @@ function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } 
 /* lo stacco dell'inverter in carica del banco: tensione a riposo tipica di una cella LiFePO4 (% → V) e circa 40 mV di caduta
    col carico della notte. Con 48 V (3,00 V/cella) viene circa l'11%: sotto lì l'inverter può spegnersi anche se il BMS dice di più */
 const LFP_OCV = [[0, 2.50], [9, 3.00], [14, 3.10], [17, 3.15], [20, 3.20], [30, 3.22], [40, 3.25], [50, 3.26], [60, 3.27], [70, 3.30], [80, 3.32], [90, 3.33], [99, 3.35], [100, 3.40]];
-// gli stacchi veri visti dalla scheda (firmware 0.17: data.inv.cuts = [[t, V, carica]]), con la stessa soglia di adesso
+// gli stacchi veri visti dalla scheda (firmware 0.17: data.inv.cuts = [[t, V, carica]]), con la stessa soglia di adesso.
+// La tensione è quella letta dal BMS: con carichi forti l'inverter stacca anche 2 V sopra la sua soglia (come la finestra di invTick nella scheda)
 function invLearned(){
-  const c = data && data.inv && Array.isArray(data.inv.cuts) ? data.inv.cuts.filter(r => Array.isArray(r) && fin(r[1]) && fin(r[2]) && Math.abs(r[1] - (S.inv || 48)) <= 1) : [];
+  const mem = IEV.filter(e => e[1] === 1 && e[2] !== 3).reverse().map(e => [e[0], e[3], e[6]]);   // la memoria degli eventi; gli stacchi stimati a mano non contano qui
+  const c = mem.length ? mem.filter(r => fin(r[1]) && fin(r[2]) && r[1] - (S.inv || 48) >= -1 && r[1] - (S.inv || 48) <= 2.5) : data && data.inv && Array.isArray(data.inv.cuts) ? data.inv.cuts.filter(r => Array.isArray(r) && fin(r[1]) && fin(r[2]) && r[1] - (S.inv || 48) >= -1 && r[1] - (S.inv || 48) <= 2.5) : [];
   if (!c.length) return null;
   const last = c.slice(0, 3);
   return { soc: Math.round(last.reduce((a, r) => a + r[2], 0) / last.length), n: c.length, t: c[0][0], v: c[0][1] };
@@ -2023,7 +2021,7 @@ function cutSoc(){
 const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
 const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
-const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem"];
+const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 // i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
@@ -2194,13 +2192,15 @@ function swAllDraw(box){
 // la notte con certi deviatori fermi così fino a quando riparte la carica: minimo previsto e ora della ripartenza
 function detNight(det){
   const h0 = new Date(det.T[0] * 1000).getHours();
-  let dark = det.night[0] || h0 < 12, mn = det.S[0], res = null;
+  let dark = det.night[0] || h0 < 12, mn = det.S[0], res = null, at = null;
+  const lim = cutSoc();
   for (let i = 0; i < det.P.length; i++) {
     if (det.night[i]) dark = true;
     if (dark && !det.night[i] && det.P[i] - det.L[i] > 0) { res = i; break; }
     mn = Math.min(mn, det.S[i + 1]);
+    if (at === null && dark && det.S[i + 1] <= lim) at = det.T[i];
   }
-  return { min: mn, resume: res === null ? null : det.T[res] };    // null: nelle 48 ore i pannelli non ce la fanno a ricaricare
+  return { min: mn, at, resume: res === null ? null : det.T[res] };    // null: nelle 48 ore i pannelli non ce la fanno a ricaricare
 }
 function nightWith(k, f, mask){
   if (f && model && model.prof) return detNight(swSim(f, { mask, until: f.t[0] + 40 * HOUR }));
@@ -2209,7 +2209,106 @@ function nightWith(k, f, mask){
   const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), hrs = (ns.resume - now) / 3600;
   let dW = 0, unk = false;
   ZONES.forEach((_, z) => { if (swOn(SW.mask, z) === swOn(mask, z)) return; const w = zW(z, now + 3 * HOUR); if (w === null) { unk = true; return; } dW += swOn(mask, z) ? w : -w; });
-  return { min: ns.min - dW * hrs / capWh * 100, resume: ns.resume, unk, simple: true };
+  const Wt = ns.W + dW, t0 = Math.max(now, ns.low), at = t0 + Math.max(0, k.soc - cutSoc()) / 100 * capWh / Math.max(30, Wt) * 3600;   // da quando il sole non basta più
+  return { min: ns.min - dW * hrs / capWh * 100, resume: ns.resume, unk, simple: true, t0, W: Wt, at: at < ns.resume ? at : null };
+}
+/* ---------- il banco e gli stacchi. Il registro dice quanta energia c'è, ma l'inverter stacca per la tensione al picco di consumo:
+   qui si impara da /stress.bin (i valori peggiori di ogni quarto d'ora) e da /invev.bin (stacchi e quasi-stacchi).
+   Righe: [t, vMin cV, vPk cV, iPk dA, loadPk W, cellMin mV, soc×100, socMin %, deviatori, batteria<<5|cella, bit, Wh entrati, Wh usciti, Wh pannelli].
+   Eventi (dal diario della scheda): [t, 1 stacco 2 rischio 3 vicino, src, V, A, W, soc, socMin, mV, deviatori, batteria<<5|cella]. */
+const EPOCH_KEY = "mybattery.epoch"; let epochBusy = false;
+let STRESS = [], IEV = [], RM = null, stSeen = null, stBusy = false, stTried = false, rkC = {};
+const stOk = r => Array.isArray(r) && r.length >= 11 && fin(r[0]) && r[0] > 1.6e9 && fin(r[1]) && fin(r[4]);
+const ievOk = e => Array.isArray(e) && e.length >= 11 && fin(e[0]) && e[0] > 1.6e9 && fin(e[1]);
+const IEV_K = { INV_CUT: 1, INV_RISK: 2, INV_NEAR: 3 };
+function ievFromBoard(){ IEV = (boardEv || []).filter(e => e.c && IEV_K[e.code]).map(e => { const c = e.c.slice(); c[1] = IEV_K[e.code]; return c; }).filter(ievOk).sort((a, b) => a[0] - b[0]); if (STRESS.length || IEV.length) { riskLearn(); if (data) render(mode); } }
+const q2log = r => [r[0], 15, r[6] / 100, r[11], r[12], r[13] === 65535 ? null : r[13]];
+async function epochCheck(d){
+  if (!d || !fin(d.epoch) || epochBusy || lsGet(EPOCH_KEY) === d.epoch) return;
+  epochBusy = true;                                     // la scheda ha ricominciato il registro: anche questo telefono riparte pulito
+  for (const n of ["log", "fc", "st"]) await db.clear(n);
+  try { localStorage.removeItem(REM_KEY); } catch (e) {}
+  lsSet(EPOCH_KEY, d.epoch); STRESS = []; LOG = []; fcArchive = []; stSeen = null; logSrc = "";
+  await stLoad(); relearn(); epochBusy = false;
+}function stRows(u8){ const v = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), o = []; for (let i = 0; i + 28 <= u8.length; i += 28) o.push([v.getUint32(i, true), v.getUint16(i + 4, true), v.getUint16(i + 6, true), v.getInt16(i + 8, true), v.getUint16(i + 10, true), v.getUint16(i + 12, true), v.getUint16(i + 14, true), u8[i + 16], u8[i + 17], u8[i + 18], u8[i + 19], v.getUint16(i + 20, true), v.getUint16(i + 22, true), v.getUint16(i + 24, true)]); return o.filter(stOk); }
+async function stLoad(){ STRESS = ((await db.all("st")) || []).filter(stOk).sort((a, b) => a[0] - b[0]); riskLearn(); if (data) render(mode); }
+async function stMerge(rows){ if (rows && rows.length) await db.put(rows, "st", r => r[0]); await stLoad(); }
+async function stSync(at){
+  if (stBusy) return; stBusy = true;
+  try { let from = STRESS.length ? STRESS[STRESS.length - 1][0] + 1 : 0; const got = [];
+    for (let g = 0; g < 60; g++) { const j = await (await fetch(`/api/stress?from=${from}`, { cache: "no-store" })).json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(stOk); if (!rows.length) break; got.push(...rows); from = rows[rows.length - 1][0] + 1; if (!j.more) break; }
+    await stMerge(got); await boardAlarms(); stSeen = at;
+  } catch (e) {} finally { stBusy = false; }
+}
+const ocv = s => { for (let i = 1; i < LFP_OCV.length; i++) { const [s0, v0] = LFP_OCV[i - 1], [s1, v1] = LFP_OCV[i]; if (s <= s1) return 16 * (v0 + (v1 - v0) * Math.max(0, (s - s0) / (s1 - s0))); } return 16 * 3.4; };
+const RK_S = [15, 25, 35, 50, 101], RK_L = [1, 2.5, 4, 99], bandOf = (a, x) => a.findIndex(b => x < b);
+function riskLearn(){
+  const inv = S.inv || 48, now = nowS(), v0b = new Map(), byBin = new Map();
+  STRESS.forEach(r => { const I = r[3] / 10; if (I < 5) return; const b = Math.floor(r[6] / 500); if (!byBin.has(b)) byBin.set(b, []); byBin.get(b).push([I, r[2] / 100]); });
+  const slopes = [];
+  byBin.forEach(p => { if (p.length < 12) return; const xs = p.map(q => q[0]), span = Math.max(...xs) - Math.min(...xs); if (span < 30) return; const mx = xs.reduce((a, x) => a + x, 0) / p.length, my = p.reduce((a, q) => a + q[1], 0) / p.length;
+    const s = p.reduce((a, q) => a + (q[0] - mx) * (q[1] - my), 0) / p.reduce((a, q) => a + (q[0] - mx) ** 2, 0); if (s < 0) slopes.push(-s); });
+  const Rn = slopes.length, Rv = Rn ? clamp(quant(slopes, .5), .008, .05) : .02;
+  byBin.forEach((p, b) => { if (p.length >= 4) v0b.set(b, quant(p.map(q => q[1] + Rv * q[0]), .5)); });
+  const cuts = IEV.filter(e => e[1] === 1 && e[2] !== 3 && fin(e[3]) && e[3] > 44), vc = cuts.length ? quant(cuts.map(e => e[3]), .5) : inv + .8;
+  // esposizione ed eventi per carica della batteria più debole e consumo: quante volte è successo, su quanti quarti d'ora passati in quelle condizioni
+  const expo = RK_S.map(() => RK_L.map(() => 0)), evs = RK_S.map(() => RK_L.map(() => 0)), cnt = RK_S.map(() => RK_L.map(() => 0)), dist = new Map();
+  STRESS.forEach(r => { const a = bandOf(RK_S, r[7]), b = bandOf(RK_L, r[4] / 1000); if (a >= 0 && b >= 0) expo[a][b]++;
+    const d = new Date(r[0] * 1000), age = (now - r[0]) / DAY, w = Math.exp(-age / 65) + (age > 300 && d.getMonth() === new Date(now * 1000).getMonth() ? .5 : 0);   // conta di più il recente, e lo stesso mese degli anni passati
+    const k = d.getHours() + (r[8] ? 100 : 0); if (!dist.has(k)) dist.set(k, []); dist.get(k).push([r[4], w]); const g = r[8] ? -1 : -2; if (!dist.has(g)) dist.set(g, []); dist.get(g).push([r[4], w]); });
+  IEV.forEach(e => { const a = bandOf(RK_S, fin(e[7]) ? e[7] : e[6]), b = bandOf(RK_L, e[5] / 1000); if (a < 0 || b < 0) return; evs[a][b] += e[1] === 1 ? 1 : e[1] === 3 ? .5 : .25; if (e[1] === 1) cnt[a][b]++; });
+  RM = { R: Rv, Rn, v0b, vc, vcN: cuts.length, expo, evs, cnt, dist, slots: STRESS.length, first: STRESS.length ? STRESS[0][0] : 0, last: STRESS.length ? STRESS[STRESS.length - 1][0] : 0 };
+  rkC = {}; irPush(); drawBankMem();
+}
+function irPush(){   // alla scheda, per avvisare anche ad app chiusa
+  if ((mode !== "live" && mode !== "remote") || !RM || (!RM.Rn && !RM.vcN)) return;
+  const n = { r: +RM.R.toFixed(4), ...(RM.vcN ? { vc: +RM.vc.toFixed(2) } : {}) }, o = S.ir;
+  if (o && Math.abs(o.r / n.r - 1) < .05 && (o.vc || 0) === (n.vc || 0)) return;
+  S.ir = n; saveSettings();
+}
+const rkV0 = s => { let b = Math.floor(s * 100 / 500), v = RM.v0b.get(b); if (!fin(v)) v = RM.v0b.get(b - 1) ?? RM.v0b.get(b + 1); return fin(v) ? v : ocv(s); };
+// la potenza oltre la quale, con questa carica, il banco scende alla tensione di stacco
+const rkMaxW = s => Math.max(0, (rkV0(s) - RM.vc) / RM.R * RM.vc);
+function rkDist(h, solar, t){
+  let a = RM.dist.get(h + (solar ? 100 : 0)); if (!a || a.length < 8) a = RM.dist.get(solar ? -1 : -2);
+  if (a && a.length >= 8) return a;
+  const zs = zonesW(t, SW_FREE()) * 1.3 + 100; return zs > 200 ? [[zs * .7, 1], [zs, 1], [zs * 1.4, 1]] : a || [];
+}
+function riskFor(k, f, mask){
+  if (!RM || !k || !k.on || !fin(k.soc) || !isReal() || !mask) return mask === 0 && RM && k && fin(k.soc) ? { p: 0, p6: 0, at: null, kw: rkMaxW(k.soc) / 1000, seen: 0 } : null;
+  const key = mask + ":" + Math.round(k.soc) + ":" + Math.floor(Date.now() / 6e4); if (rkC[key]) return rkC[key];
+  const now = nowOf(data), nw = nightWith(k, f, mask), end = nw && nw.resume ? Math.min(nw.resume, now + 30 * HOUR) : now + 18 * HOUR, t0 = nw && fin(nw.t0) ? nw.t0 : now, tEnd = nw && fin(nw.at) ? nw.at : end, mn = nw && fin(nw.at) ? cutSoc() : nw ? Math.max(0, nw.min) : k.soc;
+  const bat = (data.batteries || []).filter(b => b.online !== false && fin(b.soc)), off = bat.length ? Math.max(0, k.soc - Math.min(...bat.map(b => b.soc))) : 0;
+  let sur = 1, p6 = 0, at = null, seen = 0;
+  for (let t = now; t < end; t += 900) {
+    const s = k.soc + (mn - k.soc) * clamp((t - t0) / Math.max(60, tEnd - t0), 0, 1), h = new Date(t * 1000).getHours(), X = rkMaxW(s), d = rkDist(h, true, t);
+    let tot = 0, over = 0, top = []; d.forEach(([l, w]) => { tot += w; if (l > X) over += w; top.push(l); });
+    const a = bandOf(RK_S, Math.max(0, s - off)), lq = quant(top, .75) / 1000, b = bandOf(RK_L, fin(lq) ? lq : 0), haz = a >= 0 && b >= 0 ? (RM.evs[a][b] + .02) / (RM.expo[a][b] + 30) : 0;
+    if (a >= 0 && b >= 0) seen = Math.max(seen, RM.cnt[a][b]);
+    sur *= (1 - (tot ? over / tot : 0)) * (1 - haz); if (t - now <= 6 * HOUR) p6 = 1 - sur; if (at === null && 1 - sur >= .2) at = t;
+  }
+  // se l'energia stessa arriva alla carica di stacco, il rischio non dipende piu dai picchi
+  if (nw && fin(nw.at)) { if (at === null || nw.at < at) at = nw.at; sur = Math.min(sur, .1); if (nw.at - now <= 6 * HOUR) p6 = Math.max(p6, .9); }
+  return rkC[key] = { p: 1 - sur, p6, at, kw: rkMaxW(k.soc) / 1000, seen };
+}
+function drawBankMem(){
+  const box = $("bankmem"); if (!box) return;
+  if (!RM || !isReal() || (!STRESS.length && !IEV.length)) { box.hidden = true; return; }
+  const d = RM.slots / 96, ev = IEV.slice(-8).reverse(), cut = IEV.filter(e => e[1] === 1).length, soc = data && kOfBank();
+  const KIND = { 1: "Stacco", 2: "Rischio", 3: "Vicino allo stacco" }, nameB = w => { const i = w >> 5; return ((data && data.batteries && data.batteries[i] && data.batteries[i].name) || "Batteria " + (i + 1)) + ", cella " + ((w & 31) + 1); };
+  const html = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Memoria del banco</span></div>` +
+    `<p class="n-d">Quello che ho imparato dai picchi veri, non dalle medie. ${d < 7 ? `<small>Solo ${d < 1 ? Math.round(RM.slots / 4) + " ore" : nf(d, 0) + " giorni"} di dati: le stime migliorano col tempo.</small>` : ""}</p>` +
+    `<dl class="mem-g"><div><dt>Adesso regge circa</dt><dd>${fin(soc) ? nf(rkMaxW(soc) / 1000, 1) + " kW" : "–"}</dd></div><div><dt>Stacco misurato</dt><dd>${RM.vcN ? nf(RM.vc, 1) + " V" : "non ancora"}</dd></div><div><dt>Caduta del banco</dt><dd>${RM.Rn ? nf(RM.R * 1000, 0) + " mΩ" : "da imparare"}</dd></div><div><dt>Stacchi visti</dt><dd>${cut}</dd></div></dl>` +
+    (ev.length ? `<ul class="mem-ev">${ev.map(e => `<li><b>${new Date(e[0] * 1000).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</b><i class="${e[1] === 1 ? "c" : ""}">${KIND[e[1]] || "?"}${e[2] === 3 ? " · stimato" : ""}</i><small>${nf(e[3], 1)} V · ${nf(e[5] / 1000, 1)} kW · carica ${nf(e[6], 0)}% (la più debole ${nf(e[7], 0)}%)${e[8] ? " · " + esc(nameB(e[10])) + " a " + nf(e[8] / 1000, 2) + " V" : ""}</small></li>`).join("")}</ul>` : "");
+  box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+}
+const kOfBank = () => { const b = (data && data.batteries || []).filter(x => x.online !== false && fin(x.soc) && fin(x.full_ah)); const f = b.reduce((a, x) => a + x.full_ah, 0); return f ? b.reduce((a, x) => a + x.soc * x.full_ah, 0) / f : NaN; };
+// la notte, per tutti (riquadro, avvisi, rischio): con la previsione completa le simulazioni, altrimenti la stima semplice; stessi campi e stesse soglie
+function nightPlan(k, f, mask){
+  const r = nightWith(k, f, mask); if (!r) return null;
+  const cut = cutSoc(), mar = cut + (S.marg || 10); let o = { ...r, cut, mar, pCut: r.min <= cut ? 1 : 0, pMar: r.min <= mar ? 1 : 0 };
+  if (f && f.prob && f.prob.night && mask === SW.mask) { const n = f.prob.night; o = { ...o, min: n.min, resume: n.resume >= 48 ? null : f.t[0] + n.resume * HOUR, pCut: n.pCut, pMar: n.pMar, mc: true }; }
+  return o;
 }
 const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
 const WARN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
@@ -2218,7 +2317,7 @@ function drawNight(k, f){
   const box = $("night"); if (!box) return;
   if (k !== undefined) { nightK = k; nightF = f; } else { k = nightK; f = nightF; }
   if (!data || !k || !k.on || !fin(k.soc)) { box.hidden = true; return; }
-  const cut = cutSoc(), mar = cut + (S.marg || 10), cur = nightWith(k, f, SW.mask);
+  const cut = cutSoc(), mar = cut + (S.marg || 10), cur = nightPlan(k, f, SW.mask);
   if (!cur) {
     box.hidden = false; box.className = "night wait";
     const w = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Stanotte: lo dico verso sera</span></div>` +
@@ -2226,10 +2325,12 @@ function drawNight(k, f){
     if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
     return;
   }
-  const st = cur.min <= cut || cur.resume === null ? "bad" : cur.min <= mar ? "warn" : "ok", m0 = Math.max(0, cur.min);
-  const after = cur.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(cur.resume))}</b>`;
-  const title = st === "bad" ? "Stanotte rischi lo stacco" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
-  const free = SW_FREE(), allEnel = (SW.mask & free) === 0, now = nowOf(data);
+  // con tutto su Enel la risposta sarebbe sempre sì: la domanda vera è se ce la faresti tenendo le zone su solare
+  const free = SW_FREE(), allEnel = (SW.mask & free) === 0, now = nowOf(data), sol = allEnel ? nightPlan(k, f, SW.mask | free) : null, ev = sol || cur;
+  const st = ev.pCut >= .2 || ev.resume === null ? "bad" : ev.pMar >= .3 ? "warn" : "ok", m0 = Math.max(0, ev.min);
+  const after = ev.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(ev.resume))}</b>`;
+  const title = sol ? (st === "bad" ? "Su solare stanotte non ce la fai" : st === "warn" ? "Su solare ce la fai, ma di poco" : "Su solare stanotte ce la fai")
+    : st === "bad" ? "Stanotte rischi lo stacco" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
   const known = z => zW(z, now + 3 * HOUR) !== null;
   let tip = "";
   if (allEnel) {
@@ -2251,10 +2352,14 @@ function drawNight(k, f){
     set.sort((a, b) => a - b);
     if (set.length && last && last.min > cur.min + 1) tip = `Con <b>${esc(zList(set))}</b> su Enel ${last.min > mar ? `arrivi verso ${ilP(last.min)}, con margine` : `arrivi verso ${ilP(last.min)}`}.<br><button class="set-btn" type="button" data-mask="${mask}">${DN_ICO}Metti ${esc(set.map(z => ZONES[z]).join(", "))} su Enel</button>`;
   }
-  box.hidden = false; box.className = "night " + st;
+  box.hidden = false; box.className = "night " + (sol && st === "bad" ? "warn" : st);   // su Enel non sei a rischio: niente rosso
+  const stacco = `Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.`;
+  const rk = riskFor(k, f, sol ? SW.mask | free : SW.mask), rkTxt = rk && (sol || SW.mask) ? ` <b>Rischio di stacco ${nf(rk.p * 100, 0)}%</b>${rk.at && rk.p >= .2 && !(sol && st === "bad" && fin(ev.at)) ? ` (dalle ${hm(q15(rk.at))} circa)` : ""}: adesso il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
+  const body = sol && st === "bad" && fin(ev.at) ? `Con tutto su solare l'inverter staccherebbe verso le <b>${hm(q15(rk && rk.at ? Math.min(ev.at, rk.at) : ev.at))}</b>. ${stacco}`
+    : `${sol ? "Con tutto su solare minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
   const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
-    `<p class="n-d">Minimo verso <b>${nf(m0, 0)}%</b>, ${after}. Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.` +
-    `${cur.simple ? ` <small>Stima semplice col consumo delle notti passate e i deviatori di adesso: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${cur.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
+    `<p class="n-d">${body}${rkTxt}${sol ? ` Se resti su Enel arrivi verso <b>${nf(Math.max(0, cur.min), 0)}%</b>.` : ""}` +
+    `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate${sol ? " e quello misurato delle zone" : " e i deviatori di adesso"}: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${ev.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
     (tip ? `<div class="n-tip">${tip}</div>` : "");
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
   if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
@@ -2413,7 +2518,7 @@ const DEMO_ONLY = /\.github\.io$/.test(location.hostname);
 /* ---------- da fuori casa: la scheda manda ogni 10 minuti un pacchetto cifrato (AES-256-GCM) sul broker MQTT, trattenuto (fino alla 0.30: allegato su ntfy).
    Qui lo si scarica, lo si apre con la chiave avuta in casa e lo si mostra come se si fosse in rete con la scheda ---------- */
 const REM_APP = "https://giannipietroterzo-code.github.io/mybattery/", REM_KEY = "mybattery.rem.v1";
-let remAt = 0, remBusy = false, remBusyAt = 0, remKeyC = null, remErr = "";
+let remKeyC = null, remErr = "";
 // a casa l'app di GitHub salta da sola a quella della scheda: stesso indirizzo internet della scheda = stessa rete di casa
 const HOME_KEY = "mybattery.home.v1", JUMP_KEY = "mybattery.jump.v1";
 let homeAt = 0, homeWhy = ""; // homeWhy: perché l'ultima prova non ha riconosciuto casa (si mostra nell'avviso)
@@ -2453,13 +2558,6 @@ function remNew(){
   return { t: "mbr-" + Array.from(r, b => (b % 36).toString(36)).join(""), k: b64u(crypto.getRandomValues(new Uint8Array(32))) };
 }
 // con la rete mobile una richiesta può restare appesa per sempre (telefono in tasca, app congelata): si abbandona dopo 20 s
-async function remFetch(url){
-  const c = new AbortController(), to = setTimeout(() => c.abort(), 20e3);
-  try { const r = await fetch(url, { cache: "no-store", signal: c.signal }); if (!r.ok) throw new Error("ntfy risponde " + r.status); return await r.arrayBuffer(); }
-  catch (e) { throw e && e.name === "AbortError" ? new Error("ntfy non risponde") : e; }
-  finally { clearTimeout(to); }
-}
-async function remOpen(url){ return remDecrypt(new Uint8Array(await remFetch(url))); }
 async function remKeyOf(){
   if (!remKeyC || remKeyC.k !== S.rem.k) remKeyC = { k: S.rem.k, key: await crypto.subtle.importKey("raw", unb64u(S.rem.k), "AES-GCM", false, ["encrypt", "decrypt"]) };
   return remKeyC.key;
@@ -2470,19 +2568,13 @@ async function remDecrypt(buf){
   return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(4, 16) }, remKeyC.key, buf.slice(16)));
 }
 const r1 = v => Math.round(v * 10) / 10;
-function remLogRows(u8){ // righe da 20 byte del registro della scheda: t, min, soc×100, Wh entrati, usciti, pannelli
-  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), out = [];
-  for (let o = 0; o + 20 <= u8.length; o += 20) {
-    const pv = dv.getFloat32(o + 16, true);
-    out.push([dv.getUint32(o, true), dv.getUint16(o + 4, true), dv.getUint16(o + 6, true) / 100, r1(dv.getFloat32(o + 8, true)), r1(dv.getFloat32(o + 12, true)), isFinite(pv) ? r1(pv) : null]);
-  }
-  return out.filter(validRow);
-}
 async function remApply(b, fresh){
+  if (b && b.s) await epochCheck(b.s);
   if (!b || !b.s || !Array.isArray(b.s.batteries)) throw new Error("pacchetto vuoto");
   if (data && mode === "remote" && fin(data.time) && fin(b.s.time) && data.time > b.s.time) { if (b.s.history) data.history = b.s.history; } // la diretta è più nuova
   else data = b.s;
   if (Array.isArray(b.ev)) boardEv = mapEv(b.ev);
+  ievFromBoard();
   if (b.ip) lsSet(HOME_KEY, { ip: b.ip, pub: b.pub || (lsGet(HOME_KEY) || {}).pub || "" });
   if (Array.isArray(b.sw) && fin(b.s.sw)) { const ch = JSON.stringify(b.sw) !== JSON.stringify(SW.rows); SW.board = true; SW.rows = b.sw; SW.mask = b.s.sw & 127; if (ch) { swEstC = null; swHabC = null; } }
   if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
@@ -2529,7 +2621,7 @@ function mqStart(){
       if (type === 2) {
         if (body[1] !== 0) { remErr = "il broker rifiuta l'accesso: controlla le credenziali"; ws.close(); return; }
         mqTry = 0; me.ready = true;
-        ws.send(pkt(0x82, [0, 1, ...["live", "ack", "pack", "log", "fc"].flatMap(x => [...str(`mybattery/${S.rem.t}/${x}`), 0])]));
+        ws.send(pkt(0x82, [0, 1, ...["live", "ack", "pack", "fc", "st"].flatMap(x => [...str(`mybattery/${S.rem.t}/${x}`), 0])]));
       } else if (type === 3) {
         const tl = body[0] << 8 | body[1], off = 2 + tl + ((h >> 1) & 3 ? 2 : 0), topic = new TextDecoder().decode(body.subarray(2, 2 + tl));
         const leaf = topic.slice(topic.lastIndexOf("/") + 1);
@@ -2632,14 +2724,14 @@ const mqPack = (kind, u8) => { if (u8.length) mqPackQ = mqPackQ.then(() => mqPac
 async function mqPackDo(kind, u8){
   if (!S.rem || mode === "live") return;
   const id = [...u8.subarray(4, 16)].map(x => x.toString(16).padStart(2, "0")).join(""), c = lsGet(REM_KEY) || {};
-  if (kind === "log") { if (id === c.log) return; const rows = remLogRows(await remDecrypt(u8)); if (rows.length) await db.put(rows); c.log = id; lsSet(REM_KEY, c); return; }
+  if (kind === "st") { if (id === c.st) return; const rows = stRows(await remDecrypt(u8)); if (rows.length) await db.put(rows.filter(r => r[6] > 0).map(q2log)); await stMerge(rows); logSrc = ""; await realLog(); relearn(); c.st = id; lsSet(REM_KEY, c); return; }
   if (kind === "fc") { if (id === c.fc) return; const rows = remFcRows(await remDecrypt(u8)), have = new Set(((await db.all("fc")) || []).map(r => r && r.t0)), fresh = rows.filter(r => !have.has(r.t0)); if (fresh.length) { await db.put(fresh, "fc", r => r.t0); fresh.forEach(r => fcArchive.push(r)); } c.fc = id; lsSet(REM_KEY, c); return; }
   if (kind !== "pack") return;
   mqPackAt = Date.now();
   if (id === c.id && data && mode === "remote") return;
   const b = JSON.parse(new TextDecoder().decode(await remDecrypt(u8)));
   await remApply(b, true);
-  lsSet(REM_KEY, { t: S.rem.t, id, log: c.log, fc: c.fc, b });
+  lsSet(REM_KEY, { t: S.rem.t, id, fc: c.fc, st: c.st, b });
   remErr = ""; render("remote"); remSt();
 }
 function mqStop(){ const m = mq; mq = null; if (m) { clearInterval(m.ping); try { m.ws.close(); } catch (e) {} } }
@@ -2658,47 +2750,23 @@ async function mqMsg(u8){
   } catch (e) { if (e && e.name === "OperationError") remErr = "la chiave non apre il pacchetto: ricollega questo telefono da casa"; }
 }
 // tornando sulla app si riparte da capo: quello che era in corso quando il telefono l'ha congelata può non finire mai
-document.addEventListener("visibilitychange", () => { if (document.hidden) mqStop(); else if (S.rem) { remAt = 0; remBusy = false; } });
+document.addEventListener("visibilitychange", () => { if (document.hidden) mqStop(); });
 async function remotePoll(){
   if (mq && Date.now() - mq.at > 45e3) mqStop();         // la scheda pubblica ogni 10 s e il broker risponde ai ping: 45 s di silenzio = connessione morta
   mqStart();
-  if (remBusy && Date.now() - remBusyAt < 60e3) return;
   if (!data || mode !== "remote") { // all'apertura: l'ultimo pacchetto visto, mentre arriva quello nuovo
     const c = lsGet(REM_KEY);
     if (c && c.b && c.t === S.rem.t) { try { await remApply(c.b, false); if (!LOG.length) { logSrc = ""; await realLog(); relearn(); } render("remote"); } catch (e) {} }
   }
-  if (Date.now() - remAt < 60e3) { if (data && mode === "remote") render("remote"); return; }
-  // i pacchetti arrivano dal broker: ntfy si guarda solo per le schede con firmware più vecchio della 0.31
-  if ((mqPackAt && Date.now() - mqPackAt < 30 * 60e3) || (mq && !mqPackAt && Date.now() - mq.t0 < 15e3)) { if (data && mode === "remote") render("remote"); return; }
-  remBusy = true; remBusyAt = remAt = Date.now();
-  try {
-    const txt = new TextDecoder().decode(await remFetch(`https://ntfy.sh/${S.rem.t}/json?poll=1&since=3h`));
-    const msgs = txt.split("\n").map(l => { try { return JSON.parse(l); } catch (e) { return null; } })
-      .filter(m => m && m.event === "message" && m.attachment && m.attachment.url && m.attachment.expires * 1000 > Date.now());
-    const last = name => msgs.filter(m => m.attachment.name === name).pop(), c = lsGet(REM_KEY) || {};
-    const lg = last("log.bin");
-    if (lg && lg.id !== c.log) { const rows = remLogRows(await remOpen(lg.attachment.url)); if (rows.length) await db.put(rows); c.log = lg.id; }
-    const fb = last("fc.bin");
-    if (fb && fb.id !== c.fc) { const rows = remFcRows(await remOpen(fb.attachment.url)), have = new Set(((await db.all("fc")) || []).map(r => r && r.t0)), fresh = rows.filter(r => !have.has(r.t0)); if (fresh.length) { await db.put(fresh, "fc", r => r.t0); fresh.forEach(r => fcArchive.push(r)); } c.fc = fb.id; }
-    const mb = last("mb.bin");
-    if (!mb) throw new Error("nessun pacchetto nelle ultime 3 ore");
-    if (mb.id !== c.id || !data || mode !== "remote") {
-      const b = JSON.parse(new TextDecoder().decode(await remOpen(mb.attachment.url)));
-      await remApply(b, true);
-      lsSet(REM_KEY, { t: S.rem.t, id: mb.id, log: c.log, fc: c.fc, b });
-    } else lsSet(REM_KEY, c);
-    remErr = "";
-    render("remote");
-  } catch (e) {
-    remErr = e && e.name === "OperationError" ? "la chiave non apre il pacchetto: ricollega questo telefono da casa" : Date.now() - mqLive < 60e3 ? "" : (e && e.message) || "ntfy non raggiungibile";
-    if (data && mode === "remote") render("remote"); else offline();
-  } finally { remBusy = false; remSt(); }
+  if (!data && mq && Date.now() - mq.t0 > 30e3) { remErr = "la scheda non ha ancora mandato un pacchetto"; offline(); }
+  else if (data && mode === "remote") { if (mqPackAt && Date.now() - mqPackAt > 30 * 60e3 && Date.now() - mqLive > 60e3) remErr = "nessun dato nuovo dalla scheda"; render("remote"); }
+  remSt();
 }
 // abbinamento: l'app della scheda apre questa con #rem=canale.chiave (il frammento non arriva mai a nessun server)
 function remPair(){
   const m = /^#rem=([A-Za-z0-9_-]{12,64})\.([A-Za-z0-9_-]{43})$/.exec(location.hash);
   if (!m) return;
-  S.rem = { t: m[1], k: m[2] }; saveSettings(); remAt = 0; remErr = "";
+  S.rem = { t: m[1], k: m[2] }; saveSettings(); remErr = "";
   try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   setTimeout(() => { toast("Telefono collegato: da fuori casa vedi la tua scheda"); if (typeof poll === "function") poll(); }, 600);
 }
@@ -2769,6 +2837,7 @@ async function poll(){
     if (fin(j.voc_at) && j.voc_at !== vocSeen) vocPull(j.voc_at);
     fcCap = fin(j.fc_last);
     if (fcCap && j.fc_last !== fcSeen) fcSync(j.fc_last);
+    epochCheck(j).then(() => { if (j.inv && fin(j.inv.st_at) && j.inv.st_at !== stSeen) stSync(j.inv.st_at); });
     swSync(j);
     if (fin(j.mute_until) && Math.abs(j.mute_until - muteUntil) > 60 && !muted()) { muteUntil = j.mute_until; try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {} }
     syncLog();
@@ -3129,8 +3198,8 @@ let LOG = [], logSrc = "", model = null, wx = null, fc = null, fcAt = 0, fcNull 
 const db = (() => {
   let p = null;
   const open = () => p || (p = new Promise((res, rej) => {
-    const r = indexedDB.open("mybattery", 2);
-    r.onupgradeneeded = () => ["log", "fc"].forEach(n => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); }); // registro e previsioni fatte
+    const r = indexedDB.open("mybattery", 3);
+    r.onupgradeneeded = () => ["log", "fc", "st"].forEach(n => { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); }); // registro e previsioni fatte
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   }));
   const run = (store, mode, fn) => open().then(d => new Promise((res, rej) => {
@@ -3139,6 +3208,7 @@ const db = (() => {
   }));
   return {
     all: (store = "log") => run(store, "readonly", s => s.getAll()).catch(() => []),
+    clear: store => run(store, "readwrite", s => s.clear()).catch(() => {}),
     put: (rows, store = "log", key = r => r[0]) => run(store, "readwrite", s => { rows.forEach(r => s.put(r, key(r))); }).catch(() => {})
   };
 })();
@@ -3170,7 +3240,6 @@ async function syncLog(){
   } catch (e) {}
   if (added.length) { LOG.push(...added); db.put(added); }
   await boardAlarms();
-  await pushOldLog();
   relearn();
 }
 // il diario della scheda (sempre accesa) al posto della cronologia che la app tiene solo mentre è aperta
@@ -3179,7 +3248,7 @@ async function boardAlarms(){
   try {
     const j = await (await fetch("/api/alarms", {cache: "no-store"})).json();
     if (!j || !Array.isArray(j.ev)) return;
-    boardEv = mapEv(j.ev);
+    boardEv = mapEv(j.ev); ievFromBoard();
   } catch (e) {}
 }
 const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
@@ -3188,30 +3257,9 @@ const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev)
         : e.code === "PV_FAULT" ? "Guasto del regolatore" : e.code === "PV_HIGH" ? "Tensione dei pannelli alta"
         : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : e.code === "INV_RISK" ? "L'inverter rischia di staccare" : e.code === "INV_NEAR" ? "Vicino allo stacco dell'inverter"
         : e.code === "INV_CUT" ? "L'inverter ha staccato" : (MSG[e.code] || [e.code])[0];
-      return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0 };
+      return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0, code: e.code,
+        c: fin(e.v) ? [e.s, 0, e.src, e.v, e.i, e.w, e.soc, e.smin, e.cell, e.mask, e.weak] : null };
     });
-// il registro fatto col cavo USB prima che ci fosse la scheda: lo si versa nella scheda, dal più recente al più vecchio
-// (la scheda accetta solo righe che finiscono prima della sua prima riga)
-const PUSH_KEY = "mybattery.logpush.v1";
-async function pushOldLog(){
-  if (!data || !fin(data.log_n)) return;
-  const first = data.log_n ? data.log_first : Infinity;
-  if (data.log_n && !fin(first)) return;
-  const old = LOG.filter(r => r[0] + r[1] * 60 <= first);
-  if (!old.length || lsGet(PUSH_KEY) === `${first}:${old.length}`) return;
-  let sent = 0;
-  try {
-    for (let end = old.length; end > 0; end -= 300) {
-      const part = old.slice(Math.max(0, end - 300), end).map(r => r.slice(0, 6));
-      const j = await (await fetch("/api/log/import", {method: "POST", headers: {"Content-Type": "application/json", "X-MyBattery": "1"}, body: JSON.stringify({rows: part})})).json();
-      if (!j || !j.ok) break;
-      sent += j.added || 0;
-    }
-  } catch (e) {}
-  try { localStorage.setItem(PUSH_KEY, JSON.stringify(`${first}:${old.length}`)); } catch (e) {}
-  if (sent) toast(`Registro del cavo USB copiato nella scheda: ${sent} righe`);
-}
-
 /* ---------- sole: posizione (elevazione e azimut) e cielo sereno ---------- */
 const RAD = Math.PI / 180, nowS = () => Date.now() / 1000;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -3759,7 +3807,7 @@ function nightSimple(k, now){
   if (!W) return null;
   const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), min = k.soc - W * (resume - now) / 3600 / capWh * 100;
   const cut = cutSoc();
-  return { cut, mar: cut + (S.marg || 10), min, resume, W, simple: true };
+  return { cut, mar: cut + (S.marg || 10), min, resume, W, low, simple: true };
 }
 // prima ora (frazionaria) in cui la serie passa la soglia
 const crossAt = (a, test, target) => { for (let i = 1; i < a.length; i++) if (test(a[i])) return i - 1 + Math.max(0, Math.min(1, (target - a[i - 1]) / ((a[i] - a[i - 1]) || 1))); return null; };
@@ -3877,6 +3925,7 @@ function pvAvail(t){
 }
 function relearn(){
   model = learn(LOG); fc = null; fcAt = 0; fcNull = false;
+  if (!stTried) { stTried = true; stLoad(); }
   drawHabits(); drawReliab();
   if (data) render(mode);
 }
@@ -3989,21 +4038,45 @@ function drawForecast(){
 
 /* ---------- allarmi: soglie scelte, previsioni e consigli. Con la app aperta suono e vibrazione, a app chiusa ntfy (dalla scheda) ---------- */
 const dkey = t => { const d = new Date(t * 1000); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+// gli avvisi che decide la scheda (dalla 0.33): la app li mostra e basta. Restano qui solo quelli che nascono dalle previsioni
+function boardAlerts(bs, k){
+  const out = [], kn = c => ({ INV_CUT: 1, INV_RISK: 1, INV_NEAR: 1, BANK_LOW: 1, CELL_SPREAD: 1, BAT_HOT: 1, BAT_COLD: 1, PV_HIGH: 1, PV_DANGER: 1, PV_OFFLINE: 1 })[c];
+  (data.open || []).forEach(([code, sev, who, at]) => {
+    if (!kn(code) || (code === "PV_OFFLINE" && !S.alOff)) return;
+    const b = who >= 0 && who < 11 ? bs[who] : null, g = who >= 11 && Array.isArray(data.pv) ? data.pv.find(x => x.addr === who - 10) : null;
+    const name = b ? nameOf(b, who) : g ? pvName(g) : "Banco", id = "o" + code + who, inv = data.inv || {};
+    const A = (t, d) => out.push({ id, sev, who: name, ...(b ? { i: who } : {}), t, d });
+    if (code === "INV_CUT") A(`L'inverter ha staccato alle ${hm(at)}`, "Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano.");
+    else if (code === "INV_RISK") A("L'inverter può staccare a momenti", `${inv.rmv && inv.rmv <= 3000 ? `Una cella è scesa a ${nf(inv.rmv / 1000, 2)} V con il banco che scarica. ` : `Banco a ${nf(k.v, 1)} V con molta corrente. `}Porta su Enel le zone che servono, a cominciare dagli scaldabagni.`);
+    else if (code === "INV_NEAR") A(`Banco a ${nf(k.v, 1)} V: vicino allo stacco`, `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.`);
+    else if (code === "BANK_LOW") A(`Carica bassa: ${nf(k.soc, 0)}%`, `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.`);
+    else if (code === "CELL_SPREAD" && b) A(`Celle sbilanciate di ${nf(Math.max(...b.cells) - Math.min(...b.cells), 0)} mV`, `Oltre la soglia di ${S.alDiff} mV. Il BMS bilancia vicino al pieno: se non scende, controlla.`);
+    else if (code === "BAT_HOT" && b) A(`Batteria calda: ${nf(tHot(b), 0)} °C`, "Controlla la ventilazione dell'armadio.");
+    else if (code === "BAT_COLD" && b) A(`Troppo freddo per caricare: ${nf(tHot(b), 0)} °C`, "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica.");
+    else if (code === "PV_HIGH" && g) A(`Pannelli a ${nf(g.v, 0)} V`, "Tensione alta rispetto al limite del regolatore: con il freddo può salire ancora.");
+    else if (code === "PV_DANGER" && g) A(`Pannelli a ${nf(g.v, 0)} V`, "Quasi al limite del regolatore: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.");
+    else if (code === "PV_OFFLINE" && g) A("Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori.");
+  });
+  return out;
+}
 function myAlarms(bs, k, f){
   const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours();
+  const br = Array.isArray(data.open);                  // scheda dalla 0.33: decide lei
+  if (br) out.push(...boardAlerts(bs, k));
   // stacco dell'inverter: adesso, dalla tensione del banco (la scheda manda la stessa cosa su ntfy)
   if (k.on && fin(k.v) && fin(k.i)) {
     const L = data.inv && Array.isArray(data.inv.cuts) && data.inv.cuts[0], cutNow = L && now - L[0] < 12 * HOUR && Math.abs(k.i) < .3;
-    if (cutNow) out.push({ id: "invcut" + L[0], sev: "prot", who: "Banco", t: `L'inverter ha staccato alle ${hm(L[0])}`,
+    if (!br && cutNow) out.push({ id: "invcut" + L[0], sev: "prot", who: "Banco", t: `L'inverter ha staccato alle ${hm(L[0])}`,
       d: `Con il banco a ${nf(L[1], 1)} V e il BMS al ${nf(L[2], 0)}%. Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano.` });
-    else if (data.inv && data.inv.risk) out.push({ id: "invrisk", sev: "prot", who: "Banco", t: "L'inverter può staccare a momenti",
+    else if (SW.mask && (() => { const rk = riskFor(k, f, SW.mask); if (!rk || rk.p6 < .3 || (data.inv && data.inv.risk)) return false; out.push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Porta su Enel le zone più pesanti.` }); return true; })()) {}
+    else if (!br && data.inv && data.inv.risk) out.push({ id: "invrisk", sev: "prot", who: "Banco", t: "L'inverter può staccare a momenti",
       d: `${data.inv.rmv && data.inv.rmv <= 3000 ? `Una cella è scesa a ${nf(data.inv.rmv / 1000, 2)} V con il banco che scarica. ` : `Banco a ${nf(k.v, 1)} V con molta corrente. `}Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
-    else if (k.i < -1 && k.v <= (S.inv || 48) + .8) out.push({ id: "invnear", sev: "prot", who: "Banco", t: `Banco a ${nf(k.v, 1)} V: vicino allo stacco`,
+    else if (!br && k.i < -1 && k.v <= (S.inv || 48) + .8) out.push({ id: "invnear", sev: "prot", who: "Banco", t: `Banco a ${nf(k.v, 1)} V: vicino allo stacco`,
       d: `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
   }
-  if (k.on && fin(k.soc) && k.soc < S.alLow) out.push({ id: "low", sev: "alarm", t: `Carica bassa: ${nf(k.soc, 0)}%`, d: `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.` });
+  if (!br && k.on && fin(k.soc) && k.soc < S.alLow) out.push({ id: "low", sev: "alarm", t: `Carica bassa: ${nf(k.soc, 0)}%`, d: `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.` });
   bs.forEach((b, i) => {
-    if (!b.online) return;
+    if (!b.online || br) return;
     const who = nameOf(b, i);
     if (b.cells && b.cells.length && !(b.alarms || []).includes("CELL_DIFF")) {
       const dv = Math.max(...b.cells) - Math.min(...b.cells);
@@ -4015,18 +4088,18 @@ function myAlarms(bs, k, f){
       else if (fin(tc) && tc <= 2) out.push({ id: "cold" + i, sev: "alarm", who, i, t: `Troppo freddo per caricare: ${nf(tc, 0)} °C`, d: "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica." });
     }
   });
-  if (S.alOff && Array.isArray(data.pv)) data.pv.forEach(g => { if (g.online === false) out.push({ id: "pvoff" + g.addr, sev: "mute", who: pvName(g), t: "Regolatore non raggiungibile", d: "Controlla il cavo RS485 tra i regolatori." }); });
+  if (!br && S.alOff && Array.isArray(data.pv)) data.pv.forEach(g => { if (g.online === false) out.push({ id: "pvoff" + g.addr, sev: "mute", who: pvName(g), t: "Regolatore non raggiungibile", d: "Controlla il cavo RS485 tra i regolatori." }); });
   let nightTold = false;
   if (S.alFc && k.on) {
-    const nr = f ? f.prob.night : nightSimple(k, now);
+    const nr = nightPlan(k, f, SW.mask);
     if (nr) {
-      const at = t => hm(q15(t)), resT = f ? f.t[0] + nr.resume * HOUR : nr.resume;
+      const at = t => hm(q15(t)), resT = nr.resume === null ? now + 48 * HOUR : nr.resume;
       const how = "Riduci i consumi stasera o porta qualche zona su Enel.";
-      if (f ? nr.pCut >= .2 : nr.min <= nr.cut) {
+      if (nr.pCut >= .2) {
         nightTold = true;
         out.push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte rischi lo stacco dell'inverter",
           d: `${f ? `Probabilità ${nf(nr.pCut * 100, 0)}%: ` : ""}il banco può scendere sotto ${ilP(nr.cut)} (${S.inv} V) prima che i pannelli tornino a caricare, verso le ${at(resT)}. ${how}${f ? "" : ` Stima con ${power(nr.W)} di consumo medio di notte.`}` });
-      } else if (f ? nr.pMar >= .3 : nr.min <= nr.mar) {
+      } else if (nr.pMar >= .3) {
         nightTold = true;
         const m = Math.max(0, nr.min);
         out.push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte margine stretto: verso ${ilP(m)}`,
@@ -4058,8 +4131,8 @@ function myAlarms(bs, k, f){
   if (Array.isArray(data.pv)) data.pv.forEach(g => {
     if (pvIsOff(g)) return;                                  // staccato: lo dicono le leve nella pagina Pannelli
     const c = S.pv[g.addr] || {}, max = vmaxOf(g.addr), lim = g.fc && fin(g.fc.l) ? g.fc.l : pvLim(max), pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
-    if (cur >= pvDangerAt(max)) { out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= lim ? "Oltre i" : "Quasi ai"} ${nf(lim, 0)} V che il regolatore regge a questa temperatura: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` }); return; }
-    const t25 = vocRaw(c, 25), peak = pk && pk.v >= pvWarnAt(max) && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
+    if (!br && cur >= pvDangerAt(max)) { out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= lim ? "Oltre i" : "Quasi ai"} ${nf(lim, 0)} V che il regolatore regge a questa temperatura: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` }); return; }
+    const t25 = vocRaw(c, 25), peak = !br && pk && pk.v >= pvWarnAt(max) && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
     const v = dc ? vocAt(c, dc.panel, g.addr) : NaN, cold = fin(v) && v >= pvWarnAt(max);
     if (!peak && !cold) return;
     const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim, fir = dc && irrAt(dc.t, true), flx = fir ? vocGat(fir, g.addr, dc.t) : NaN;
@@ -5184,7 +5257,7 @@ async function backupOut(){
   }
   const learned = logSrc === "live" && model ? JSON.parse(JSON.stringify(model, (k, v) => LEARN_SKIP.has(k) || v instanceof Map ? undefined : v)) : null;
   const out = { app: "MyBattery", kind: "backup", format: 1, version: APP_VERSION, created: Math.round(nowS()), from: location.host || "file",
-    settings: { ...S }, storage, log, forecasts: fcs, learned };
+    settings: { ...S }, storage, log, forecasts: fcs, learned, stress: STRESS };
   const keys = $("bk-keys").checked;
   if (!keys) { BK_SECRET.forEach(k => { delete out.settings[k]; }); out.noKeys = true; }
   const d = new Date(), p2 = n => String(n).padStart(2, "0");
@@ -5220,6 +5293,7 @@ async function backupApply(){
   if (cable) await cabClose(false);
   if (p.log.length) await db.put(p.log);
   if (p.fcs.length) await db.put(p.fcs, "fc", r => r.t0);
+  await stMerge((Array.isArray(p.j.stress) ? p.j.stress : []).filter(stOk));
   if (p.j.settings && typeof p.j.settings === "object") { // loadSettings la ricontrolla al riavvio
     const mine = lsGet(SKEY) || {}, inc = { ...p.j.settings };
     BK_SECRET.forEach(k => { if (!(k in inc) && k in mine) inc[k] = mine[k]; }); // un backup senza chiavi non cancella quelle di questo telefono
@@ -5479,10 +5553,6 @@ $("settings").addEventListener("change", e => {
   if (t.name === "poll") { schedule(); poll(); }
   if (t.name === "inv" || t.name === "marg") { fillInvNote(); fc = null; fcAt = 0; if (data) render(mode); }
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
-  if (t.name === "log") {
-    if (logSrc === "demo") { LOG = demoLog(); relearn(); }
-    else boardCfg({log_min: S.log}).catch(() => {});
-  }
   if (data) render(mode);
 });
 ["set-names", "set-pvnames", "set-zones"].forEach(id => {
