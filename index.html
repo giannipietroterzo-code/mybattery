@@ -1494,7 +1494,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.69"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.70"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1611,18 +1611,23 @@ const vocAt = (c, temp, a) => vocRaw(c, temp) * vcal(a).f;
 // autocorrezione: ogni alba, a pannelli fermi (il regolatore non sta ancora caricando) la tensione letta è la Voc vera.
 // Il rapporto tra letta e prevista, mediana delle ultime 14 albe, corregge in un colpo targhetta, gradi di raffreddamento e coefficiente.
 const VCAL_KEY = "mybattery.voccal.v1";
-// con poca luce la tensione a vuoto viene bassa: una mattina scura insegnerebbe una Voc ottimistica (il meteo è la media dell'ora di quella lettura)
-const VOC_LIT = 120;
+// con poca luce la tensione a vuoto scende col logaritmo della luce: ogni lettura si riporta a VOC_GREF con la luce di quell'ora (il meteo è la media dell'ora),
+// così contano anche le mattine coperte. Sotto VOC_LIT la media dell'ora non dice più niente e la lettura non si usa.
+const VOC_LIT = 30, VOC_GREF = 200, VOC_B = .045;
+const vocLux = (g, b = VOC_B) => 1 + b * Math.log(Math.max(VOC_LIT, g) / VOC_GREF);
+const vocGat = (ir, a, t) => { const g = planeGti(ir, planeOf({ addr: a }), t); return fin(g) ? g : ir.ghi; };
+function vocRowG(d){ if (fin(d.g) && d.g > 0) return d.g; const ir = d.t ? irrAt(Math.floor(d.t / HOUR) * HOUR, false) : null; return ir && fin(ir.ghi) ? ir.ghi : VOC_GREF; }
+const vcalR = d => d.r / vocLux(vocRowG(d));
 function vocLit(t){ if (logSrc === "demo" && !isReal()) return true; const ir = t ? irrAt(t, false) : null; return !ir || !fin(ir.ghi) || ir.ghi >= VOC_LIT; }
 let vcalSt = (() => { try { return JSON.parse(localStorage.getItem(VCAL_KEY) || "{}") || {}; } catch (e) { return {}; } })();
-const vcalGood = d => !d.x && vocLit(d.t) && d.r >= .85 && d.r <= 1.2;   // fuori scala: letta con una targa sbagliata, o oltre il filtro
+const vcalGood = d => { const r = vcalR(d); return !d.x && vocLit(d.t) && r >= .85 && r <= 1.2; };   // fuori scala: letta con una targa sbagliata, o oltre il filtro
 function vcal(a){
   const ds = (vcalSt[a] || []).filter(vcalGood).slice(-14), n = ds.length;
   if (n < 3) return { f: 1, n };
-  return { f: clamp(quant(ds.map(d => d.r), .5), .85, 1.15), n, last: ds[n - 1] };
+  return { f: clamp(quant(ds.map(vcalR), .5), .85, 1.15), n, last: ds[n - 1] };
 }
 // mediana delle albe buone già registrate (senza quella di oggi); null se sono meno di 3
-function vcalFrom(ds){ const ok = ds.filter(vcalGood).slice(-14); return ok.length >= 3 ? quant(ok.map(d => d.r), .5) : null; }
+function vcalFrom(ds){ const ok = ds.filter(vcalGood).slice(-14); return ok.length >= 3 ? quant(ok.map(vcalR), .5) : null; }
 // pannelli che sembrano mancare: un diodo di bypass o un pannello in corto toglie circa 1/N della tensione di una stringa da N.
 // Con più stringhe in parallelo quella sana tiene su la tensione e il calo si vede meno, per questo la soglia è al 60% di un pannello.
 function panelGone(c, ds, r){
@@ -1636,8 +1641,8 @@ function vcalSample(g, now){
   const pred = vocRaw(c, cellT(ir, g.addr, t)), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
   const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), j = ds.findIndex(d => d.d === dk);
   if (j >= 0) { if (g.v <= ds[j].v) return; ds.splice(j, 1); }        // della giornata tengo la lettura più alta
-  const row = { d: dk, t: now, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4) }, k = panelGone(c, ds, r);
-  if (k) { row.x = k; row.e = +(pred * vcalFrom(ds)).toFixed(1); } // alba anomala: fuori dalla correzione, così il guasto non diventa normale
+  const lx = vocGat(ir, g.addr, t), row = { d: dk, t: now, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4), g: Math.round(lx) }, k = panelGone(c, ds, r / vocLux(lx));
+  if (k) { row.x = k; row.e = +(pred * vcalFrom(ds) * vocLux(lx)).toFixed(1); } // alba anomala: fuori dalla correzione, così il guasto non diventa normale
   ds.push(row); ds.sort((a, b) => (a.t || 0) - (b.t || 0));       // le albe della scheda possono arrivare in ritardo
   vcalSt[g.addr] = ds.slice(-30);
   try { localStorage.setItem(VCAL_KEY, JSON.stringify(vcalSt)); } catch (e) {}
@@ -1766,7 +1771,7 @@ function dawnOf(day0, asFc){
 const VOC_DEMO = { 1: 131.5, 2: 129, 3: 84.5 }; // V a 25 °C dei gruppi finti
 // albe lette di un regolatore, una per giorno (la più alta): scheda + quelle viste dalla app; x = alba anomala
 function vocHist(a){
-  const m = new Map(), put = (t, v, x) => { const k = dkey(t), o = m.get(k); if (!o || v > o.v) m.set(k, { t, v, x: x || 0 }); else if (x) o.x = x; };
+  const m = new Map(), put = (t, v, x, g) => { const k = dkey(t), o = m.get(k); if (!o || v > o.v) m.set(k, { t, v, x: x || 0, g: o && o.t === t && !fin(g) ? o.g : g }); else { if (x) o.x = x; if (!fin(o.g) && fin(g)) o.g = g; } };
   if (logSrc === "demo" && !isReal()) {
     const now = nowOf(data), m0 = midnight(now), base = VOC_DEMO[a] || 120;
     for (let n = -VOC_DAYS - 2; n <= 0; n++) {
@@ -1777,20 +1782,43 @@ function vocHist(a){
     (vocD[a] || []).forEach(r => { if (vocOk(a, r[1])) put(r[0], r[1], 0); });
     if (isReal()) (vcalSt[a] || []).forEach(d => {
       const t = d.t || (d.d ? new Date(Math.floor(d.d / 10000), Math.floor(d.d / 100) % 100 - 1, d.d % 100, 8).getTime() / 1000 : 0);
-      if (t && fin(d.v) && (d.x || vocOk(a, d.v))) put(t, d.v, d.x || 0);
+      if (t && fin(d.v) && (d.x || vocOk(a, d.v))) put(t, d.v, d.x || 0, d.g);
     });
   }
   return [...m.values()].map(h => ({ ...h, dim: !vocLit(h.t) })).sort((x, y) => x.t - y.t);
 }
-// k (Voc a 25 °C dei pannelli): dalle ultime 14 albe buone e abbastanza luminose col meteo; se sono meno di 3, dalla targhetta
+// quanto la Voc di questi pannelli sente la luce: si impara con almeno 8 mattine e luci abbastanza diverse, altrimenti il valore tipico
+function vocFit(pts){
+  let b = VOC_B;
+  const xs = pts.map(p => Math.log(Math.max(VOC_LIT, p.g) / VOC_GREF));
+  if (pts.length >= 8 && Math.max(...xs) - Math.min(...xs) >= 1.1) {
+    const n = pts.length, mx = xs.reduce((a, x) => a + x, 0) / n, my = pts.reduce((a, p) => a + p.y, 0) / n;
+    const sxx = xs.reduce((a, x) => a + (x - mx) ** 2, 0), sxy = xs.reduce((a, x, i) => a + (x - mx) * (pts[i].y - my), 0), s = sxy / sxx;
+    b = clamp(s / (my - s * mx), .02, .08);
+  }
+  return { b, k: quant(pts.map(p => p.y / vocLux(p.g, b)), .5) };
+}
+// k (Voc a 25 °C dei pannelli con 200 W/m²): dalle ultime 14 albe buone, riportate alla stessa luce; se sono meno di 3, dalla targhetta
 function vocModel(a, hist){
-  const ks = hist.filter(h => !h.x && !h.dim).slice(-14).map(h => { const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false); return ir && fin(ir.temp) ? h.v / (1 + VOC_K * (25 - cellT(ir, a, t))) : NaN; }).filter(fin);
-  if (ks.length >= 3) {
-    const k = quant(ks, .5), sd = Math.sqrt(ks.reduce((s, x) => s + (x / k - 1) ** 2, 0) / ks.length);
-    return { k, rel: Math.max(.008, 1.5 * sd), how: "albe", n: ks.length };
+  const pts = hist.filter(h => !h.x && !h.dim).slice(-14).map(h => { const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false); return ir && fin(ir.temp) ? { y: h.v / (1 + VOC_K * (25 - cellT(ir, a, t))), g: fin(h.g) && h.g > 0 ? h.g : vocGat(ir, a, t) } : null; }).filter(p => p && fin(p.y));
+  if (pts.length >= 3) {
+    const { k, b } = vocFit(pts), sd = Math.sqrt(pts.reduce((s, p) => s + (p.y / vocLux(p.g, b) / k - 1) ** 2, 0) / pts.length);
+    return { k, b, rel: Math.max(.008, 1.5 * sd), how: "albe", n: pts.length };
   }
   const c = S.pv[a] || {}, r = vocRaw(c, 25);
-  return fin(r) ? { k: r * vcal(a).f, rel: .04, how: "targa", n: ks.length } : null;
+  return fin(r) ? { k: r * vcal(a).f, b: VOC_B, rel: .04, how: "targa", n: pts.length } : null;
+}
+// la mattina di un giorno: l'ora con la tensione attesa più alta, con la luce prevista. Il massimo della fascia è se il cielo si apre (almeno 200 W/m²)
+function vocFcDay(a, day0, md){
+  let best = null, top = 0;
+  for (let h = 4; h < 11; h++) {
+    const d = new Date(day0 * 1000); d.setHours(h, 0, 0, 0); const t = d.getTime() / 1000, ir = irrAt(t, true);
+    if (!ir || !fin(ir.temp) || !(ir.ghi >= 15)) continue;
+    const g = vocGat(ir, a, t), v = md.k * (1 + VOC_K * (25 - cellT(ir, a, t))) * vocLux(g, md.b), gs = Math.max(g, VOC_GREF);
+    top = Math.max(top, md.k * (1 + VOC_K * (25 - (ir.temp - PANEL_COLD + .03 * gs))) * vocLux(gs, md.b));
+    if (!best || v > best.v) best = { t, v, air: ir.temp, g };
+  }
+  return best && { ...best, lo: best.v * (1 - md.rel), hi: Math.max(best.v, top) * (1 + md.rel) };
 }
 function vocSeries(pv){
   const now = nowOf(data), m0 = midnight(now);
@@ -1798,8 +1826,8 @@ function vocSeries(pv){
     const all = vocHist(g.addr), md = vocModel(g.addr, all), fc = [];
     if (md) for (let n = 0; n < VOC_FC; n++) {
       const day = dayAdd(m0, n); if (all.some(h => dkey(h.t) === dkey(day + 12 * HOUR))) continue;
-      const dw = dawnOf(day, true); if (!dw || (n === 0 && dw.t + 2 * HOUR < now)) continue;
-      const v = md.k * vocFac(dw.air); fc.push({ t: dw.t, v, lo: v * (1 - md.rel), hi: v * (1 + md.rel), air: dw.air });
+      const dw = vocFcDay(g.addr, day, md); if (!dw || (n === 0 && dw.t + 2 * HOUR < now)) continue;
+      fc.push(dw);
     }
     return { g, i, all, md, fc, vmax: vmaxOf(g.addr) };
   });
@@ -1824,7 +1852,7 @@ function drawVoc(pv){
   const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
   const nPast = dayIdx(m0 + 12 * HOUR, first) + 1, N = nPast + lastFc;           // colonne: giorni passati + oggi + previsione
   ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); });
-  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale. I punti chiari sono mattine troppo scure: restano nel grafico ma non tarano la previsione.</p>`;
+  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale. Contano anche le mattine coperte: ogni lettura si corregge con la luce di quell'ora. I punti chiari sono sotto i 30 W/m²: restano nel grafico ma non tarano la previsione.</p>`;
   if (!ser.some(s => s.hist.length || s.fc.length)) {
     box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda registra ogni mattina la tensione più alta. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
     return;
@@ -1870,20 +1898,20 @@ function drawVoc(pv){
   // lettura: il giorno toccato, se no l'ultima alba letta (o la prossima prevista)
   const lastH = Math.max(-99, ...ser.flatMap(s => s.hist.map(h => dayIdx(h.t, m0))));
   const day = sel !== null ? sel : ser.some(s => s.fc.some(f => dayIdx(f.t, m0) === 1)) && lastH < 0 ? 1 : lastH > -99 ? lastH : 1;
-  let air = null, tt = null;
+  let air = null, tt = null, lux = null;
   const rows = ser.map(s => {
     const h = s.hist.find(z => dayIdx(z.t, m0) === day), f = s.fc.find(z => dayIdx(z.t, m0) === day), v = h ? h.v : f ? f.v : NaN;
-    if (h && tt === null) { tt = h.t; const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); if (ir && fin(ir.temp)) air = ir.temp; }
-    if (!h && f && tt === null) { tt = f.t; air = f.air; }
+    if (h && tt === null) { tt = h.t; const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); if (ir && fin(ir.temp)) { air = ir.temp; lux = fin(h.g) && h.g > 0 ? h.g : ir.ghi; } }
+    if (!h && f && tt === null) { tt = f.t; air = f.air; lux = f.g; }
     const hot = v >= pvDangerAt(s.vmax) ? " danger" : v >= pvWarnAt(s.vmax) ? " hot" : "";
     return `<span class="vl${hot}"><i style="background:${vocCol(s.i)}"></i><span class="vn">${esc(pvName(s.g))}</span>` +
       `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : h && h.dim ? `<small>poca luce</small>` : ""}</span>`;
   }).join("");
   const dt = dayAdd(m0, day) + 12 * HOUR, fcDay = !ser.some(s => s.hist.some(h => dayIdx(h.t, m0) === day));
-  const when = `${day === 0 ? "Oggi" : day === 1 ? "Domani" : day === -1 ? "Ieri" : vDay(dt)[0].toUpperCase() + vDay(dt).slice(1)}${tt ? (fcDay ? " · alba verso le " : " · alle ") + hm(tt) : ""}${fin(air) ? " · aria " + nf(air, 0).replace("-", "−") + " °C" : ""}${fcDay ? " · previsione" : ""}`;
+  const when = `${day === 0 ? "Oggi" : day === 1 ? "Domani" : day === -1 ? "Ieri" : vDay(dt)[0].toUpperCase() + vDay(dt).slice(1)}${tt ? (fcDay ? " · alba verso le " : " · alle ") + hm(tt) : ""}${fin(air) ? " · aria " + nf(air, 0).replace("-", "−") + " °C" : ""}${fin(lux) ? " · luce " + nf(lux, 0) + " W/m²" : ""}${fcDay ? " · previsione" : ""}`;
   const how = ser.filter(s => s.fc.length).map(s => s.md.how);
-  const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 mattine luminose lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
-    : how.every(h => h === "albe") ? "Previsione dal meteo delle prossime mattine e dalle tue albe lette; la fascia è l'incertezza." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 mattine luminose lette; la fascia è l'incertezza.";
+  const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 mattine lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
+    : how.every(h => h === "albe") ? "Previsione da temperatura e luce attese e dalle tue albe lette; la fascia arriva fin dove salirebbe se il cielo si apre." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 mattine lette; la fascia arriva fin dove salirebbe se il cielo si apre.";
   box.innerHTML = head + `<div class="vocw"><svg class="vocg" viewBox="0 0 ${W} ${H}" data-n="${N}" data-l="${L}" data-r="${R}" data-t="${tIdx}" role="img" aria-label="Voc all'alba degli ultimi giorni e prevista per i prossimi">${g}</svg>` +
     `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div><p class="note voc-foot">${foot}</p>`;
 }
@@ -4012,10 +4040,11 @@ function myAlarms(bs, k, f){
     const t25 = vocRaw(c, 25), peak = pk && pk.v >= pvWarnAt(max) && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
     const v = dc ? vocAt(c, dc.panel, g.addr) : NaN, cold = fin(v) && v >= pvWarnAt(max);
     if (!peak && !cold) return;
-    const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim;
+    const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim, fir = dc && irrAt(dc.t, true), flx = fir ? vocGat(fir, g.addr, dc.t) : NaN;
+    const dim = cold && fin(flx) && flx < VOC_GREF ? `Col cielo previsto (~${nf(flx, 0)} W/m²) più probabile ~${nf(v * vocLux(flx), 0)} V; se si apre il sole, ${nf(v, 0)} V. ` : "";
     if (cold) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
       t: `${dayWord(dc.t)[0].toUpperCase() + dayWord(dc.t).slice(1)} all'alba ~${nf(v, 0)} V${peak ? `, oggi ${nf(peak.v, 0)} V` : ""}`,
-      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}, ${L}. ${over ? `${dkey(dc.t) === dkey(now) ? "Prima dell'alba" : "Stasera"} apri il sezionatore di questo gruppo e richiudilo a sole alto.` : "Tienilo d'occhio se scende ancora la temperatura."}` });
+      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}, ${L}. ${dim}${over ? `${dkey(dc.t) === dkey(now) ? "Prima dell'alba" : "Stasera"} apri il sezionatore di questo gruppo e richiudilo a sole alto.` : "Tienilo d'occhio se scende ancora la temperatura."}` });
     else out.push({ id: "pvv" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi pannelli a ${nf(peak.v, 0)} V`, d: `Alle ${hm(peak.at)}, ${L}. Con il freddo la tensione sale ancora.` });
   });
   if (Array.isArray(data.pv)) data.pv.forEach(g => { const ds = vcalSt[g.addr] || [], l = ds[ds.length - 1], c = S.pv[g.addr] || {};
