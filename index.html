@@ -362,7 +362,8 @@ a.set-btn{text-decoration:none}
 .hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
 .pv-tab small{display:block;color:var(--muted);font-size:.72rem;font-weight:400}
 .pv-in{margin-top:10px}.pv-in:empty{display:none}
-.pvi-row{display:flex;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px}
+.pvi-row{display:flex;justify-content:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px}
+.pvi-row .q-mod{width:86px}
 .pvi-row .q-let{font-size:.74rem;font-weight:700;letter-spacing:.01em;white-space:nowrap}
 .pvi-row .q-st{width:auto;height:auto;font-size:.66rem;font-weight:600;line-height:1.2}
 .pvi-adv{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
@@ -541,8 +542,6 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .q-txt{flex:1;min-width:0}.q-txt b{display:block;font-size:1.02rem;line-height:1.25}.q-txt span{display:block;margin-top:3px;font-size:.84rem;line-height:1.4;color:var(--muted)}
 .q-one.cut .q-txt span{color:var(--warn)}
 .q-chip.off i{background:var(--muted);box-shadow:none}
-.q-leg{display:flex;justify-content:center;gap:16px;margin:8px 0 0;font-size:.74rem;color:var(--muted)}.q-leg span{display:inline-flex;align-items:center;gap:5px}
-.q-leg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.q-leg span:first-child{color:var(--sun)}
 [data-style] .q-mod{background:color-mix(in srgb,var(--lith) 4%,var(--bg));border-color:color-mix(in srgb,var(--lith) 14%,transparent)}
 [data-style] .q-mod[aria-checked="true"]{background:color-mix(in srgb,var(--lith) 14%,var(--bg));border-color:var(--lith);box-shadow:0 0 14px -6px var(--lith)}
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-one,.q-mod,.q-slot,.q-lev){border-radius:0}
@@ -1245,7 +1244,6 @@ footer{border-top:0;padding-top:0}
       <section aria-labelledby="h-q" id="quadro-sec">
         <h2 id="h-q">Uscita dell'inverter</h2>
         <div class="quadro" id="quadro"></div>
-        <p class="q-leg" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Su: casa sul banco</span><span><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Giù: casa su Enel</span></p>
         <p class="set-note">L'interruttore tra l'inverter e l'ATS: per ora lo segni qui quando lo sposti. Se l'inverter stacca, l'ATS porta la casa su Enel da solo anche con l'uscita accesa.</p>
         <div class="q-last" id="q-last"></div>
       </section>
@@ -1488,7 +1486,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.78"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.79"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
