@@ -175,6 +175,7 @@ body{height:100%;overflow:hidden}
 .vocg .band{opacity:.15}
 .vocg .pt{stroke:var(--surface);stroke-width:1.6}
 .vocg .fpt{fill:var(--surface);stroke-width:2}
+.vocg .pfp{fill:var(--surface);stroke-width:1.4;stroke-dasharray:2.2 1.6}.vocg .pfl{stroke-width:1.2;opacity:.5}
 .vocg .bad{fill:none;stroke:var(--alert);stroke-width:1.6}
 .voc-when{margin:8px 4px 6px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .voc-leg{display:flex;flex-wrap:wrap;gap:6px}
@@ -268,6 +269,7 @@ section{margin-top:26px}
 .al-k{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted);margin-bottom:2px;white-space:nowrap;overflow:hidden}
 .al-tag{flex:none;padding:1px 6px;border-radius:5px;background:var(--t);color:var(--c);font:700 .62rem/1.5 var(--mono);letter-spacing:.06em;text-transform:uppercase}
 .al-who{overflow:hidden;text-overflow:ellipsis}
+.al-at{flex:none;margin-left:auto;padding-left:8px;font:500 .7rem var(--mono);letter-spacing:.02em;color:var(--muted);font-variant-numeric:tabular-nums}
 .al-txt b{font-weight:600;font-size:.98rem}
 .al-txt span.al-d{margin-top:2px;font-size:.84rem;color:var(--muted)}
 .al-go{position:relative;flex:none;align-self:center;width:16px;height:16px;color:var(--muted)}
@@ -1499,7 +1501,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.76"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.77"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1520,9 +1522,23 @@ const MSG = {
   CELL_DIFF: ["Celle sbilanciate", "La differenza tra le celle è più alta del normale. Il BMS sta bilanciando."],
   LOW_SOC:   ["Carica bassa", "La batteria è sotto la soglia di carica minima impostata."],
   TEMP_DIFF: ["Temperature diverse tra le celle", "Controlla che la batteria sia ben ventilata."],
-  FAULT:     ["Guasto del BMS", "Il BMS segnala un guasto interno. Contatta il venditore."]
+  FAULT:     ["Guasto del BMS", "Il BMS segnala un guasto interno. Contatta il venditore."],
+  // quelli che decide la scheda (o, senza scheda, la app con le stesse regole)
+  OFFLINE:     ["Batteria non raggiungibile", "Controlla il cavo di comunicazione tra le batterie."],
+  CELL_SPREAD: () => ["Celle sbilanciate", `Oltre la soglia di ${S.alDiff} mV. Il BMS bilancia vicino al pieno: se non scende, controlla.`],
+  BAT_HOT:     ["Batteria calda", "Controlla la ventilazione dell'armadio."],
+  BAT_COLD:    ["Troppo freddo per caricare", "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica."],
+  BANK_LOW:    () => ["Carica bassa", `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.`],
+  INV_NEAR:    () => ["Vicino allo stacco dell'inverter", `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.`],
+  INV_RISK:    ["L'inverter può staccare a momenti", "Porta su Enel le zone che servono, a cominciare dagli scaldabagni."],
+  INV_CUT:     ["L'inverter ha staccato", "Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano."],
+  PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
+  PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
+  PV_FAULT:    ["Guasto del regolatore", "Il regolatore segnala un guasto: guarda il suo display."],
+  PV_HIGH:     ["Tensione dei pannelli alta", "Alta rispetto al limite del regolatore: con il freddo può salire ancora."],
+  PV_DANGER:   ["Tensione dei pannelli al limite", "Quasi al limite che il regolatore regge a questa temperatura: apri il sezionatore dei pannelli di questo gruppo."]
 };
-const msg = c => MSG[c] || [c, ""];
+const msg = c => { const m = MSG[c]; return typeof m === "function" ? m() : m || [c, ""]; };
 const AL_ICON = {
   prot:  '<path d="M12 3 4.5 6v5.2c0 4.4 3.1 8.1 7.5 9.8 4.4-1.7 7.5-5.4 7.5-9.8V6L12 3z"/><path d="M12 8.2v4.6M12 15.9v.3"/>',
   alarm: '<path d="M12 4 2.5 20h19L12 4z"/><path d="M12 10v4.5M12 17.2v.3"/>',
@@ -1535,10 +1551,11 @@ const AL_ICON = {
 };
 const AL_TAG = { prot: "Protezione", alarm: "Attenzione", mute: "Offline", fc: "Previsione", tip: "Consiglio" };
 const ico = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-// una card di avviso; con "i" diventa toccabile e apre la scheda della batteria
+// una card di avviso; con "i" diventa toccabile e apre la scheda della batteria. at = quando è cominciato
+const alWhen = t => new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " · " + hm(t);
 const alertLi = a => `<li class="${a.sev}" data-k="${esc(alKey(a))}"${a.i !== undefined ? ` data-i="${a.i}" role="button" tabindex="0"` : ""}>` +
   `<span class="al-ico">${ico(AL_ICON[a.sev])}</span><span class="al-txt">` +
-  `<span class="al-k"><span class="al-tag">${AL_TAG[a.sev]}</span>${a.who ? `<span class="al-who">${esc(a.who)}</span>` : ""}</span>` +
+  `<span class="al-k"><span class="al-tag">${AL_TAG[a.sev]}</span>${a.who ? `<span class="al-who">${esc(a.who)}</span>` : ""}${fin(a.at) ? `<time class="al-at" datetime="${new Date(a.at * 1000).toISOString()}">${alWhen(a.at)}</time>` : ""}</span>` +
   `<b>${esc(a.t)}</b>${a.d ? `<span class="al-d">${esc(a.d)}</span>` : ""}</span>` +
   (a.i !== undefined ? `<svg class="al-go" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3.5 4.5 4.5L6 12.5"/></svg>` : "") + `</li>`;
 
@@ -1597,61 +1614,21 @@ function strArr(c){
 const VMAX = [100, 150, 200], T_MIN = -10, VOC_K = 0.003;
 // tensione letta dai pannelli: avviso dal 90% del massimo (135 V su 150, sotto i 138 V che Epever dà a 25 °C), pericolo dal 96% (144 V)
 const PV_WARN = .9, PV_WARN_V = 5, PV_DANGER_V = 1, PVMAX_KEY = "mybattery.pvmax.v1";
-// la prossima alba col meteo: la Voc è quasi piena già con poca luce, quindi conta l'ora più fredda tra quelle con un po' di sole.
-// Nelle notti serene i pannelli all'alba stanno un paio di gradi sotto l'aria.
-const PANEL_COLD = 2;
-function dawnCold(){
-  if (!S.loc && logSrc !== "demo") return null;
-  const now = nowOf(data), t0 = Math.floor(now / HOUR) * HOUR;
-  let best = null;
-  for (let t = t0; t < t0 + 36 * HOUR; t += HOUR) {
-    const ir = irrAt(t, true); if (!ir || !fin(ir.temp) || !(ir.ghi >= 15)) continue;
-    if (!best || ir.temp < best.air) best = { t, air: ir.temp };
-    else if (best && t - best.t > 10 * HOUR) break; // basta la prima mattina utile
-  }
-  return best && { ...best, panel: best.air - PANEL_COLD };
-}
-const vocRaw = (c, temp) => c.voc && c.n && !(c.n % (c.s || 1)) ? c.n / (c.s || 1) * c.voc * (1 + VOC_K * (25 - temp)) : NaN;
-const vocAt = (c, temp, a) => vocRaw(c, temp) * vcal(a).f;
-// autocorrezione: ogni alba, a pannelli fermi (il regolatore non sta ancora caricando) la tensione letta è la Voc vera.
-// Il rapporto tra letta e prevista, mediana delle ultime 14 albe, corregge in un colpo targhetta, gradi di raffreddamento e coefficiente.
-const VCAL_KEY = "mybattery.voccal.v1";
-// con poca luce la tensione a vuoto scende col logaritmo della luce: ogni lettura si riporta a VOC_GREF con la luce di quell'ora (il meteo è la media dell'ora),
-// così contano anche le mattine coperte. Sotto VOC_LIT la media dell'ora non dice più niente e la lettura non si usa.
-const VOC_LIT = 30, VOC_GREF = 200, VOC_B = .045;
+/* ---------- Voc: un solo modello per ogni gruppo ----------
+   k = Voc della stringa a 25 °C con VOC_GREF (200 W/m²) sul piano dei pannelli. All'alba le celle stanno PANEL_COLD gradi sotto l'aria (notti
+   serene) e col sole salgono di 0,03 °C per W/m² (NOCT 45); la Voc perde VOC_K per grado e con poca luce scende col logaritmo della luce (b).
+   k e b si imparano dalle albe lette col meteo vero (vocModel); beta e la fascia da quanto ha sbagliato la previsione fatta col meteo della
+   sera prima (vocLearn). Lo stesso modello disegna il grafico, fa gli avvisi e il controllo delle stringhe, e va alla scheda (vk, vl, vf, vr),
+   che lo usa con la stessa formula per la notifica della sera e per dire quando ricollegare. */
+const PANEL_COLD = 2, VOC_LIT = 30, VOC_GREF = 200, VOC_B = .045;   // sotto VOC_LIT la media oraria del meteo non dice più niente
 const vocLux = (g, b = VOC_B) => 1 + b * Math.log(Math.max(VOC_LIT, g) / VOC_GREF);
-const vocGat = (ir, a, t) => { const g = planeGti(ir, planeOf({ addr: a }), t); return fin(g) ? g : ir.ghi; };
-function vocRowG(d){ if (fin(d.g) && d.g > 0) return d.g; const ir = d.t ? irrAt(Math.floor(d.t / HOUR) * HOUR, false) : null; return ir && fin(ir.ghi) ? ir.ghi : VOC_GREF; }
-const vcalR = d => d.r / vocLux(vocRowG(d));
+const vocV = (k, air, g, b = VOC_B) => k * (1 + VOC_K * (25 - (air - PANEL_COLD + .03 * Math.max(0, g)))) * vocLux(g, b);
+const vocTarga = c => c && c.voc && c.n && !(c.n % (c.s || 1)) ? c.n / (c.s || 1) * c.voc : NaN;   // della stringa, a 25 °C
+const vocGat = (ir, a, t) => { const g = planeGti(ir, planeOf({ addr: a }), t); return fin(g) ? g : ir.ghi; };   // luce sul piano dei pannelli
 function vocLit(t){ if (logSrc === "demo" && !isReal()) return true; const ir = t ? irrAt(t, false) : null; return !ir || !fin(ir.ghi) || ir.ghi >= VOC_LIT; }
+// letture di taratura fatte dalla scheda (firmware 0.26+): una per giorno e regolatore, con aria e luce (g) di quell'ora; x = alba anomala, e = attesa
+const VCAL_KEY = "mybattery.voccal.v1";
 let vcalSt = (() => { try { return JSON.parse(localStorage.getItem(VCAL_KEY) || "{}") || {}; } catch (e) { return {}; } })();
-const vcalGood = d => { const r = vcalR(d); return !d.x && vocLit(d.t) && r >= .85 && r <= 1.2; };   // fuori scala: letta con una targa sbagliata, o oltre il filtro
-function vcal(a){
-  const ds = (vcalSt[a] || []).filter(vcalGood).slice(-14), n = ds.length;
-  if (n < 3) return { f: 1, n };
-  return { f: clamp(quant(ds.map(vcalR), .5), .85, 1.15), n, last: ds[n - 1] };
-}
-// mediana delle albe buone già registrate (senza quella di oggi); null se sono meno di 3
-function vcalFrom(ds){ const ok = ds.filter(vcalGood).slice(-14); return ok.length >= 3 ? quant(ok.map(vcalR), .5) : null; }
-// pannelli che sembrano mancare: un diodo di bypass o un pannello in corto toglie circa 1/N della tensione di una stringa da N.
-// Con più stringhe in parallelo quella sana tiene su la tensione e il calo si vede meno, per questo la soglia è al 60% di un pannello.
-function panelGone(c, ds, r){
-  const base = vcalFrom(ds), per = c.n / (c.s || 1); if (!base || per < 2) return 0;
-  const drop = 1 - r / base;
-  return drop >= .6 / per ? Math.max(1, Math.round(drop * per)) : 0;
-}
-function vcalSample(g, now){
-  const c = S.pv[g.addr] || {}, t = Math.floor(now / HOUR) * HOUR, ir = irrAt(t, false), h = new Date(now * 1000).getHours();
-  if (!ir || !fin(ir.temp) || !(ir.ghi >= VOC_LIT && ir.ghi <= 400) || h >= 11 || !(g.w < 5) || g.v < 20) return;
-  const pred = vocRaw(c, cellT(ir, g.addr, t)), r = g.v / pred; if (!fin(r) || r < .7 || r > 1.3) return;
-  const ds = vcalSt[g.addr] = vcalSt[g.addr] || [], dk = dkey(now), j = ds.findIndex(d => d.d === dk);
-  if (j >= 0) { if (g.v <= ds[j].v) return; ds.splice(j, 1); }        // della giornata tengo la lettura più alta
-  const lx = vocGat(ir, g.addr, t), row = { d: dk, t: now, v: +g.v.toFixed(1), air: +ir.temp.toFixed(1), r: +r.toFixed(4), g: Math.round(lx) }, k = panelGone(c, ds, r / vocLux(lx));
-  if (k) { row.x = k; row.e = +(pred * vcalFrom(ds) * vocLux(lx)).toFixed(1); } // alba anomala: fuori dalla correzione, così il guasto non diventa normale
-  ds.push(row); ds.sort((a, b) => (a.t || 0) - (b.t || 0));       // le albe della scheda possono arrivare in ritardo
-  vcalSt[g.addr] = ds.slice(-30);
-  try { localStorage.setItem(VCAL_KEY, JSON.stringify(vcalSt)); } catch (e) {}
-}
 const vmaxOf = a => (S.pv[a] && S.pv[a].vmax) || 150;
 // il massimo del regolatore vale solo a -25 °C: come nel firmware (vocLimAt), il limite vero dipende dalla temperatura della stanza
 function pvEnv(){ const b = ((data && data.batteries) || []).find(x => x.online !== false && fin(x.t_env) && x.t_env > -30 && x.t_env < 60); return b ? b.t_env : 15; }
@@ -1662,9 +1639,8 @@ let pvPk = (() => { try { return JSON.parse(localStorage.getItem(PVMAX_KEY) || "
 function trackPv(pv){
   if (!Array.isArray(pv)) return;
   const real = isReal(), st = real ? pvPk : pvPkDemo, now = nowOf(data), dk = dkey(now);
-  let ch = false, vch = false;
+  let ch = false;
   pv.forEach(g => {
-    if (real && vocKeep(g)) vch = true;
     // il picco del giorno lo tiene la scheda (firmware 0.14): vale anche per le ore in cui la app era chiusa
     if (fin(g.v_max) && fin(g.v_max_at) && g.v_max > 0 && g.v_max <= 400 && dkey(g.v_max_at) === dk) {
       const o = st[g.addr] = st[g.addr] || {};
@@ -1674,71 +1650,32 @@ function trackPv(pv){
     if (g.online === false || !fin(g.v) || g.v <= 0 || g.v > 400) return;
     const o = st[g.addr] = st[g.addr] || {};
     if (o.d !== dk || g.v > o.v) { o.d = dk; o.v = g.v; o.at = now; ch = true; }
-    if (!(o.rv >= g.v)) { o.rv = g.v; o.rat = now; ch = true; }
-    if (real && S.loc && wx) {
-      if (!fin(data.epoch)) vcalSample(g, now);       // dalla 0.33 lo fa solo la scheda
-      // le albe registrate dalla scheda (firmware 0.18): valgono anche quando la app all'alba era chiusa
-      if (!fin(data.epoch) && Array.isArray(g.voc)) g.voc.forEach(r => { if (Array.isArray(r) && fin(r[0]) && fin(r[1])) vcalSample({ addr: g.addr, w: 0, v: r[1] }, r[0]); });
-    } });
+    if (!(o.rv >= g.v)) { o.rv = g.v; o.rat = now; ch = true; } });
   if (ch && real) try { localStorage.setItem(PVMAX_KEY, JSON.stringify(pvPk)); } catch (e) {}
-  if (vch) try { localStorage.setItem(VOCD_KEY, JSON.stringify(vocD)); } catch (e) {}
   if (real) vocSend();
 }
-/* ---------- Voc dell'alba: storico e previsione per ogni regolatore ----------
-   Ogni mattina la scheda (firmware 0.18) segna la tensione più alta dei pannelli prima che il regolatore cominci a
-   produrre: è la Voc vera, a pannelli freddi. La app la tiene 60 giorni (anche senza meteo né targhetta) e la proietta
-   sulle prossime albe col meteo: Voc = k × (1 + 0,3 % per grado sotto i 25 °C), con k imparato dalle albe lette. */
+/* ---------- Voc dell'alba: l'archivio è /voc.json sulla scheda (GET /api/voc, e nel pacchetto per fuori casa) ----------
+   Voci della scheda: dawn (ogni mattina la tensione più alta prima delle 11, 60 giorni), cal (le stesse col meteo vero di quell'ora), pf (il
+   meteo previsto la sera prima). Voci della app: pk (picchi record), off (leve d'ingresso). Qui ne resta una copia, per aprire la app senza rete. */
 const VOCD_KEY = "mybattery.vocdawn.v1", VOC_DAYS = 14, VOC_FC = 4;
 let vocD = (() => { try { return JSON.parse(localStorage.getItem(VOCD_KEY) || "{}") || {}; } catch (e) { return {}; } })(), vocSel = null;
-function vocKeep(g){
-  if (!Array.isArray(g.voc)) return false;
-  const a = vocD[g.addr] = vocD[g.addr] || []; let ch = false;
-  g.voc.forEach(r => {
-    if (!Array.isArray(r) || !fin(r[0]) || !fin(r[1]) || r[0] < 1.6e9 || r[1] <= 20 || r[1] > 400) return;
-    const dk = dkey(r[0]), j = a.findIndex(x => dkey(x[0]) === dk);
-    if (j >= 0) { if (a[j][1] >= r[1]) return; a.splice(j, 1); }
-    a.push([r[0], r[1]]); ch = true;
-  });
-  if (ch) { a.sort((x, y) => x[0] - y[0]); vocD[g.addr] = a.slice(-60); }
-  return ch;
-}
-/* ---------- taratura e albe stanno anche sulla scheda (firmware 0.26): ogni browser vede le stesse.
-   Si uniscono giorno per giorno (vince la lettura più alta) e alla scheda si manda solo quando le manca qualcosa. ---------- */
-const VOC_SPEC = {
-  cal:  { ok: d => !!d && typeof d === "object" && fin(d.d) && fin(d.v) && fin(d.r), day: d => d.d, v: d => d.v, t: d => d.t || 0, cap: 30 },
-  dawn: { ok: r => Array.isArray(r) && fin(r[0]) && fin(r[1]) && r[0] >= 1.6e9 && r[1] > 20 && r[1] <= 400, day: r => dkey(r[0]), v: r => r[1], t: r => r[0], cap: 60 } };
 const vocObj = o => o && typeof o === "object" && !Array.isArray(o) ? o : {};
-function vocUnion(kind, mine, theirs){
-  const sp = VOC_SPEC[kind], a = vocObj(mine), b = vocObj(theirs), out = {};
-  new Set([...Object.keys(a), ...Object.keys(b)]).forEach(k => {
-    if (!/^[1-9]$/.test(k)) return;
-    const m = new Map();
-    [...(Array.isArray(a[k]) ? a[k] : []), ...(Array.isArray(b[k]) ? b[k] : [])].filter(sp.ok).forEach(r => { const d = sp.day(r), o = m.get(d); if (!o || sp.v(r) > sp.v(o) + .05) m.set(d, r); });
-    if (m.size) out[k] = [...m.values()].sort((x, y) => sp.t(x) - sp.t(y)).slice(-sp.cap);
-  });
-  return out;
-}
-function vocLacks(kind, mine, board){
-  const sp = VOC_SPEC[kind], b = vocObj(board);
-  return Object.keys(mine).some(k => { const m = new Map((Array.isArray(b[k]) ? b[k] : []).filter(sp.ok).map(r => [sp.day(r), sp.v(r)])); return mine[k].some(r => !(m.get(sp.day(r)) >= sp.v(r) - .05)); });
-}
-let vocBoard = null, vocBusy = false, vocPushAt = 0, vocSeen = null; // vocBoard = quello che ha la scheda (null: firmware senza /api/voc o non ancora letto)
+let vocBoard = null, vocBusy = false, vocPushAt = 0, vocSeen = null; // vocBoard = quello che ha la scheda (null: non ancora letto)
+// alla scheda vanno solo le voci della app, e solo se le manca qualcosa
 async function vocSend(){
   if (!vocBoard || vocBusy || !canWrite() || Date.now() - vocPushAt < 6e5) return;
   const bpk = vocObj(vocBoard.pk), boff = new Set((Array.isArray(vocBoard.off) ? vocBoard.off : []).map(r => r[0])), myOff = pvOffH.slice(-100);
   const pkNew = Object.keys(pvPk).some(k => fin(pvPk[k].rv) && !((bpk[k] || {}).rv >= pvPk[k].rv - .05)), offNew = myOff.some(r => !boff.has(r[0]));
-  if (!pkNew && !offNew && !vocLacks("cal", vcalSt, vocBoard.cal) && !vocLacks("dawn", vocD, vocBoard.dawn)) return;
+  if (!pkNew && !offNew) return;
   vocBusy = true; vocPushAt = Date.now();
   const pk = {}; Object.keys(pvPk).forEach(k => { if (fin(pvPk[k].rv)) pk[k] = { rv: pvPk[k].rv, rat: pvPk[k].rat }; });
-  const out = { cal: vcalSt, dawn: vocD, pk, off: myOff }, copy = JSON.parse(JSON.stringify(out));
-  try { const j = await boardCfg({ voc: out }); if (j && j.ok) vocBoard = copy; } catch (e) {}
+  try { const j = await boardCfg({ voc: { pk, off: myOff } }); if (j && j.ok) vocBoard = { ...vocBoard, pk, off: myOff }; } catch (e) {}
   vocBusy = false;
 }
-// true se sono arrivati dati nuovi da mostrare
+// quello che arriva dalla scheda: albe e taratura si prendono come sono; true se c'è qualcosa di nuovo da mostrare
 function vocTake(b){
   if (!b || typeof b !== "object" || Array.isArray(b)) return false;
-  const cal = vocUnion("cal", vcalSt, b.cal), dawn = vocUnion("dawn", vocD, b.dawn);
-  const ch = JSON.stringify(cal) !== JSON.stringify(vocUnion("cal", vcalSt)) || JSON.stringify(dawn) !== JSON.stringify(vocUnion("dawn", vocD));
+  const cal = vocObj(b.cal), dawn = vocObj(b.dawn), ch = JSON.stringify(cal) !== JSON.stringify(vcalSt) || JSON.stringify(dawn) !== JSON.stringify(vocD);
   vcalSt = cal; vocD = dawn; vocBoard = b;
   if (ch) { lsSet(VCAL_KEY, cal); lsSet(VOCD_KEY, dawn); }
   let pkCh = false; const bpk = vocObj(b.pk);
@@ -1755,15 +1692,9 @@ async function vocPull(at){
 const midnight = t => { const d = new Date(t * 1000); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; };
 const dayAdd = (m, n) => { const d = new Date(m * 1000); d.setDate(d.getDate() + n); return d.getTime() / 1000; };
 const dayIdx = (t, m0) => Math.round((midnight(t) - m0) / DAY);
-const vocFac = air => 1 + VOC_K * (25 - (air - PANEL_COLD));
-// temperatura delle celle in un'ora di meteo: all'alba poco sotto l'aria, col sole salgono di ~0,03 °C per W/m² (NOCT 45)
-function cellT(ir, a, t){
-  const gt = planeGti(ir, planeOf({ addr: a }), t);
-  return ir.temp - PANEL_COLD + .03 * Math.max(0, fin(gt) ? gt : ir.ghi);
-}
 // una lettura vale come Voc solo se è vicina alla targa: troppo bassa = poca luce, troppo alta = disturbo
-function vocOk(a, v){ const r = v / vocRaw(S.pv[a] || {}, 25); return !fin(r) || (r >= .85 && r <= 1.25); }
-// l'alba di un giorno: l'ora più fredda con un po' di sole prima delle 11, come per l'avviso della prossima alba
+function vocOk(a, v){ const r = v / vocTarga(S.pv[a]); return !fin(r) || (r >= .85 && r <= 1.25); }
+// l'alba di un giorno nella demo: l'ora più fredda con un po' di sole prima delle 11
 function dawnOf(day0, asFc){
   let best = null;
   for (let h = 4; h < 11; h++) {
@@ -1773,24 +1704,32 @@ function dawnOf(day0, asFc){
   }
   return best;
 }
-const VOC_DEMO = { 1: 131.5, 2: 129, 3: 84.5 }; // V a 25 °C dei gruppi finti
-// albe lette di un regolatore, una per giorno (la più alta): scheda + quelle viste dalla app; x = alba anomala
+const VOC_DEMO = { 1: 131.5, 2: 129, 3: 84.5 }; // k dei gruppi finti
+// albe lette di un regolatore, una per giorno (la più alta): quelle della scheda e le sue letture di taratura (con aria e luce di quell'ora)
 function vocHist(a){
-  const m = new Map(), put = (t, v, x, g) => { const k = dkey(t), o = m.get(k); if (!o || v > o.v) m.set(k, { t, v, x: x || 0, g: o && o.t === t && !fin(g) ? o.g : g }); else { if (x) o.x = x; if (!fin(o.g) && fin(g)) o.g = g; } };
+  const m = new Map(), put = (t, v, o) => { const k = dkey(t), p = m.get(k);
+    if (!p || v > p.v) m.set(k, { t, v, x: o.x || (p && p.x) || 0, e: o.e, g: fin(o.g) ? o.g : p && p.t === t ? p.g : NaN, air: fin(o.air) ? o.air : p && p.t === t ? p.air : NaN });
+    else { if (o.x) { p.x = o.x; p.e = o.e; } if (p.t === t) { if (!fin(p.g) && fin(o.g)) p.g = o.g; if (!fin(p.air) && fin(o.air)) p.air = o.air; } } };
   if (logSrc === "demo" && !isReal()) {
     const now = nowOf(data), m0 = midnight(now), base = VOC_DEMO[a] || 120;
     for (let n = -VOC_DAYS - 2; n <= 0; n++) {
       const dw = dawnOf(dayAdd(m0, n), false); if (!dw || dw.t + 1800 > now) continue;
-      put(dw.t + 1260, +(base * vocFac(dw.air) * (1 + .007 * Math.sin(n * 1.9 + a * 2.3))).toFixed(1), 0);
+      put(dw.t + 1260, +(vocV(base, dw.air - .03 * VOC_GREF, VOC_GREF) * (1 + .007 * Math.sin(n * 1.9 + a * 2.3))).toFixed(1), { g: VOC_GREF, air: dw.air });
     }
   } else {
-    (vocD[a] || []).forEach(r => { if (vocOk(a, r[1])) put(r[0], r[1], 0); });
+    (vocD[a] || []).forEach(r => { if (vocOk(a, r[1])) put(r[0], r[1], {}); });
     if (isReal()) (vcalSt[a] || []).forEach(d => {
       const t = d.t || (d.d ? new Date(Math.floor(d.d / 10000), Math.floor(d.d / 100) % 100 - 1, d.d % 100, 8).getTime() / 1000 : 0);
-      if (t && fin(d.v) && (d.x || vocOk(a, d.v))) put(t, d.v, d.x || 0, d.g);
+      if (t && fin(d.v) && (d.x || vocOk(a, d.v))) put(t, d.v, d);
     });
   }
-  return [...m.values()].map(h => ({ ...h, dim: !vocLit(h.t) })).sort((x, y) => x.t - y.t);
+  return [...m.values()].map(h => ({ ...h, dim: fin(h.g) ? h.g < VOC_LIT : !vocLit(h.t) })).sort((x, y) => x.t - y.t);
+}
+// aria e luce di un'alba letta: quelle salvate con la lettura, altrimenti il meteo vero di quell'ora
+function vocWx(h, a){
+  const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false);
+  const air = fin(h.air) ? h.air : ir && fin(ir.temp) ? ir.temp : NaN, g = fin(h.g) && h.g > 0 ? h.g : ir ? vocGat(ir, a, t) : NaN;
+  return fin(air) && fin(g) ? { air, g } : null;
 }
 // quanto la Voc di questi pannelli sente la luce: si impara con almeno 8 mattine e luci abbastanza diverse, altrimenti il valore tipico
 function vocFit(pts){
@@ -1803,46 +1742,78 @@ function vocFit(pts){
   }
   return { b, k: quant(pts.map(p => p.y / vocLux(p.g, b)), .5) };
 }
-// k (Voc a 25 °C dei pannelli con 200 W/m²): dalle ultime 14 albe buone, riportate alla stessa luce; se sono meno di 3, dalla targhetta
+// k e b dalle ultime 14 albe buone (y = lettura riportata a 25 °C, ancora con la sua luce); con meno di 3, la targa
 function vocModel(a, hist){
-  const pts = hist.filter(h => !h.x && !h.dim).slice(-14).map(h => { const t = Math.floor(h.t / HOUR) * HOUR, ir = irrAt(t, false); return ir && fin(ir.temp) ? { y: h.v / (1 + VOC_K * (25 - cellT(ir, a, t))), g: fin(h.g) && h.g > 0 ? h.g : vocGat(ir, a, t) } : null; }).filter(p => p && fin(p.y));
+  const pts = hist.filter(h => !h.x && !h.dim).slice(-14).map(h => { const w = vocWx(h, a); return w && { y: h.v / vocV(1, w.air, w.g, 0), g: w.g }; }).filter(p => p && fin(p.y));
   if (pts.length >= 3) {
     const { k, b } = vocFit(pts), sd = Math.sqrt(pts.reduce((s, p) => s + (p.y / vocLux(p.g, b) / k - 1) ** 2, 0) / pts.length);
     return { k, b, rel: Math.max(.008, 1.5 * sd), how: "albe", n: pts.length };
   }
-  const c = S.pv[a] || {}, r = vocRaw(c, 25);
-  return fin(r) ? { k: r * vcal(a).f, b: VOC_B, rel: .04, how: "targa", n: pts.length } : null;
+  const r = vocTarga(S.pv[a]);
+  return fin(r) ? { k: r, b: VOC_B, rel: .04, how: "targa", n: pts.length } : null;
 }
-// la mattina di un giorno: l'ora con la tensione attesa più alta, con la luce prevista. Il massimo della fascia è se il cielo si apre (almeno 200 W/m²)
+// una mattina, dalle ore con un po' di sole prima delle 11 ([{t, ir}]): la Voc più alta con la luce prevista (v) e se il cielo si apre (top, almeno VOC_GREF)
+function vocMorning(a, hours, k, b){
+  let o = null;
+  hours.forEach(({ t, ir }) => {
+    if (!ir || !fin(ir.temp) || !(ir.ghi >= 15)) return;
+    const g = vocGat(ir, a, t), v = vocV(k, ir.temp, g, b), top = vocV(k, ir.temp, Math.max(g, VOC_GREF), b);
+    if (!o) o = { t, v, top, air: ir.temp, g }; else { o.v = Math.max(o.v, v); if (top > o.top) Object.assign(o, { t, top, air: ir.temp, g }); }
+  });
+  return o;
+}
+const morningHours = day0 => Array.from({ length: 7 }, (_, i) => { const d = new Date(day0 * 1000); d.setHours(4 + i, 0, 0, 0); const t = d.getTime() / 1000; return { t, ir: irrAt(t, true) }; });
 function vocFcDay(a, day0, md){
-  let best = null, top = 0;
-  for (let h = 4; h < 11; h++) {
-    const d = new Date(day0 * 1000); d.setHours(h, 0, 0, 0); const t = d.getTime() / 1000, ir = irrAt(t, true);
-    if (!ir || !fin(ir.temp) || !(ir.ghi >= 15)) continue;
-    const g = vocGat(ir, a, t), v = md.k * (1 + VOC_K * (25 - cellT(ir, a, t))) * vocLux(g, md.b), gs = Math.max(g, VOC_GREF);
-    top = Math.max(top, md.k * (1 + VOC_K * (25 - (ir.temp - PANEL_COLD + .03 * gs))) * vocLux(gs, md.b));
-    if (!best || v > best.v) best = { t, v, air: ir.temp, g };
-  }
-  return best && { ...best, lo: best.v * (1 - md.rel), hi: Math.max(best.v, top) * (1 + md.rel) };
+  const o = vocMorning(a, morningHours(day0), md.k * (md.beta || 1), md.b);
+  return o && { ...o, lo: o.v * (1 - Math.max(md.rel, md.dn || 0)), hi: o.top * (1 + Math.max(md.rel, md.up || 0)) };
 }
-function vocSeries(pv){
+/* Previsto contro misurato. Ogni sera dalle 20 la scheda (firmware 0.36) segna in /voc.json il meteo previsto per la mattina dopo:
+   pf = [[fatta, prima ora, [aria ×10 per ora], [W/m² per ora]], …]. Qui quella mattina si rifà col modello di adesso (stessa vocMorning della
+   previsione) e si confronta con l'alba letta: quello che resta è l'errore del meteo della sera prima, da cui la correzione (beta, ridotta
+   finché le albe sono poche) e la fascia vera (quantili 10–90 %, da 4 albe). */
+const VOC_PF_N = 20;
+function vocPfRows(){
+  const p = vocBoard && Array.isArray(vocBoard.pf) ? vocBoard.pf : [];
+  return p.filter(r => Array.isArray(r) && r.length >= 4 && fin(r[1]) && r[1] > 1.6e9 && Array.isArray(r[2]) && Array.isArray(r[3]) && r[2].length && r[2].length === r[3].length);
+}
+function vocLearn(a, hist, md){
+  const pts = [], byDay = new Map(hist.filter(h => !h.x).map(h => [dkey(h.t), h]));
+  if (logSrc === "demo" && !isReal()) hist.filter(h => !h.x).slice(0, -1).forEach((h, j) => { const e = 1.014 + .011 * Math.sin(j * 2.1 + +a); pts.push({ t: h.t, v: h.v, p: h.v / e, e }); });
+  else if (md) vocPfRows().forEach(r => { const h = byDay.get(dkey(r[1])); if (!h) return;
+    const o = vocMorning(a, r[2].map((x, i) => ({ t: r[1] + i * HOUR, ir: { temp: x / 10, ghi: r[3][i] } })), md.k, md.b);
+    if (o && o.v > 20) pts.push({ t: h.t, v: h.v, p: o.v, e: h.v / o.v }); });
+  const p = pts.sort((x, y) => x.t - y.t).slice(-VOC_PF_N), n = p.length;
+  if (!n) return { n: 0, beta: 1, up: 0, dn: 0, pts: p };
+  const med = quant(p.map(x => x.e), .5), beta = clamp(1 + (med - 1) * n / (n + 3), .94, 1.06), dev = p.map(x => x.e / beta);
+  return { n, med, beta, up: n >= 4 ? Math.max(0, quant(dev, .9) - 1) : 0, dn: n >= 4 ? Math.max(0, 1 - quant(dev, .1)) : 0, pts: p };
+}
+// il modello completo di ogni gruppo, con storia, previsione delle prossime albe e confronto: uno solo per tutta la app (grafico, avvisi, controllo)
+let vocMemo = { key: "", v: null };
+function vocSeries(){
+  const pv = data && Array.isArray(data.pv) ? data.pv : [];
+  const key = [nowOf(data), pv.length, JSON.stringify(S.pv), wx && wx.at, vocBoard && vocBoard.pf && vocBoard.pf.length, Object.values(vocD).map(a => a.length).join(), Object.values(vcalSt).map(a => a.length).join()].join("|");
+  if (vocMemo.key === key) return vocMemo.v;
   const now = nowOf(data), m0 = midnight(now);
-  return pv.map((g, i) => {
-    const all = vocHist(g.addr), md = vocModel(g.addr, all), fc = [];
+  const v = pv.map((g, i) => {
+    const all = vocHist(g.addr), md0 = vocModel(g.addr, all), lr = vocLearn(g.addr, all, md0), md = md0 && { ...md0, beta: lr.beta, up: lr.up, dn: lr.dn }, fc = [];
     if (md) for (let n = 0; n < VOC_FC; n++) {
       const day = dayAdd(m0, n); if (all.some(h => dkey(h.t) === dkey(day + 12 * HOUR))) continue;
       const dw = vocFcDay(g.addr, day, md); if (!dw || (n === 0 && dw.t + 2 * HOUR < now)) continue;
       fc.push(dw);
     }
-    return { g, i, all, md, fc, vmax: vmaxOf(g.addr) };
+    return { g, i, all, md, lr, fc, vmax: vmaxOf(g.addr) };
   });
+  vocMemo = { key, v };
+  return v;
 }
+const vocOf = a => vocSeries().find(s => s.g.addr === +a) || null;
 // la Voc imparata va alla scheda: serve a lei per dire quando ricollegare e per la notifica della sera
 function vocPush(ser){
   if (mode !== "live" && mode !== "remote") return;
   let ch = false;
-  ser.forEach(s => { const c = S.pv[s.g.addr]; if (!s.md || !c) return; const va = s.md.how === "albe";
-    if (!(Math.abs((c.vk || 0) / s.md.k - 1) < .004) || !!c.va !== va || !(Math.abs((c.vr || 0) - s.md.rel) < .003)) { c.vk = +s.md.k.toFixed(1); c.vr = +s.md.rel.toFixed(3); c.va = va; ch = true; } });
+  ser.forEach(s => { const c = S.pv[s.g.addr]; if (!s.md || !c) return; const va = s.md.how === "albe", vr = Math.max(s.md.rel, s.md.up || 0), vf = s.md.beta || 1, vl = s.md.b || VOC_B;
+    if (!(Math.abs((c.vk || 0) / s.md.k - 1) < .004) || !!c.va !== va || !(Math.abs((c.vr || 0) - vr) < .003) || !(Math.abs((c.vf || 1) - vf) < .003) || !(Math.abs((c.vl || VOC_B) - vl) < .002)) {
+      c.vk = +s.md.k.toFixed(1); c.vr = +vr.toFixed(3); c.va = va; c.vf = +vf.toFixed(3); c.vl = +vl.toFixed(3); ch = true; } });
   if (ch) saveSettings();
 }
 const vocCol = i => `var(--vs${i % 4 + 1})`;
@@ -1850,20 +1821,20 @@ const vDay = t => new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "sho
 function drawVoc(pv){
   const box = $("voc-box"); if (!box) return;
   if (!Array.isArray(pv) || !pv.length) { box.innerHTML = ""; return; }
-  const now = nowOf(data), m0 = midnight(now), ser = vocSeries(pv);
+  const now = nowOf(data), m0 = midnight(now), ser = vocSeries();
   vocPush(ser);
   const first0 = dayAdd(m0, -(VOC_DAYS - 1));
   const ear = Math.min(m0, ...ser.flatMap(s => s.all.filter(h => h.t >= first0).map(h => midnight(h.t))));
   const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
   const nPast = dayIdx(m0 + 12 * HOUR, first) + 1, N = nPast + lastFc;           // colonne: giorni passati + oggi + previsione
-  ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); });
+  ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); s.pfp = s.lr.pts.filter(q => q.t >= first); });
   const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale. Contano anche le mattine coperte: ogni lettura si corregge con la luce di quell'ora. I punti chiari sono sotto i 30 W/m²: restano nel grafico ma non tarano la previsione.</p>`;
   if (!ser.some(s => s.hist.length || s.fc.length)) {
     box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda registra ogni mattina la tensione più alta. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
     return;
   }
   const W = 340, H = 200, L = 30, R = 6, T = 12, B = 22, cw = (W - L - R) / N, x = i => L + cw * (i + .5);
-  const vals = ser.flatMap(s => [...s.hist.map(h => h.v), ...s.fc.flatMap(f => [f.lo, f.hi])]);
+  const vals = ser.flatMap(s => [...s.hist.map(h => h.v), ...s.pfp.map(q => q.p), ...s.fc.flatMap(f => [f.lo, f.hi])]);
   const lims = [...new Set(ser.map(s => s.vmax))];
   let lo = Math.floor((Math.min(...vals) - 4) / 5) * 5, hi = Math.ceil((Math.max(...vals, ...lims.map(pvLim)) + 3) / 5) * 5;
   if (hi - lo < 20) lo = hi - 20;
@@ -1894,6 +1865,8 @@ function drawVoc(pv){
       g += `<polyline class="fcl" style="stroke:${col}" points="${P(fp)}"/>`;
     }
     if (hp.length > 1) g += `<polyline class="ln" style="stroke:${col}" points="${P(hp)}"/>`;
+    s.pfp.forEach(q => { const px = x(dayIdx(q.t, first)).toFixed(1), py = y(q.p).toFixed(1);   // col meteo previsto la sera prima: cerchio vuoto, e un filo fino alla misura
+      g += `<line class="pfl" style="stroke:${col}" x1="${px}" x2="${px}" y1="${py}" y2="${y(q.v).toFixed(1)}"/><circle class="pfp" style="stroke:${col}" cx="${px}" cy="${py}" r="2.7"/>`; });
     s.hist.forEach((h, j) => { const [px, py] = hp[j], on = sel !== null && dayIdx(h.t, m0) === sel;
       g += (h.x ? `<circle class="bad" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="6"/>` : "") +
         `<circle class="pt" style="fill:${col}${h.dim ? ";opacity:.35" : ""}" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${on ? 4.6 : 3}"/>`; });
@@ -1908,17 +1881,20 @@ function drawVoc(pv){
     const h = s.hist.find(z => dayIdx(z.t, m0) === day), f = s.fc.find(z => dayIdx(z.t, m0) === day), v = h ? h.v : f ? f.v : NaN;
     if (h && tt === null) { tt = h.t; const ir = irrAt(Math.floor(h.t / HOUR) * HOUR, false); if (ir && fin(ir.temp)) { air = ir.temp; lux = fin(h.g) && h.g > 0 ? h.g : ir.ghi; } }
     if (!h && f && tt === null) { tt = f.t; air = f.air; lux = f.g; }
-    const hot = v >= pvDangerAt(s.vmax) ? " danger" : v >= pvWarnAt(s.vmax) ? " hot" : "";
+    const hot = v >= pvDangerAt(s.vmax) ? " danger" : v >= pvWarnAt(s.vmax) ? " hot" : "", pq = h && s.pfp.find(q => dkey(q.t) === dkey(h.t));
     return `<span class="vl${hot}"><i style="background:${vocCol(s.i)}"></i><span class="vn">${esc(pvName(s.g))}</span>` +
-      `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : h && h.dim ? `<small>poca luce</small>` : ""}</span>`;
+      `<b>${fin(v) ? (h ? "" : "~") + nf(v, h ? 1 : 0) + " V" : "–"}</b>${f && !h ? `<small>${nf(f.lo, 0)}–${nf(f.hi, 0)}</small>` : h && h.x ? `<small>anomala</small>` : pq ? `<small>prevista ${nf(pq.p, 0)}${h.dim ? " · poca luce" : ""}</small>` : h && h.dim ? `<small>poca luce</small>` : ""}</span>`;
   }).join("");
   const dt = dayAdd(m0, day) + 12 * HOUR, fcDay = !ser.some(s => s.hist.some(h => dayIdx(h.t, m0) === day));
   const when = `${day === 0 ? "Oggi" : day === 1 ? "Domani" : day === -1 ? "Ieri" : vDay(dt)[0].toUpperCase() + vDay(dt).slice(1)}${tt ? (fcDay ? " · alba verso le " : " · alle ") + hm(tt) : ""}${fin(air) ? " · aria " + nf(air, 0).replace("-", "−") + " °C" : ""}${fin(lux) ? " · luce " + nf(lux, 0) + " W/m²" : ""}${fcDay ? " · previsione" : ""}`;
   const how = ser.filter(s => s.fc.length).map(s => s.md.how);
   const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 mattine lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
     : how.every(h => h === "albe") ? "Previsione da temperatura e luce attese e dalle tue albe lette; la fascia arriva fin dove salirebbe se il cielo si apre." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 mattine lette; la fascia arriva fin dove salirebbe se il cielo si apre.";
+  const lrs = ser.filter(s => s.lr.n), sg = v => (v >= 0 ? "+" : "−") + nf(Math.abs(v) * 100, 1) + "%";
+  const pfTxt = lrs.length ? ` Rispetto alla previsione della sera prima (cerchi vuoti) la Voc letta è venuta ${lrs.map(s => `${esc(pvName(s.g))} ${sg(s.lr.med - 1)} su ${s.lr.n} ${s.lr.n === 1 ? "alba" : "albe"}`).join(", ")}: la previsione ora ne tiene conto${lrs.some(s => s.lr.n < 6) ? ", un po' alla volta" : ""}.`
+    : isReal() && S.loc && !vocPfRows().length ? " Dal firmware 0.36 la scheda segna ogni sera la Voc prevista, per confrontarla con l'alba vera e imparare quanto sbaglia." : "";
   box.innerHTML = head + `<div class="vocw"><svg class="vocg" viewBox="0 0 ${W} ${H}" data-n="${N}" data-l="${L}" data-r="${R}" data-t="${tIdx}" role="img" aria-label="Voc all'alba degli ultimi giorni e prevista per i prossimi">${g}</svg>` +
-    `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div><p class="note voc-foot">${foot}</p>`;
+    `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div><p class="note voc-foot">${foot}${pfTxt}</p>`;
 }
 // tocca o trascina sul grafico per leggere un giorno; un secondo tocco sullo stesso giorno torna all'ultimo
 function vocPick(e, tap){
@@ -1934,28 +1910,30 @@ document.addEventListener("pointermove", e => { if (e.buttons && e.pointerType !
 const dayWord = t => { const d = dkey(t) - dkey(nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
 const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d === dkey(nowOf(data)) ? o : null; };
 const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
+// la stringa nella mattina più fredda (celle a T_MIN): k imparato dalle albe se c'è, altrimenti la targa di quello che stai scrivendo
 function vocCheck(c, a){
-  if (!c.voc || !c.n || c.n % (c.s || 1)) return null;
-  const per = c.n / (c.s || 1), v = per * c.voc * (1 + VOC_K * (25 - T_MIN)) * vcal(a).f, max = Math.round(pvLim(c.vmax || 150)), warn = pvWarnAt(c.vmax || 150);
-  return { per, v, max, warn, st: v > max ? "over" : v > warn ? "near" : "ok" };
+  const t25 = vocTarga(c); if (!fin(t25)) return null;
+  const s = vocOf(a), md = s && s.md && s.md.how === "albe" ? s.md : null, k = md ? md.k : t25, v = k * (1 + VOC_K * (25 - T_MIN));
+  const max = Math.round(pvLim(c.vmax || 150)), warn = pvWarnAt(c.vmax || 150);
+  return { per: c.n / (c.s || 1), t25, k, md, s, v, max, warn, st: v > max ? "over" : v > warn ? "near" : "ok" };
 }
 function vocBox(c, a){
-  const k = vocCheck(c, a), r = pvRec(a), vc = vcal(a), rec = r ? `<p class="voc-rec">Il più alto letto dal regolatore: <b>${nf(r.rv, 1)} V</b> il ${new Date(r.rat * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}${r.rv >= pvWarnAt(c.vmax || 150) ? " · troppo vicino al limite" : ""}</p>` : "";
+  const k = vocCheck(c, a), r = pvRec(a), dm = t => new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+  const rec = r ? `<p class="voc-rec">Il più alto letto dal regolatore: <b>${nf(r.rv, 1)} V</b> il ${dm(r.rat)}${r.rv >= pvWarnAt(c.vmax || 150) ? " · troppo vicino al limite" : ""}</p>` : "";
   if (!k) return rec + `<p class="voc-note">${c.voc ? "Imposta pannelli e stringhe" : "Scrivi la Voc dalla targhetta del pannello"}: la app controlla che le stringhe non superino il limite del regolatore col freddo.</p>`;
   const top = Math.max(k.max, k.v) * 1.08, f = x => (x / top * 100).toFixed(1);
   const room = ` (con la stanza a ${nf(pvEnv(), 0)} °C)`, msg = k.st === "over" ? `Oltre i ${k.max} V${room}: con il freddo il regolatore si può rompere. Metti meno pannelli in serie per stringa.`
     : k.st === "near" ? `Vicino al limite di ${k.max} V${room}: va bene, ma senza margine nelle mattine più gelide.`
     : `Margine di ${nf(k.max - k.v, 0)} V sotto il limite di ${k.max} V${room}.`;
-  const dc = dawnCold(), dv = dc ? vocAt(c, dc.panel, a) : NaN;
-  const bad = (vcalSt[a] || []).filter(d => d.x).slice(-1)[0];
-  const badTxt = bad ? `<p class="voc-fc"><b>Alba anomala il ${new Date(Math.floor(bad.d / 10000), Math.floor(bad.d / 100) % 100 - 1, bad.d % 100).toLocaleDateString("it-IT", { day: "numeric", month: "short" })}: ${nf(bad.v, 0)} V invece di ${nf(bad.e, 0)}</b>, come se mancasse${bad.x > 1 ? "ro " + bad.x + " pannelli" : " un pannello"}.</p>` : "";
-  const cal = vc.n >= 3 ? `<p class="voc-fc">Corretta su ${vc.n} albe lette: i tuoi pannelli danno il ${nf(Math.abs(vc.f - 1) * 100, 0)}% ${vc.f >= 1 ? "in più" : "in meno"} del calcolo di targa.</p>`
-    : `<p class="voc-fc">Si corregge da sola: ${vc.n ? `${vc.n} ${vc.n > 1 ? "albe lette" : "alba letta"} su 3` : "dopo 3 albe lette dal regolatore"}, poi la previsione usa le tensioni vere.</p>`;
-  const dawn = fin(dv) ? `<p class="voc-fc">Prossima alba (${dayWord(dc.t)} alle ${hm(dc.t)}): ${nf(dc.air, 0).replace("-", "−")} °C di aria, pannelli verso ${nf(dv, 0)} V${dv >= k.max ? " · <b>oltre il limite</b>" : dv >= k.warn ? " · <b>vicino al limite</b>" : ""}</p>`
+  const nx = k.s && k.s.fc[0], bad = k.s && k.s.all.filter(h => h.x).slice(-1)[0];
+  const badTxt = bad ? `<p class="voc-fc"><b>Alba anomala il ${dm(bad.t)}: ${nf(bad.v, 0)} V${fin(bad.e) ? ` invece di ${nf(bad.e, 0)}` : ""}</b>, come se mancasse${bad.x > 1 ? "ro " + bad.x + " pannelli" : " un pannello"}.</p>` : "";
+  const cal = k.md ? `<p class="voc-fc">Tarata su ${k.md.n} albe lette: a 25 °C i tuoi pannelli danno ${nf(k.k, 1)} V, il ${nf(Math.abs(k.k / k.t25 - 1) * 100, 0)}% ${k.k >= k.t25 ? "in più" : "in meno"} della targa.</p>`
+    : `<p class="voc-fc">Si tara da sola: ${k.s && k.s.md && k.s.md.n ? `${k.s.md.n} ${k.s.md.n > 1 ? "albe lette" : "alba letta"} su 3` : "dopo 3 albe lette dal regolatore"}, poi conta la tensione vera dei tuoi pannelli.</p>`;
+  const dawn = nx ? `<p class="voc-fc">Prossima alba (${dayWord(nx.t)} verso le ${hm(nx.t)}): ${nf(nx.air, 0).replace("-", "−")} °C di aria, pannelli verso ${nf(nx.v, 0)} V, fino a ${nf(nx.hi, 0)} se il cielo si apre${nx.hi >= k.max ? " · <b>oltre il limite</b>" : nx.hi >= k.warn ? " · <b>vicino al limite</b>" : ""}.</p>`
     : `<p class="voc-fc">${S.loc ? "Il meteo della prossima alba non è ancora arrivato." : "Imposta la località: la app ti avvisa la sera prima delle albe troppo fredde."}</p>`;
   return `<div class="voc ${k.st}"><div class="voc-h"><span>Tensione a vuoto a ${String(T_MIN).replace("-", "−")} °C</span><b>${nf(k.v, 0)} V</b></div>` +
     `<div class="voc-bar" role="img" aria-label="${nf(k.v, 0)} volt su ${k.max} massimi"><i style="width:${f(k.v)}%"></i><u style="left:${f(k.max)}%"></u></div>` +
-    `<p>${k.per} × ${nf(c.voc, 1)} V × ${nf(1 + VOC_K * (25 - T_MIN), 3)}${vc.f !== 1 ? ` × ${nf(vc.f, 3)}` : ""}. ${msg}</p>${dawn}${cal}${badTxt}</div>` + rec;
+    `<p>${k.md ? `${nf(k.k, 1)} V a 25 °C` : `${k.per} × ${nf(c.voc, 1)} V`} × ${nf(1 + VOC_K * (25 - T_MIN), 3)}. ${msg}</p>${dawn}${cal}${badTxt}</div>` + rec;
 }
 const totTxt = (g, c, p) => (c.wp && c.n ? `${nf(p.kwp, 2)} kWp` : fin(g.kwp) && g.kwp > 0 ? `${nf(g.kwp, 2)} kWp` : "–") +
   (strTxt(c) || !(c.wp && c.n) && fin(g.kwp) && g.kwp > 0 ? `<small>${strTxt(c) || "dalla scheda"}</small>` : "");
@@ -2033,10 +2011,6 @@ const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il ban
 const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
-// i regolatori come li usa la scheda (e il display): sempre tutti e 3, anche se non hanno mai risposto;
-// nome "" e kwp 0 = torna al valore della scheda
-const pvCfgOf = () => ((data && Array.isArray(data.pv) && data.pv.length) ? data.pv : [1, 2, 3].map(a => ({ addr: a })))
-  .map(g => { const p = planeOf(g); return { addr: g.addr, name: S.names["pv" + g.addr] || "", kwp: p.kwp || 0, az: p.az, tilt: p.tilt, strings: strOf(g.addr) }; });
 /* ---------- quadro: i deviatori A–G dicono quali zone della casa prendono corrente dal solare (inverter, cioè dal banco)
    e quali da Enel. Lo stato e lo storico dei cambi li tiene la scheda; a ogni cambio la scheda misura il salto del consumo
    e da lì la app impara quanto assorbe ogni zona: lo toglie dai consumi imparati e lo rimette nelle previsioni ---------- */
@@ -2114,7 +2088,7 @@ function zoneLoad(t, t0){
   });
   return s;
 }
-function swChanged(){ swEstC = null; swHabC = null; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
+function swChanged(){ swEstC = null; swHabC = null; nightMemo = {}; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
 async function swSync(j){
   if (!fin(j.sw)) { SW.board = false; return; }            // firmware senza deviatori
   if (!SW.board) { SW.board = true; SW.rows = []; }
@@ -2198,28 +2172,65 @@ function swAllDraw(box){
   const html = `<button type="button" data-act="up"${allUp ? " disabled" : ""}>${UP_ICO}Tutti su solare</button><button type="button" data-act="dn"${allDn ? " disabled" : ""}>${DN_ICO}Tutti su Enel</button>`;
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
-// la notte con certi deviatori fermi così fino a quando riparte la carica: minimo previsto e ora della ripartenza
-function detNight(det){
-  const h0 = new Date(det.T[0] * 1000).getHours();
-  let dark = det.night[0] || h0 < 12, mn = det.S[0], res = null, at = null;
-  const lim = cutSoc();
-  for (let i = 0; i < det.P.length; i++) {
-    if (det.night[i]) dark = true;
-    if (dark && !det.night[i] && det.P[i] - det.L[i] > 0) { res = i; break; }
-    mn = Math.min(mn, det.S[i + 1]);
-    if (at === null && dark && det.S[i + 1] <= lim) at = det.T[i];
-  }
-  return { min: mn, at, resume: res === null ? null : det.T[res] };    // null: nelle 48 ore i pannelli non ce la fanno a ricaricare
+/* ---------- la notte: un solo motore ----------
+   nightRun(k, f, mask) risponde per tutti (riquadro «Stanotte», avvisi, consigli sui deviatori, rischio di stacco, previsione a 48 ore):
+   quanto scende il banco tenendo i deviatori in «mask» finché i pannelli non tornano a caricare più di quanto la casa consuma, con che
+   probabilità arriva allo stacco (cutSoc) o sotto il margine, e a che ora. Cambiano solo gli ingressi: col modello imparato (f, dai 7 giorni
+   di registro) quelli della previsione (fullInputs: stessa runDet, stesse correzioni, stessi errori veri); prima, la stima semplice
+   (simpleInputs): il consumo delle ultime notti riportato ai deviatori, e la carica che riparte col sole a 12°. Stesso integratore e stesse
+   simulazioni (simPaths), stesso riassunto (nightOf). */
+const NIGHT_R = 200;
+let nightMemo = {};
+const withMask = (mask, until, fn) => { swOverride = { mask, until }; try { return fn(); } finally { swOverride = null; } };
+function fullInputs(f, mask, until = f.t[0] + 40 * HOUR){
+  const M = model, d = withMask(mask, until, () => runDet(M, f.t[0], f.mid[0], f.cap, { asFc: true, pvB: M.cal ? M.cal.pvB : [1, 1], lB: M.cal ? M.cal.lB : 1, nc: f.nc, batW: f.batW }));
+  return { ...d, M, t0: f.t[0], soc0: f.mid[0], cap: f.cap, batW: f.batW, draw: f.draw };
 }
-function nightWith(k, f, mask){
-  if (f && model && model.prof) return detNight(swSim(f, { mask, until: f.t[0] + 40 * HOUR }));
-  const now = nowOf(data), ns = nightSimple(k, now); if (!ns) return null;
-  // stima semplice: al consumo della notte si aggiunge (o si toglie) quello delle zone spostate
-  const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), hrs = (ns.resume - now) / 3600;
-  let dW = 0, unk = false;
-  ZONES.forEach((_, z) => { if (swOn(SW.mask, z) === swOn(mask, z)) return; const w = zW(z, now + 3 * HOUR); if (w === null) { unk = true; return; } dW += swOn(mask, z) ? w : -w; });
-  const Wt = ns.W + dW, t0 = Math.max(now, ns.low), at = t0 + Math.max(0, k.soc - cutSoc()) / 100 * capWh / Math.max(30, Wt) * 3600;   // da quando il sole non basta più
-  return { min: ns.min - dW * hrs / capWh * 100, resume: ns.resume, unk, simple: true, t0, W: Wt, at: at < ns.resume ? at : null };
+function simpleInputs(k, mask){
+  if (!k || !k.on || !fin(k.soc) || !fin(k.full) || k.full <= 0 || !data.history) return null;
+  const now = nowOf(data), loc = here(), el = t => sinElev(t, loc.lat, loc.lon), SIN12 = Math.sin(12 * Math.PI / 180);
+  let low = el(now) < SIN12 ? now : null, resume = null;
+  for (let t = now; t < now + 30 * HOUR; t += 600) { if (el(t) < SIN12) { if (low === null) low = t; } else if (low !== null) { resume = t; break; } }
+  if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
+  // il consumo delle notti viste nelle ultime 24 ore, riportato ai deviatori di adesso; se stanno così da almeno un'ora vale quello misurato così
+  const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data);
+  let w = 0, c = 0, ws = 0, cs = 0;
+  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { const m = maskAt(t); if (m === SW.mask) { ws += -p; cs++; } w += -p + zonesW(t, SW.mask) - zonesW(t, m); c++; } });
+  const W0 = cs >= 12 ? ws / cs : c >= 12 ? w / c : k.p < 0 ? -k.p : null;
+  if (!W0) return null;
+  let dW = 0, unk = false;                    // le zone spostate rispetto a adesso
+  ZONES.forEach((_, z) => { if (swOn(SW.mask, z) === swOn(mask, z)) return; const zw = zW(z, now + 3 * HOUR); if (zw === null) { unk = true; return; } dW += swOn(mask, z) ? zw : -zw; });
+  const W = Math.max(30, W0 + dW), T = [], P = [], L = [], night = [];
+  for (let t = now; t < resume; t += HOUR) T.push(t);
+  T.push(resume, resume + HOUR);
+  for (let i = 0; i + 1 < T.length; i++) { const dark = T[i] < resume; night.push(dark); L.push(W * (T[i + 1] - T[i]) / HOUR); P.push(dark ? 0 : W + 3000); }
+  night.push(false);
+  return { T, P, L, night, M: model, t0: now, soc0: k.soc, cap: k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), batW: NaN, simple: true, unk, W, start: Math.max(now, low),
+    draw: (rnd, gauss) => { const lf = Math.exp(gauss() * .2 - .02); return { p: () => 1, l: () => lf }; } };
+}
+// il riassunto delle simulazioni: minimo (mediana), probabilità di stacco e di margine stretto, ripartenza e ora dello stacco
+function nightOf(inp, paths){
+  const cut = cutSoc(), mar = cut + (S.marg || 10), N = inp.P.length, h0 = new Date(inp.t0 * 1000).getHours(), mins = [], res = [], cuts = [];
+  paths.forEach(a => {
+    let dark = inp.night[0] || (h0 < 12 && !(a[1] > a[0])), mn = a[0], r = null, c = null;   // la mattina è ancora la notte passata solo finché il banco scende
+    for (let i = 0; i < N; i++) {
+      if (inp.night[i]) dark = true;
+      if (dark && !inp.night[i] && a[i + 1] > a[i]) { r = i; break; }
+      mn = Math.min(mn, a[i + 1]);
+      if (c === null && dark && a[i + 1] <= cut) c = inp.T[i] + (inp.T[i + 1] - inp.T[i]) * clamp((a[i] - cut) / ((a[i] - a[i + 1]) || 1), 0, 1);
+    }
+    mins.push(mn); res.push(r === null ? N : r); if (c !== null) cuts.push(c);
+  });
+  const R = paths.length, ri = Math.round(quant(res, .5));
+  return { cut, mar, t0: inp.start || inp.t0, min: quant(mins, .5), minLo: quant(mins, .1), pCut: mins.filter(m => m <= cut).length / R, pMar: mins.filter(m => m <= mar).length / R,
+    resume: ri >= N ? null : inp.T[ri], at: cuts.length >= R / 2 ? quant(cuts, .5) : null };
+}
+function nightRun(k, f, mask){
+  const full = !!(f && model && model.prof), key = (full ? "f" + f.t[0] : "s" + Math.round(((k && k.soc) || 0) * 10) + ":" + Math.floor(nowOf(data) / 300)) + ":" + mask;
+  if (nightMemo[key]) return nightMemo[key];
+  const inp = full ? fullInputs(f, mask) : simpleInputs(k, mask); if (!inp) return null;
+  if (Object.keys(nightMemo).length > 300) nightMemo = {};
+  return nightMemo[key] = { ...nightOf(inp, simPaths(inp, NIGHT_R)), simple: !!inp.simple, unk: !!inp.unk, W: inp.W };
 }
 /* ---------- il banco e gli stacchi. Il registro dice quanta energia c'è, ma l'inverter stacca per la tensione al picco di consumo:
    qui si impara da /stress.bin (i valori peggiori di ogni quarto d'ora) e da /invev.bin (stacchi e quasi-stacchi).
@@ -2286,7 +2297,7 @@ function rkDist(h, solar, t){
 function riskFor(k, f, mask){
   if (!RM || !k || !k.on || !fin(k.soc) || !isReal() || !mask) return mask === 0 && RM && k && fin(k.soc) ? { p: 0, p6: 0, at: null, kw: rkMaxW(k.soc) / 1000, seen: 0 } : null;
   const key = mask + ":" + Math.round(k.soc) + ":" + Math.floor(Date.now() / 6e4); if (rkC[key]) return rkC[key];
-  const now = nowOf(data), nw = nightWith(k, f, mask), end = nw && nw.resume ? Math.min(nw.resume, now + 30 * HOUR) : now + 18 * HOUR, t0 = nw && fin(nw.t0) ? nw.t0 : now, tEnd = nw && fin(nw.at) ? nw.at : end, mn = nw && fin(nw.at) ? cutSoc() : nw ? Math.max(0, nw.min) : k.soc;
+  const now = nowOf(data), nw = nightRun(k, f, mask), end = nw && nw.resume ? Math.min(nw.resume, now + 30 * HOUR) : now + 18 * HOUR, t0 = nw && fin(nw.t0) ? nw.t0 : now, tEnd = nw && fin(nw.at) ? nw.at : end, mn = nw && fin(nw.at) ? cutSoc() : nw ? Math.max(0, nw.min) : k.soc;
   const bat = (data.batteries || []).filter(b => b.online !== false && fin(b.soc)), off = bat.length ? Math.max(0, k.soc - Math.min(...bat.map(b => b.soc))) : 0;
   let sur = 1, p6 = 0, at = null, seen = 0;
   for (let t = now; t < end; t += 900) {
@@ -2312,13 +2323,6 @@ function drawBankMem(){
   box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
 const kOfBank = () => { const b = (data && data.batteries || []).filter(x => x.online !== false && fin(x.soc) && fin(x.full_ah)); const f = b.reduce((a, x) => a + x.full_ah, 0); return f ? b.reduce((a, x) => a + x.soc * x.full_ah, 0) / f : NaN; };
-// la notte, per tutti (riquadro, avvisi, rischio): con la previsione completa le simulazioni, altrimenti la stima semplice; stessi campi e stesse soglie
-function nightPlan(k, f, mask){
-  const r = nightWith(k, f, mask); if (!r) return null;
-  const cut = cutSoc(), mar = cut + (S.marg || 10); let o = { ...r, cut, mar, pCut: r.min <= cut ? 1 : 0, pMar: r.min <= mar ? 1 : 0 };
-  if (f && f.prob && f.prob.night && mask === SW.mask) { const n = f.prob.night; o = { ...o, min: n.min, resume: n.resume >= 48 ? null : f.t[0] + n.resume * HOUR, pCut: n.pCut, pMar: n.pMar, mc: true }; }
-  return o;
-}
 const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
 const WARN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
 let nightK = null, nightF = null;
@@ -2364,54 +2368,61 @@ function drawTomorrow(k){
     `<svg class="tmr-b" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sole previsto ora per ora, dalle ${from} alle ${to}">${bars}</svg>` + (note ? `<p class="tmr-n">${note}</p>` : "");
   box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
+/* la risposta sulla notte, una per tutti: com'è con i deviatori di adesso; con tutto su Enel la domanda vera è se ce la faresti su solare
+   (su Enel è ovvio). Più il consiglio: con tutto su Enel quali zone rimettere su solare restando sopra il margine (prima le più leggere),
+   se a rischio quali portare su Enel (prima le più pesanti). st: ok, warn (margine stretto), bad (stacco o pannelli che non ricaricano). */
+function nightAdvice(k, f){
+  if (!data || !k || !k.on || !fin(k.soc)) return null;
+  const cur = nightRun(k, f, SW.mask); if (!cur) return { wait: true };
+  const free = SW_FREE(), allEnel = (SW.mask & free) === 0, now = nowOf(data), sol = allEnel ? nightRun(k, f, SW.mask | free) : null, ev = sol || cur, mar = cur.mar;
+  const st = ev.pCut >= .2 || ev.resume === null ? "bad" : ev.pMar >= .3 ? "warn" : "ok";
+  const known = z => zW(z, now + 3 * HOUR) !== null, zw = z => zW(z, now + 3 * HOUR), safe = r => r && r.resume !== null && r.pCut < .2 && r.pMar < .3;
+  let tip = null;
+  if (allEnel) {
+    const cand = ZONES.map((_, z) => z).filter(known).sort((a, b) => zw(a) - zw(b)), unk = ZONES.map((_, z) => z).filter(z => !known(z));
+    let mask = SW.mask, set = [], last = null;
+    for (const z of cand) { const r = nightRun(k, f, mask | 1 << z); if (safe(r)) { mask |= 1 << z; set.push(z); last = r; } }
+    set.sort((a, b) => a - b);
+    if (set.length && set.length === cand.length && !unk.length) tip = { mask, up: true, txt: `Puoi rimettere tutto su solare: stanotte arrivi verso ${ilP(last.min)}, sopra lo stacco con margine.`, btn: "Rimetti tutto su solare" };
+    else if (set.length) tip = { mask, up: true, txt: `Puoi rimettere su solare ${zList(set)}: stanotte arrivi verso ${ilP(last.min)}.${cand.length > set.length ? ` ${zList(cand.filter(z => !set.includes(z)).sort((a, b) => a - b))} meglio su Enel.` : ""}`,
+      note: unk.length ? `${zList(unk)}: consumo non ancora misurato.` : "", btn: `Metti ${set.map(z => ZONES[z]).join(", ")} su solare` };
+    else if (cand.length) tip = { txt: `Meglio restare tutto su Enel: anche con solo ${zLab(cand[0])} su solare scenderesti sotto il margine.` };
+    else if (unk.length) tip = { txt: "Per consigliarti quali zone rimettere su solare serve il consumo di ognuna: la scheda lo misura la prima volta che sposti ogni deviatore." };
+  } else if (st !== "ok") {
+    const cand = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z) && known(z)).sort((a, b) => zw(b) - zw(a));
+    let mask = SW.mask, set = [], last = null;
+    for (const z of cand) { mask &= ~(1 << z); set.push(z); last = nightRun(k, f, mask); if (safe(last)) break; }
+    set.sort((a, b) => a - b);
+    if (set.length && last && last.min > cur.min + 1) tip = { mask, up: false, txt: `Con ${zList(set)} su Enel arrivi verso ${ilP(last.min)}${safe(last) ? ", con margine" : ""}.`, btn: `Metti ${set.map(z => ZONES[z]).join(", ")} su Enel` };
+  }
+  const rk = riskFor(k, f, sol ? SW.mask | free : SW.mask);
+  return { cur, sol, ev, st, allEnel, tip, rk, mar, cut: cur.cut };
+}
 function drawNight(k, f){
   const box = $("night"); if (!box) return;
   if (k !== undefined) { nightK = k; nightF = f; } else { k = nightK; f = nightF; }
-  if (!data || !k || !k.on || !fin(k.soc)) { box.hidden = true; return; }
-  const cut = cutSoc(), mar = cut + (S.marg || 10), cur = nightPlan(k, f, SW.mask);
-  if (!cur) {
+  const a = nightAdvice(k, f);
+  if (!a) { box.hidden = true; return; }
+  if (a.wait) {
     box.hidden = false; box.className = "night wait";
     const w = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Stanotte: lo dico verso sera</span></div>` +
       `<p class="n-d">Con meno di 7 giorni di registro la notte si calcola dal pomeriggio, col consumo medio delle notti passate.</p>`;
     if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
     return;
   }
-  // con tutto su Enel la risposta sarebbe sempre sì: la domanda vera è se ce la faresti tenendo le zone su solare
-  const free = SW_FREE(), allEnel = (SW.mask & free) === 0, now = nowOf(data), sol = allEnel ? nightPlan(k, f, SW.mask | free) : null, ev = sol || cur;
-  const st = ev.pCut >= .2 || ev.resume === null ? "bad" : ev.pMar >= .3 ? "warn" : "ok", m0 = Math.max(0, ev.min);
+  const { cur, sol, ev, st, tip, rk, mar, cut } = a, m0 = Math.max(0, ev.min);
   const after = ev.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(ev.resume))}</b>`;
   const title = sol ? (st === "bad" ? "Su solare stanotte non ce la fai" : st === "warn" ? "Su solare ce la fai, ma di poco" : "Su solare stanotte ce la fai")
     : st === "bad" ? "Stanotte rischi lo stacco" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
-  const known = z => zW(z, now + 3 * HOUR) !== null;
-  let tip = "";
-  if (allEnel) {
-    // tutto su Enel: quante zone si possono rimettere su solare restando sopra il margine (prima le più leggere)
-    const cand = ZONES.map((_, z) => z).filter(z => known(z)).sort((a, b) => zW(a, now + 3 * HOUR) - zW(b, now + 3 * HOUR));
-    const unk = ZONES.map((_, z) => z).filter(z => !known(z));
-    let mask = SW.mask, set = [], last = null;
-    for (const z of cand) { const r = nightWith(k, f, mask | 1 << z); if (r && r.resume !== null && r.min > mar) { mask |= 1 << z; set.push(z); last = r; } }
-    set.sort((a, b) => a - b);
-    if (set.length && set.length === cand.length && !unk.length) tip = `Puoi rimettere <b>tutto su solare</b>: stanotte arrivi verso ${ilP(last.min)}, sopra lo stacco con margine.<br><button class="set-btn" type="button" data-mask="${mask}">${UP_ICO}Rimetti tutto su solare</button>`;
-    else if (set.length) tip = `Puoi rimettere su solare <b>${esc(zList(set))}</b>: stanotte arrivi verso ${ilP(last.min)}.${cand.length > set.length ? ` ${esc(zList(cand.filter(z => !set.includes(z)).sort((a, b) => a - b)))} meglio su Enel.` : ""}${unk.length ? ` <small>${esc(zList(unk))}: consumo non ancora misurato.</small>` : ""}<br><button class="set-btn" type="button" data-mask="${mask}">${UP_ICO}Metti ${esc(set.map(z => ZONES[z]).join(", "))} su solare</button>`;
-    else if (cand.length) tip = `Meglio restare <b>tutto su Enel</b>: anche con solo ${esc(zLab(cand[0]))} su solare scenderesti sotto il margine.`;
-    else if (unk.length) tip = `Per consigliarti quali zone rimettere su solare serve il consumo di ognuna: la scheda lo misura la prima volta che sposti ogni deviatore.`;
-  } else if (st !== "ok") {
-    // a rischio con zone su solare: quali portare su Enel (prima le più pesanti)
-    const cand = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z) && known(z)).sort((a, b) => zW(b, now + 3 * HOUR) - zW(a, now + 3 * HOUR));
-    let mask = SW.mask, set = [], last = null;
-    for (const z of cand) { mask &= ~(1 << z); set.push(z); last = nightWith(k, f, mask); if (last && last.resume !== null && last.min > mar) break; }
-    set.sort((a, b) => a - b);
-    if (set.length && last && last.min > cur.min + 1) tip = `Con <b>${esc(zList(set))}</b> su Enel ${last.min > mar ? `arrivi verso ${ilP(last.min)}, con margine` : `arrivi verso ${ilP(last.min)}`}.<br><button class="set-btn" type="button" data-mask="${mask}">${DN_ICO}Metti ${esc(set.map(z => ZONES[z]).join(", "))} su Enel</button>`;
-  }
   box.hidden = false; box.className = "night " + (sol && st === "bad" ? "warn" : st);   // su Enel non sei a rischio: niente rosso
-  const stacco = `Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.`;
-  const rk = riskFor(k, f, sol ? SW.mask | free : SW.mask), rkTxt = rk && (sol || SW.mask) ? ` <b>Rischio di stacco ${nf(rk.p * 100, 0)}%</b>${rk.at && rk.p >= .2 && !(sol && st === "bad" && fin(ev.at)) ? ` (dalle ${hm(q15(rk.at))} circa)` : ""}: adesso il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
-  const body = sol && st === "bad" && fin(ev.at) ? `Con tutto su solare l'inverter staccherebbe verso le <b>${hm(q15(rk && rk.at ? Math.min(ev.at, rk.at) : ev.at))}</b>. ${stacco}`
+  const stacco = `Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.`, cutAt = fin(ev.at) ? ev.at : rk && rk.p >= .2 ? rk.at : null;
+  const rkTxt = rk && (sol || SW.mask) ? ` <b>Rischio di stacco ${nf(Math.max(rk.p, ev.pCut) * 100, 0)}%</b>${cutAt ? ` (dalle ${hm(q15(cutAt))} circa)` : ""}: adesso il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
+  const body = sol && st === "bad" && cutAt ? `Con tutto su solare l'inverter staccherebbe verso le <b>${hm(q15(cutAt))}</b>. ${stacco}`
     : `${sol ? "Con tutto su solare minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
+  const tipH = tip ? `<div class="n-tip">${esc(tip.txt)}${tip.note ? ` <small>${esc(tip.note)}</small>` : ""}${tip.btn ? `<br><button class="set-btn" type="button" data-mask="${tip.mask}">${tip.up ? UP_ICO : DN_ICO}${esc(tip.btn)}</button>` : ""}</div>` : "";
   const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
     `<p class="n-d">${body}${rkTxt}${sol ? ` Se resti su Enel arrivi verso <b>${nf(Math.max(0, cur.min), 0)}%</b>.` : ""}` +
-    `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate${sol ? " e quello misurato delle zone" : " e i deviatori di adesso"}: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${ev.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` +
-    (tip ? `<div class="n-tip">${tip}</div>` : "");
+    `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate${sol ? " e quello misurato delle zone" : " e i deviatori di adesso"}: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${ev.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` + tipH;
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
   if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
     const b = e.target.closest("button[data-mask]"); if (b) swSet(+b.dataset.mask & 127, -1); }); }
@@ -2457,11 +2468,6 @@ function drawFlow(k){
   svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${home === null ? "non nota" : power(home)}`);
 }
 // consigli e avvisi sui deviatori: adesso (carica bassa), stanotte (rischio sotto soglia), oggi (sole in più)
-function swSim(f, ov){
-  const M = model; swOverride = ov;
-  try { return runDet(M, f.t[0], f.mid[0], f.cap, { asFc: true, pvB: M.cal ? M.cal.pvB : [1, 1], lB: M.cal ? M.cal.lB : 1, nc: f.nc }); }
-  finally { swOverride = null; }
-}
 function swAlarms(k, f, now, hr){
   const out = [], est = swEst(), known = z => est[z].n > 0, lim = Math.max(S.alLow, S.reserve || 0, cutSoc() + (S.marg || 10));
   const onZ = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z));
@@ -2470,28 +2476,18 @@ function swAlarms(k, f, now, hr){
     if (zs.length) out.push({ id: "swlow", sev: "alarm", t: `Carica al ${nf(k.soc, 0)}% con ${zs.map(z => ZONES[z]).join(", ")} su solare`, d: `Riporta su Enel ${zList(zs)}, almeno le zone che non servono: il banco smette di scendere così in fretta.` });
   }
   if (!f || !model || !model.prof || !est.some(e => e.n)) return out;
-  const nt = f.night, from = nt[0] ? 1 : nt.findIndex((x, i) => i > 0 && x);
-  let sr = -1; if (from > 0) for (let i = from; i < nt.length; i++) if (!nt[i] && nt[i - 1]) { sr = i; break; }
-  if (S.alFc && sr > 0 && (nt[0] || hr >= 15)) {
-    const minTo = a => Math.min(...a.slice(0, Math.min(a.length, sr + 3))), m0 = minTo(swSim(f, null).S);
-    if (m0 < lim + 3) {
-      const cand = onZ.filter(known).sort((a, b) => zW(b, now + 3 * HOUR) - zW(a, now + 3 * HOUR));
-      let mask = SW.mask, set = [], m1 = m0;
-      for (const z of cand) { mask &= ~(1 << z); set.push(z); m1 = minTo(swSim(f, { mask, until: f.t[0] + (sr + 3) * HOUR }).S); if (m1 >= lim + 5) break; }
-      if (set.length && m1 >= m0 + 2) out.push({ id: "swnight" + dkey(now), sev: "fc", t: `Stanotte il banco scende al ${nf(m0, 0)}%`,
-        d: `Con ${zList(onZ)} su solare. Mettendo ${zList(set)} su Enel ${m1 >= lim ? "resti sopra il " + nf(Math.floor(m1), 0) + "%" : "arrivi al " + nf(m1, 0) + "%"}.` });
-    }
-  }
+  const nt = f.night;
+  // sole in più: quali zone mettere su solare fino al tramonto, arrivando comunque al pieno e restando stanotte sopra il margine (stesso motore della notte)
   if (S.alTip && k.i > 0.5 && hr >= 7 && hr < 14) {
     const tF = crossAt(f.mid, x => x >= 99.5, 99.5), ss = nt.findIndex((x, i) => i > 0 && x);
     let sr2 = -1; if (ss > 0) for (let i = ss; i < nt.length; i++) if (!nt[i] && nt[i - 1]) { sr2 = i; break; }
     if (tF !== null && f.prob.full >= .7 && ss > 0 && sr2 > 0) {
-      const until = f.t[0] + ss * HOUR;
-      const ok = r => Math.max(...r.S.slice(0, ss + 1)) >= 95 && Math.min(...r.S.slice(ss, sr2 + 3)) >= lim + 10;
+      const until = f.t[0] + ss * HOUR, sim = m => fullInputs(f, m, until).S;
+      const ok = S => Math.max(...S.slice(0, ss + 1)) >= 95 && Math.min(...S.slice(ss, sr2 + 3)) >= lim + 10;
       const cand = ZONES.map((_, z) => z).filter(z => !swOn(SW.mask, z) && known(z) && zW(z, now) > 50).sort((a, b) => zW(a, now) - zW(b, now));
       let mask = SW.mask; const set = [];
-      for (const z of cand) { const m2 = mask | (1 << z); if (ok(swSim(f, { mask: m2, until }))) { mask = m2; set.push(z); } }
-      if (set.length) { const r = swSim(f, { mask, until }), mn = Math.min(...r.S.slice(ss, sr2 + 3));
+      for (const z of cand) { const m2 = mask | (1 << z); if (ok(sim(m2))) { mask = m2; set.push(z); } }
+      if (set.length) { const mn = Math.min(...sim(mask).slice(ss, sr2 + 3));
         out.push({ id: "swsun" + dkey(now), sev: "tip", t: "Oggi c'è sole in più",
           d: `Arrivi al pieno verso le ${hm(q15(f.t[0] + tF * HOUR))}: puoi mettere ${zList(set)} su solare fino al tramonto e stanotte resti comunque sopra il ${nf(Math.floor(mn), 0)}%.` }); }
     }
@@ -2504,7 +2500,7 @@ function pushShared(){
   cfgPushT = setTimeout(async () => {
     try {
       const rs = remSet;                                  // il canale cambia solo se l'ha chiesto questa app (firmware 0.23)
-      const j = await boardCfg({app: sharedOf(), pv: pvCfgOf(), ...(rs ? {rem_set: true} : {})});
+      const j = await boardCfg({app: sharedOf(), ...(rs ? {rem_set: true} : {})});   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
       if (j && j.ok) { if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote") toast("Impostazioni salvate sulla scheda"); }
     } catch (e) { if (mode === "remote") toast("Impostazioni non salvate sulla scheda: " + e.message); }
     cfgPushT = 0;
@@ -3012,10 +3008,12 @@ function render(m){
     else setEta("chg", "Quasi pieno", "il BMS completa la carica");
   } else if (k.i < -0.5) {
     st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
-    const fl = floorSoc(), byInv = fl > (S.reserve || 0), avail = k.rem - k.full * fl / 100;
-    if (etaForecast(k, f)) {}
-    else if (avail > 0) setEta("dsg", byInv ? `Autonomia fino allo stacco (${S.inv} V)` : `Autonomia fino al ${fl}%`, dur(avail / -k.i), avail / -k.i);
-    else setEta("warn", byInv ? `Vicino allo stacco dell'inverter (${S.inv} V)` : `Sotto la riserva del ${fl}%`, "riduci i consumi");
+    // in scarica risponde il motore della notte (lo stesso del riquadro «Stanotte» e degli avvisi); di giorno, prima che si possa dire, il consumo di adesso
+    const fl = floorSoc(), byInv = fl > (S.reserve || 0), avail = k.rem - k.full * fl / 100, nt = nightRun(k, f, SW.mask), now = nowOf(data);
+    if (avail <= 0) setEta("warn", byInv ? `Vicino allo stacco dell'inverter (${S.inv} V)` : `Sotto la riserva del ${fl}%`, "riduci i consumi");
+    else if (nt && fin(nt.at) && nt.at > now) setEta("dsg", `Stacco dell'inverter (${S.inv} V) tra`, dur((nt.at - now) / HOUR), (q15(nt.at) - now) / HOUR);
+    else if (nt && nt.resume !== null && nt.resume > now) setEta("dsg", "Prima del sole scendi a", nf(Math.max(0, nt.min), 0) + "%", (q15(nt.resume) - now) / HOUR);
+    else setEta("dsg", byInv ? `Al consumo di adesso, stacco (${S.inv} V) tra` : `Al consumo di adesso, al ${fl}% tra`, dur(avail / -k.i), avail / -k.i);
   } else {
     st.className = "state idle"; st.textContent = "A riposo"; setEta();
   }
@@ -3079,16 +3077,7 @@ function render(m){
 
   // avvisi: prima le protezioni, poi gli allarmi
   trackPv(data.pv);
-  const items = [];
-  bs.forEach((b,i) => {
-    const who = nameOf(b, i);
-    if (!b.online) { items.push({sev:"mute", who, i, t:"Batteria non raggiungibile", d:"Controlla il cavo di comunicazione tra le batterie."}); return; }
-    (b.prot||[]).forEach(c => items.push({id:"bp" + i + c, sev:"prot", who, i, t:msg(c)[0], d:msg(c)[1]}));
-    (b.alarms||[]).forEach(c => items.push({id:"ba" + i + c, sev:"alarm", who, i, t:msg(c)[0], d:msg(c)[1]}));
-  });
-  items.push(...myAlarms(bs, k, f));
-  const rank = {prot:0, alarm:1, fc:2, mute:3, tip:4};
-  items.sort((a,b) => rank[a.sev] - rank[b.sev]);
+  const items = alertsNow(bs, k, f);
   ringNew(items);
   recordAl(items);
   const shown = alVisible(items), hid = items.length - shown.length;
@@ -3306,10 +3295,7 @@ async function boardAlarms(){
 }
 const mapEv = list => list.filter(e => ["prot", "alarm", "mute"].includes(e.sev) && fin(e.s)).map(e => {
       const g = { addr: e.addr, name: e.who }, who = e.addr < 0 ? "Banco" : e.pv ? pvName(g) : nameOf(g, e.addr);
-      const t = e.code === "OFFLINE" ? "Batteria non raggiungibile" : e.code === "PV_OFFLINE" ? "Regolatore non raggiungibile" : e.code === "PV_NOIN" ? "Non vede i pannelli"
-        : e.code === "PV_FAULT" ? "Guasto del regolatore" : e.code === "PV_HIGH" ? "Tensione dei pannelli alta"
-        : e.code === "PV_DANGER" ? "Tensione dei pannelli al limite" : e.code === "INV_RISK" ? "L'inverter rischia di staccare" : e.code === "INV_NEAR" ? "Vicino allo stacco dell'inverter"
-        : e.code === "INV_CUT" ? "L'inverter ha staccato" : (MSG[e.code] || [e.code])[0];
+      const t = msg(e.code)[0];
       return { k: "b" + e.code + (e.pv ? "p" : "") + e.addr, sev: e.sev, t, who, s: e.s, e: e.e || 0, code: e.code,
         c: fin(e.v) ? [e.s, 0, e.src, e.v, e.i, e.w, e.soc, e.smin, e.cell, e.mask, e.weak] : null };
     });
@@ -3654,7 +3640,7 @@ function socAt(M, t){
 
 /* ---------- previsione deterministica: ora per ora, con tutte le correzioni ---------- */
 function runDet(M, t0, soc0, cap, o){
-  const N = 48, T = [], P = [], L = [], night = [], Sx = [soc0], loc = here();
+  const N = 48, T = [], P = [], L = [], night = [], loc = here();
   const pvB = o.pvB || [1, 1], lB = o.lB || 1, nc = o.nc || { fL: 1, fP: 1 }, today = new Date(t0 * 1000); today.setHours(24, 0, 0, 0);
   for (let i = 0; i <= N; i++) {
     const t = t0 + i * HOUR; T.push(t); night.push(sinElev(t, loc.lat, loc.lon) < 0);
@@ -3663,13 +3649,37 @@ function runDet(M, t0, soc0, cap, o){
     P.push(Math.max(0, (fin(pb) ? pb : 0) * pvB[lead] * (t < today.getTime() / 1000 ? 1 + (nc.fP - 1) * Math.exp(-i / 10) : 1)));
     L.push(loadBase(M, t) * lB * (1 + (nc.fL - 1) * Math.exp(-i / 6)) + (o.actual ? zonesW(t, maskAt(t)) : zoneLoad(t, t0)));
   }
-  for (let i = 0; i < N; i++) {
-    let e = P[i] - L[i];
-    if (e > 0) e *= accept(M, Sx[i]);
-    if (i === 0 && fin(o.batW)) e = .5 * e + .5 * o.batW;   // la prima ora tiene conto di quello che succede adesso
-    Sx.push(clamp(Sx[i] + e / cap * 100, 0, 100));
+  return { T, P, L, night, S: integrate({ M, soc0, cap, P, L, batW: o.batW }, null) };
+}
+/* ---------- simulazioni: un solo integratore, per la previsione a 48 ore e per la notte ----------
+   Un percorso della carica ora per ora: e = sole × fp − consumi × fl (fx: i fattori di quel percorso, null = il centrale); vicino al pieno la
+   carica si accetta solo in parte; la prima ora tiene conto di quello che succede adesso (batW). */
+function integrate(inp, fx){
+  let s = inp.soc0; const a = [s];
+  for (let i = 0; i < inp.P.length; i++) {
+    let e = inp.P[i] * (fx ? fx.p(i) : 1) - inp.L[i] * (fx ? fx.l(i) : 1);
+    if (e > 0) e *= accept(inp.M, s);
+    if (i === 0 && fin(inp.batW)) e = .5 * e + .5 * inp.batW;
+    s = clamp(s + e / inp.cap * 100, 0, 100); a.push(s);
   }
-  return { T, P, L, night, S: Sx };
+  return a;
+}
+// R giornate possibili. Stesso seme per ogni posizione dei deviatori: il confronto tra due posizioni non dipende dal caso
+function simPaths(inp, R){
+  const rnd = rng(Math.floor(inp.t0 / HOUR)), gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd()), out = [];
+  for (let r = 0; r < R; r++) out.push(integrate(inp, inp.draw(rnd, gauss)));
+  return out;
+}
+// gli errori veri del modello: la forma dei consumi di una giornata a caso (lblocks) e la resa del sole dai confronti passati (pvDay);
+// senza archivio delle previsioni manca l'errore del meteo, e si aggiunge
+function fullDraw(M, t0, pvDay, extra){
+  const lb = M.lblocks.length ? M.lblocks : [Array(24).fill(1)], d0 = midnight(t0);
+  return (rnd, gauss) => {
+    const blocks = [0, 1, 2].map(() => lb[Math.floor(rnd() * lb.length)]);
+    const pf = [0, 1].map(l => { const s = pvDay[l]; let f = s.length >= 4 ? s[Math.floor(rnd() * s.length)] : Math.exp(gauss() * (l ? .3 : .2) - (l ? .045 : .02));
+      if (extra) f *= Math.exp(gauss() * (l ? .22 : .12)); return f; });
+    return { p: i => pf[i < 24 ? 0 : 1], l: i => { const t = t0 + i * HOUR; return blocks[clamp(Math.floor((t - d0) / DAY), 0, 2)][new Date((t + HOUR / 2) * 1000).getHours()]; } };
+  };
 }
 
 // autoverifica: rifà le previsioni dei giorni passati (alle 6 e alle 18) e le confronta con quello che è successo
@@ -3793,32 +3803,10 @@ function forecast(t0, soc0, capBms, batW){
   const nc = nowcast(M, t0);
   const det = runDet(M, t0, soc0, cap, { asFc: true, pvB: cal.pvB, lB: cal.lB, nc, batW });
   saveSnapshot(det);
-  const pvDay = arch ? arch.pvDay : cal.pvDay, extra = !arch && logSrc !== "demo"; // senza archivio, nella versione vera manca l'errore del meteo: lo aggiungo
-  const R = 300, N = 48, rnd = rng(Math.floor(t0 / HOUR)), lb = M.lblocks.length ? M.lblocks : [Array(24).fill(1)];
-  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd());
-  const paths = [], firstFull = [], firstLow = [], firstAl = [], low = floorSoc(), alv = S.alLow;
-  // la notte: carica più bassa prima che i pannelli tornino a caricare più di quanto la casa consuma
-  const mins = [], resumes = [], h0 = new Date(t0 * 1000).getHours();
-  const d0 = new Date(t0 * 1000); d0.setHours(0, 0, 0, 0);
-  for (let r = 0; r < R; r++) {
-    const blocks = [0, 1, 2].map(() => lb[Math.floor(rnd() * lb.length)]);
-    const pf = [0, 1].map(l => { const s = pvDay[l]; let f = s.length >= 4 ? s[Math.floor(rnd() * s.length)] : Math.exp(gauss() * (l ? .3 : .2) - (l ? .045 : .02));
-      if (extra) f *= Math.exp(gauss() * (l ? .22 : .12)); return f; });
-    let s = soc0; const a = [s]; let fF = null, fL = null, fA = null, mn = soc0, res = null, dark = det.night[0] || h0 < 12;
-    for (let i = 0; i < N; i++) {
-      const t = det.T[i], d = Math.floor((t - d0.getTime() / 1000) / DAY), h = new Date((t + HOUR / 2) * 1000).getHours();
-      let e = det.P[i] * pf[i < 24 ? 0 : 1] - det.L[i] * blocks[clamp(d, 0, 2)][h];
-      if (e > 0) e *= accept(M, s);
-      if (i === 0 && fin(batW)) e = .5 * e + .5 * batW;
-      s = clamp(s + e / cap * 100, 0, 100); a.push(s);
-      if (fF === null && s >= 99.5) fF = i + 1;
-      if (fL === null && s <= low) fL = i + 1;
-      if (fA === null && s <= alv) fA = i + 1;
-      if (res === null) { if (det.night[i]) dark = true;
-        if (dark && !det.night[i] && e > 0) res = i; else mn = Math.min(mn, s); }
-    }
-    paths.push(a); firstFull.push(fF); firstLow.push(fL); firstAl.push(fA); mins.push(mn); resumes.push(res === null ? N : res);
-  }
+  const draw = fullDraw(M, t0, arch ? arch.pvDay : cal.pvDay, !arch && logSrc !== "demo");
+  const R = 300, N = 48, paths = simPaths({ ...det, M, t0, soc0, cap, batW, draw }, R), low = floorSoc(), alv = S.alLow;
+  const first = test => paths.map(a => { const i = a.findIndex((s, j) => j > 0 && test(s)); return i < 0 ? null : i; });
+  const firstFull = first(s => s >= 99.5), firstLow = first(s => s <= low), firstAl = first(s => s <= alv);
   const q = p => det.S.map((_, i) => quant(paths.map(a => a[i]), p));
   const lo = q(.1).map((v, i) => Math.min(v, det.S[i])), hi = q(.9).map((v, i) => Math.max(v, det.S[i]));
   // finestre: pieno entro il prossimo tramonto (domani se è già sera), riserva entro la prossima alba (+2 h)
@@ -3828,39 +3816,11 @@ function forecast(t0, soc0, capBms, batW){
   const lowBy = Math.min(N, sunrise(nt[0] ? 1 : sunset(1)) + 2);
   const frac = (arr, lim) => arr.filter(v => v !== null && v <= lim).length / R;
   const etaQ = arr => { const v = arr.filter(x => x !== null); return v.length >= R * .5 ? [quant(v, .2), quant(v, .5), quant(v, .8)] : null; };
-  return { t: det.T, pv: det.P, load: det.L, night: nt, mid: det.S, lo, hi, cap, nc, arch,
+  return { t: det.T, pv: det.P, load: det.L, night: nt, mid: det.S, lo, hi, cap, nc, arch, batW, draw,
     kind: logSrc === "demo" ? "demo" : M.sun && wx ? "meteo" : "media",
     prob: { full: frac(firstFull, fullBy), fullDay, low: frac(firstLow, lowBy), lowPct: low, alreadyLow: soc0 <= low,
-      al: frac(firstAl, lowBy), alPct: alv, alAt: etaQ(firstAl), alreadyAl: soc0 <= alv,
-      night: nightRisk(mins, resumes, R) },
-    eta: { full: etaQ(firstFull), low: etaQ(firstLow) } };
-}
-// rischio della notte dalle simulazioni: probabilità di arrivare allo stacco e di stare sotto il margine
-function nightRisk(mins, resumes, R){
-  const cut = cutSoc(), mar = cut + (S.marg || 10);
-  return { cut, mar, pCut: mins.filter(m => m <= cut).length / R, pMar: mins.filter(m => m <= mar).length / R,
-    min: quant(mins, .5), minLo: quant(mins, .1), resume: quant(resumes, .5) };
-}
-// senza previsione (meno di 7 giorni di registro): stima semplice col consumo medio delle ultime notti e il sole calcolato.
-// La carica riprende quando il sole è a 12° (prima i pannelli non bastano per la casa)
-function nightSimple(k, now){
-  if (!k.on || !fin(k.soc) || !fin(k.full) || k.full <= 0 || !data.history) return null;
-  const loc = here(), el = t => sinElev(t, loc.lat, loc.lon), SIN12 = Math.sin(12 * Math.PI / 180);
-  let low = el(now) < SIN12 ? now : null, resume = null;
-  for (let t = now; t < now + 30 * HOUR; t += 600) {
-    if (el(t) < SIN12) { if (low === null) low = t; } else if (low !== null) { resume = t; break; }
-  }
-  if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
-  const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data);
-  let w = 0, c = 0, ws = 0, cs = 0;
-  // il consumo di quelle ore, riportato ai deviatori di adesso: zone su solare ora ma su Enel allora (o il contrario).
-  // Se i deviatori stanno così da almeno un'ora vale il consumo misurato così: la stima delle zone sbaglia di molto la sera
-  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { const m = maskAt(t); if (m === SW.mask) { ws += -p; cs++; } w += -p + zonesW(t, SW.mask) - zonesW(t, m); c++; } });
-  const W = cs >= 12 ? Math.max(30, ws / cs) : c >= 12 ? Math.max(30, w / c) : k.p < 0 ? -k.p : null;   // almeno un'ora di notte vista, se no il consumo di adesso
-  if (!W) return null;
-  const capWh = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), min = k.soc - W * (resume - now) / 3600 / capWh * 100;
-  const cut = cutSoc();
-  return { cut, mar: cut + (S.marg || 10), min, resume, W, low, simple: true };
+      al: frac(firstAl, lowBy), alPct: alv, alAt: etaQ(firstAl), alreadyAl: soc0 <= alv },
+    eta: { full: etaQ(firstFull) } };
 }
 // prima ora (frazionaria) in cui la serie passa la soglia
 const crossAt = (a, test, target) => { for (let i = 1; i < a.length; i++) if (test(a[i])) return i - 1 + Math.max(0, Math.min(1, (target - a[i - 1]) / ((a[i] - a[i - 1]) || 1))); return null; };
@@ -3875,7 +3835,7 @@ function currentForecast(k){
   drawForecast(); drawReliab();
   return fc;
 }
-// la card in alto usa la previsione quando c'è: pieno o massimo di oggi, autonomia o minimo prima del sole, con la forchetta delle simulazioni
+// la card in alto, in carica: pieno o massimo di oggi dalla previsione, con la forchetta delle simulazioni (in scarica risponde nightRun)
 function etaForecast(k, f){
   if (!f) return false;
   const t0 = f.t[0], hq = h => (q15(t0 + h * HOUR) - t0) / HOUR;
@@ -3886,13 +3846,6 @@ function etaForecast(k, f){
     let end = f.night.findIndex((nt, i) => i > 0 && nt); if (end < 0) end = f.t.length - 1;
     const seg = f.mid.slice(0, end + 1), iMax = seg.indexOf(Math.max(...seg));
     if (iMax > 0) { setEta("chg", "Oggi arrivi al massimo", nf(f.mid[iMax], 0) + "%", hq(iMax)); return true; }
-    return false;
-  }
-  if (k.i < -0.5) {
-    const r = floorSoc(), low = s => s <= r + .01, t = crossAt(f.mid, low, r);
-    if (t !== null) { setEta("dsg", (r > (S.reserve || 0) ? `Stacco dell'inverter tra` : `Autonomia fino al ${r}%`) + pm(f.eta.low), dur(t), hq(t)); return true; }
-    const iMin = f.mid.slice(0, 37).reduce((b, s, i, a) => s < a[b] ? i : b, 0);
-    if (iMin > 0) { setEta("dsg", "Prima del sole scendi a", nf(f.mid[iMin], 0) + "%", hq(iMin)); return true; }
   }
   return false;
 }
@@ -4081,8 +4034,9 @@ function drawForecast(){
   // in probabilità, dalle 300 simulazioni
   const pr = fc.prob, pct = v => v > .99 ? "&gt;99%" : v < .01 ? "&lt;1%" : nf(v * 100, 0) + "%";
   const probs = [`<span class="fc-p"><b>${pct(pr.full)}</b> di arrivare al pieno ${pr.fullDay}</span>`];
-  if (pr.night && !pr.alreadyLow) probs.push(`<span class="fc-p${pr.night.pCut >= .2 ? " warn" : ""}"><b>${pct(pr.night.pCut)}</b> di arrivare allo stacco (${S.inv} V) prima che riprenda la carica</span>`,
-    `<span class="fc-p${pr.night.pMar >= .3 ? " warn" : ""}"><b>${pct(pr.night.pMar)}</b> di avere meno del ${S.marg}% di margine</span>`);
+  const nt0 = nightRun(null, fc, SW.mask);   // la notte con i deviatori di adesso: la stessa del riquadro
+  if (nt0 && !pr.alreadyLow) probs.push(`<span class="fc-p${nt0.pCut >= .2 ? " warn" : ""}"><b>${pct(nt0.pCut)}</b> di arrivare allo stacco (${S.inv} V) prima che riprenda la carica</span>`,
+    `<span class="fc-p${nt0.pMar >= .3 ? " warn" : ""}"><b>${pct(nt0.pMar)}</b> di avere meno del ${S.marg}% di margine</span>`);
   read.innerHTML = l1 + "<br>" + l2 + `<span class="fc-ps">${probs.join("")}</span>`;
   note.textContent = (fc.kind === "meteo" ? `Meteo di Open-Meteo per ${S.loc.name}` : fc.kind === "demo" ? (S.loc ? `Meteo simulato per ${S.loc.name}` : "Meteo simulato: imposta la località nelle impostazioni")
     : "Senza meteo: uso il sole medio delle ultime due settimane") + ` · consumi imparati in ${dur(model.span * 24).replace(/ e .*/, "")}` +
@@ -4091,119 +4045,110 @@ function drawForecast(){
 
 /* ---------- allarmi: soglie scelte, previsioni e consigli. Con la app aperta suono e vibrazione, a app chiusa ntfy (dalla scheda) ---------- */
 const dkey = t => { const d = new Date(t * 1000); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
-// gli avvisi che decide la scheda (dalla 0.33): la app li mostra e basta. Restano qui solo quelli che nascono dalle previsioni
-function boardAlerts(bs, k){
-  const out = [], kn = c => ({ INV_CUT: 1, INV_RISK: 1, INV_NEAR: 1, BANK_LOW: 1, CELL_SPREAD: 1, BAT_HOT: 1, BAT_COLD: 1, PV_HIGH: 1, PV_DANGER: 1, PV_OFFLINE: 1 })[c];
-  (data.open || []).forEach(([code, sev, who, at]) => {
-    if (!kn(code) || (code === "PV_OFFLINE" && !S.alOff)) return;
-    const b = who >= 0 && who < 11 ? bs[who] : null, g = who >= 11 && Array.isArray(data.pv) ? data.pv.find(x => x.addr === who - 10) : null;
-    const name = b ? nameOf(b, who) : g ? pvName(g) : "Banco", id = "o" + code + who, inv = data.inv || {};
-    const A = (t, d) => out.push({ id, sev, who: name, ...(b ? { i: who } : {}), t, d });
-    if (code === "INV_CUT") A(`L'inverter ha staccato alle ${hm(at)}`, "Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano.");
-    else if (code === "INV_RISK") A("L'inverter può staccare a momenti", `${inv.rmv && inv.rmv <= 3000 ? `Una cella è scesa a ${nf(inv.rmv / 1000, 2)} V con il banco che scarica. ` : `Banco a ${nf(k.v, 1)} V con molta corrente. `}Porta su Enel le zone che servono, a cominciare dagli scaldabagni.`);
-    else if (code === "INV_NEAR") A(`Banco a ${nf(k.v, 1)} V: vicino allo stacco`, `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.`);
-    else if (code === "BANK_LOW") A(`Carica bassa: ${nf(k.soc, 0)}%`, `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.`);
-    else if (code === "CELL_SPREAD" && b) A(`Celle sbilanciate di ${nf(Math.max(...b.cells) - Math.min(...b.cells), 0)} mV`, `Oltre la soglia di ${S.alDiff} mV. Il BMS bilancia vicino al pieno: se non scende, controlla.`);
-    else if (code === "BAT_HOT" && b) A(`Batteria calda: ${nf(tHot(b), 0)} °C`, "Controlla la ventilazione dell'armadio.");
-    else if (code === "BAT_COLD" && b) A(`Troppo freddo per caricare: ${nf(tHot(b), 0)} °C`, "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica.");
-    else if (code === "PV_HIGH" && g) A(`Pannelli a ${nf(g.v, 0)} V`, "Tensione alta rispetto al limite del regolatore: con il freddo può salire ancora.");
-    else if (code === "PV_DANGER" && g) A(`Pannelli a ${nf(g.v, 0)} V`, "Quasi al limite del regolatore: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.");
-    else if (code === "PV_OFFLINE" && g) A("Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori.");
-  });
-  return out;
+/* ---------- avvisi: un solo elenco, e ognuno dice quando è cominciato ----------
+   Gli stati (protezioni e allarmi del BMS, batterie e regolatori che non rispondono, stacco dell'inverter, carica bassa, celle, temperature,
+   tensione dei pannelli) li decide la scheda: dalla 0.33 sono in data.open come [codice, gravità, chi, inizio], e il diario ne tiene la storia.
+   Senza scheda (cavo USB, demo) le stesse regole girano qui (localOpen) e l'inizio è quando la app le ha viste. Previsioni e consigli nascono
+   solo qui (appAlerts) e portano l'ora in cui sono comparsi. Chi: 0–9 batterie, 10 + indirizzo i regolatori, −1 il banco. */
+const AL_SINCE_KEY = "mybattery.alsince.v1";
+let alStart = (() => { try { return JSON.parse(localStorage.getItem(AL_SINCE_KEY) || "{}") || {}; } catch (e) { return {}; } })(), alStartSaved = 0, alNow = [];
+// da quando c'è un avviso nato nella app: se è mancato per più di 15 minuti, quando torna ricomincia
+function alSince(key){
+  const now = Math.round(nowOf(data)), o = alStart[key];
+  if (!o || now - o[1] > 900 || now < o[1]) alStart[key] = [now, now]; else o[1] = now;
+  return alStart[key][0];
 }
-function myAlarms(bs, k, f){
-  const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours();
-  const br = Array.isArray(data.open);                  // scheda dalla 0.33: decide lei
-  if (br) out.push(...boardAlerts(bs, k));
-  // stacco dell'inverter: adesso, dalla tensione del banco (la scheda manda la stessa cosa su ntfy)
-  if (k.on && fin(k.v) && fin(k.i)) {
-    const L = data.inv && Array.isArray(data.inv.cuts) && data.inv.cuts[0], cutNow = L && now - L[0] < 12 * HOUR && Math.abs(k.i) < .3;
-    if (!br && cutNow) out.push({ id: "invcut" + L[0], sev: "prot", who: "Banco", t: `L'inverter ha staccato alle ${hm(L[0])}`,
-      d: `Con il banco a ${nf(L[1], 1)} V e il BMS al ${nf(L[2], 0)}%. Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano.` });
-    else if (SW.mask && (() => { const rk = riskFor(k, f, SW.mask); if (!rk || rk.p6 < .3 || (data.inv && data.inv.risk)) return false; out.push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Porta su Enel le zone più pesanti.` }); return true; })()) {}
-    else if (!br && data.inv && data.inv.risk) out.push({ id: "invrisk", sev: "prot", who: "Banco", t: "L'inverter può staccare a momenti",
-      d: `${data.inv.rmv && data.inv.rmv <= 3000 ? `Una cella è scesa a ${nf(data.inv.rmv / 1000, 2)} V con il banco che scarica. ` : `Banco a ${nf(k.v, 1)} V con molta corrente. `}Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
-    else if (!br && k.i < -1 && k.v <= (S.inv || 48) + .8) out.push({ id: "invnear", sev: "prot", who: "Banco", t: `Banco a ${nf(k.v, 1)} V: vicino allo stacco`,
-      d: `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.` });
-  }
-  if (!br && k.on && fin(k.soc) && k.soc < S.alLow) out.push({ id: "low", sev: "alarm", t: `Carica bassa: ${nf(k.soc, 0)}%`, d: `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.` });
+function alSinceKeep(){
+  const now = nowOf(data); Object.keys(alStart).forEach(x => { if (now - alStart[x][1] > 2 * DAY) delete alStart[x]; });
+  if (isReal() && Date.now() - alStartSaved > 6e4) { alStartSaved = Date.now(); lsSet(AL_SINCE_KEY, alStart); }
+}
+const whoName = (who, bs) => who < 0 ? "Banco" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
+// senza scheda: le stesse regole della scheda (evTick, invTick, pvHiTick), con lo stesso formato di data.open
+function localOpen(bs, k){
+  const o = [], add = (code, sev, who) => o.push([code, sev, who, alSince("o" + code + who)]);
   bs.forEach((b, i) => {
-    if (!b.online || br) return;
-    const who = nameOf(b, i);
-    if (b.cells && b.cells.length && !(b.alarms || []).includes("CELL_DIFF")) {
-      const dv = Math.max(...b.cells) - Math.min(...b.cells);
-      if (dv > S.alDiff) out.push({ id: "diff" + i, sev: "alarm", who, i, t: `Celle sbilanciate di ${nf(dv, 0)} mV`, d: `Oltre la soglia di ${S.alDiff} mV. Il BMS bilancia vicino al pieno: se non scende, controlla.` });
-    }
-    if (S.alTemp) {
-      const tc = tHot(b);
-      if (fin(tc) && tc >= 45) out.push({ id: "hot" + i, sev: "alarm", who, i, t: `Batteria calda: ${nf(tc, 0)} °C`, d: "Controlla la ventilazione dell'armadio." });
-      else if (fin(tc) && tc <= 2) out.push({ id: "cold" + i, sev: "alarm", who, i, t: `Troppo freddo per caricare: ${nf(tc, 0)} °C`, d: "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica." });
-    }
+    if (!b.online) { add("OFFLINE", "mute", i); return; }
+    (b.prot || []).forEach(c => add(c, "prot", i)); (b.alarms || []).forEach(c => add(c, "alarm", i));
+    if (b.cells && b.cells.length && !(b.alarms || []).includes("CELL_DIFF") && Math.max(...b.cells) - Math.min(...b.cells) > S.alDiff) add("CELL_SPREAD", "alarm", i);
+    const tc = tHot(b); if (S.alTemp && fin(tc)) { if (tc >= 45) add("BAT_HOT", "alarm", i); else if (tc <= 2) add("BAT_COLD", "alarm", i); }
   });
-  if (!br && S.alOff && Array.isArray(data.pv)) data.pv.forEach(g => { if (g.online === false) out.push({ id: "pvoff" + g.addr, sev: "mute", who: pvName(g), t: "Regolatore non raggiungibile", d: "Controlla il cavo RS485 tra i regolatori." }); });
+  if (k.on && fin(k.soc) && k.soc < S.alLow) add("BANK_LOW", "alarm", -1);
+  if (k.on && fin(k.v) && fin(k.i) && k.i < -1 && k.v <= (S.inv || 48) + .8) add("INV_NEAR", "prot", -1);
+  if (Array.isArray(data.pv)) data.pv.forEach(g => { const w = 10 + g.addr, m = vmaxOf(g.addr);
+    if (g.online === false) add("PV_OFFLINE", "mute", w);
+    else if (!pvIsOff(g) && fin(g.v)) { if (g.v >= pvDangerAt(m)) add("PV_DANGER", "prot", w); else if (g.v >= pvWarnAt(m)) add("PV_HIGH", "alarm", w); } });
+  return o;
+}
+// una riga di stato diventa un avviso: il testo del codice, con i valori di adesso quando aiutano
+function openAlert([code, sev, who, at], bs, k){
+  if (sev === "info" || (code === "PV_OFFLINE" && !S.alOff)) return null;
+  const b = who >= 0 && who < 10 ? bs[who] : null, g = who >= 10 && Array.isArray(data.pv) ? data.pv.find(x => x.addr === who - 10) : null, inv = data.inv || {};
+  let [t, d] = msg(code);
+  if (code === "INV_RISK") d = (inv.rmv && inv.rmv <= 3000 ? `Una cella è scesa a ${nf(inv.rmv / 1000, 2)} V con il banco che scarica. ` : `Banco a ${nf(k.v, 1)} V con molta corrente. `) + d;
+  else if (code === "INV_NEAR" && fin(k.v)) t = `Banco a ${nf(k.v, 1)} V: vicino allo stacco`;
+  else if (code === "BANK_LOW" && fin(k.soc)) t = `Carica bassa: ${nf(k.soc, 0)}%`;
+  else if (code === "CELL_SPREAD" && b && b.cells && b.cells.length) t = `Celle sbilanciate di ${nf(Math.max(...b.cells) - Math.min(...b.cells), 0)} mV`;
+  else if ((code === "BAT_HOT" || code === "BAT_COLD") && b && fin(tHot(b))) t += `: ${nf(tHot(b), 0)} °C`;
+  else if ((code === "PV_HIGH" || code === "PV_DANGER") && g && fin(g.v)) t = `Pannelli a ${nf(g.v, 0)} V`;
+  return { id: "o" + code + who, sev, who: whoName(who, bs), ...(b ? { i: who } : {}), t, d, at };
+}
+// quelli che nascono solo qui: previsioni della notte e di domani, consigli, deviatori, pannelli
+function appAlerts(bs, k, f){
+  const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours(), push = a => out.push({ ...a, at: fin(a.at) ? a.at : alSince(a.id) });
+  // stacco probabile nelle prossime 6 ore, dai picchi imparati: solo con zone su solare, e se la scheda non lo vede già arrivare
+  if (k.on && fin(k.v) && SW.mask && !(data.inv && data.inv.risk)) { const rk = riskFor(k, f, SW.mask);
+    if (rk && rk.p6 >= .3) push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Porta su Enel le zone più pesanti.` }); }
   let nightTold = false;
-  if (S.alFc && k.on) {
-    const nr = nightPlan(k, f, SW.mask);
-    if (nr) {
-      const at = t => hm(q15(t)), resT = nr.resume === null ? now + 48 * HOUR : nr.resume;
-      const how = "Riduci i consumi stasera o porta qualche zona su Enel.";
-      if (nr.pCut >= .2) {
-        nightTold = true;
-        out.push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte rischi lo stacco dell'inverter",
-          d: `${f ? `Probabilità ${nf(nr.pCut * 100, 0)}%: ` : ""}il banco può scendere sotto ${ilP(nr.cut)} (${S.inv} V) prima che i pannelli tornino a caricare, verso le ${at(resT)}. ${how}${f ? "" : ` Stima con ${power(nr.W)} di consumo medio di notte.`}` });
-      } else if (nr.pMar >= .3) {
-        nightTold = true;
-        const m = Math.max(0, nr.min);
-        out.push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte margine stretto: verso ${ilP(m)}`,
-          d: `Lo stacco dell'inverter è verso ${ilP(nr.cut)} (${S.inv} V): alle ${at(resT)}, quando i pannelli riprendono, ti resterebbe meno del ${S.marg}% di margine. ${how}` });
-      }
-    }
+  const na = S.alFc ? nightAdvice(k, f) : null;
+  if (na && !na.wait && !na.allEnel && na.st !== "ok") {          // su Enel il rischio non c'è: il riquadro dice come sarebbe su solare
+    const n = na.cur, resT = n.resume === null ? "" : `, verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera o porta qualche zona su Enel.";
+    nightTold = true;
+    if (na.st === "bad") push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte rischi lo stacco dell'inverter",
+      d: `Probabilità ${nf(Math.max(n.pCut, na.rk ? na.rk.p : 0) * 100, 0)}%: il banco può scendere sotto ${ilP(n.cut)} (${S.inv} V)${fin(n.at) ? ` verso le ${hm(q15(n.at))}` : ""}, prima che i pannelli tornino a caricare${resT}.${tip}` });
+    else push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte margine stretto: verso ${ilP(Math.max(0, n.min))}`,
+      d: `Lo stacco dell'inverter è verso ${ilP(n.cut)} (${S.inv} V): quando i pannelli riprendono${resT} ti resterebbe meno del ${S.marg}% di margine.${tip}` });
   }
   if (f && S.alFc) {
     const p = f.prob;
-    if (!nightTold && !p.alreadyAl && p.al >= .5) {
-      const at = p.alAt ? hm(q15(f.t[0] + p.alAt[1] * HOUR)) : "";
-      out.push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, verso le ${at}` : ""}. Riduci i consumi stasera.` });
-    }
+    if (!nightTold && !p.alreadyAl && p.al >= .5) { const at = p.alAt ? hm(q15(f.t[0] + p.alAt[1] * HOUR)) : "";
+      push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, verso le ${at}` : ""}. Riduci i consumi stasera.` }); }
     if (model && fin(model.dailyKwh) && hr >= 12) {
       const d1 = new Date(now * 1000); d1.setHours(24, 0, 0, 0);
       const kwh = sumDay(t => { const v = pvBase(model, t, true); return fin(v) ? v * (model.cal ? model.cal.pvB[1] : 1) : null; }, d1.getTime() / 1000) / 1000;
-      if (kwh < model.dailyKwh * .7) out.push({ id: "fcsun" + dkey(now), sev: "fc", t: `Domani poco sole: ${nf(kwh, 1)} kWh`, d: `Contro circa ${nf(model.dailyKwh, 1)} kWh di consumi: oggi conviene rimandare forno e lavatrice.` });
+      if (kwh < model.dailyKwh * .7) push({ id: "fcsun" + dkey(now), sev: "fc", t: `Domani poco sole: ${nf(kwh, 1)} kWh`, d: `Contro circa ${nf(model.dailyKwh, 1)} kWh di consumi: oggi conviene rimandare forno e lavatrice.` });
     }
   }
   if (f && S.alTip && k.i > 0.5) {
     const t = crossAt(f.mid, s => s >= 99.5, 99.5);
     if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
-      out.push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
+      push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
-  out.push(...swAlarms(k, f, now, hr));
-  // tensione dei pannelli vicina al massimo del regolatore: un solo avviso per gruppo, col caso peggiore tra adesso, oggi e la prossima alba.
-  // È una protezione dell'impianto: sempre attivo. Il controllo fisso delle stringhe sta nelle impostazioni del gruppo.
-  const dc = Array.isArray(data.pv) ? dawnCold() : null;
-  if (Array.isArray(data.pv)) data.pv.forEach(g => {
-    if (pvIsOff(g)) return;                                  // staccato: lo dicono le leve nella pagina Pannelli
-    const c = S.pv[g.addr] || {}, max = vmaxOf(g.addr), lim = g.fc && fin(g.fc.l) ? g.fc.l : pvLim(max), pk = pvPeak(g.addr), cur = g.online !== false && fin(g.v) ? g.v : NaN;
-    if (!br && cur >= pvDangerAt(max)) { out.push({ id: "pvv" + g.addr, sev: "prot", who: pvName(g), t: `Pannelli a ${nf(cur, 0)} V`, d: `${cur >= lim ? "Oltre i" : "Quasi ai"} ${nf(lim, 0)} V che il regolatore regge a questa temperatura: apri il sezionatore dei pannelli di questo gruppo e togli un pannello per stringa.` }); return; }
-    const t25 = vocRaw(c, 25), peak = !br && pk && pk.v >= pvWarnAt(max) && !(pk.v > t25 * 1.25) ? pk : null;   // oltre 1,25 volte la targa è un disturbo
-    const v = dc ? vocAt(c, dc.panel, g.addr) : NaN, cold = fin(v) && v >= pvWarnAt(max);
-    if (!peak && !cold) return;
-    const L = `limite ~${nf(lim, 0)} V`, over = cold && v >= lim, fir = dc && irrAt(dc.t, true), flx = fir ? vocGat(fir, g.addr, dc.t) : NaN;
-    const dim = cold && fin(flx) && flx < VOC_GREF ? `Col cielo previsto (~${nf(flx, 0)} W/m²) più probabile ~${nf(v * vocLux(flx), 0)} V; se si apre il sole, ${nf(v, 0)} V. ` : "";
-    if (cold) out.push({ id: "pvfc" + g.addr + "-" + dkey(dc.t), sev: "fc", who: pvName(g), at: dc.t,
-      t: `${dayWord(dc.t)[0].toUpperCase() + dayWord(dc.t).slice(1)} all'alba ~${nf(v, 0)} V${peak ? `, oggi ${nf(peak.v, 0)} V` : ""}`,
-      d: `Previsti ${nf(dc.air, 0).replace("-", "−")} °C alle ${hm(dc.t)}, ${L}. ${dim}${over ? `${dkey(dc.t) === dkey(now) ? "Prima dell'alba" : "Stasera"} apri il sezionatore di questo gruppo e richiudilo a sole alto.` : "Tienilo d'occhio se scende ancora la temperatura."}` });
-    else out.push({ id: "pvv" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi pannelli a ${nf(peak.v, 0)} V`, d: `Alle ${hm(peak.at)}, ${L}. Con il freddo la tensione sale ancora.` });
+  swAlarms(k, f, now, hr).forEach(push);
+  // pannelli: la prossima alba col modello e la previsione del grafico, le albe anomale e la resa di oggi
+  vocSeries().forEach(s => {
+    const g = s.g, c = S.pv[g.addr] || {}, nx = s.fc[0], bad = s.all[s.all.length - 1];
+    if (nx && !pvIsOff(g) && nx.top >= pvWarnAt(s.vmax)) {
+      const lim = g.fc && fin(g.fc.l) ? g.fc.l : pvLim(s.vmax), over = nx.hi >= lim, day = dayWord(nx.t);
+      push({ id: "pvfc" + g.addr + "-" + dkey(nx.t), sev: "fc", who: pvName(g), dawn: nx.t, t: `${day[0].toUpperCase() + day.slice(1)} all'alba fino a ~${nf(nx.top, 0)} V`,
+        d: `Previsti ${nf(nx.air, 0).replace("-", "−")} °C verso le ${hm(nx.t)}, limite ~${nf(lim, 0)} V. ${nx.g < VOC_GREF ? `Col cielo previsto (~${nf(nx.g, 0)} W/m²) più probabile ~${nf(nx.v, 0)} V; ${nf(nx.top, 0)} V se si apre il sole. ` : ""}` +
+          (over ? `${dkey(nx.t) === dkey(now) ? "Prima dell'alba" : "Stasera"} apri il sezionatore di questo gruppo e richiudilo a sole alto.` : "Tienilo d'occhio se scende ancora la temperatura.") });
+    }
+    if (bad && bad.x && dkey(bad.t) === dkey(now)) push({ id: "pvdiode" + g.addr + "-" + dkey(bad.t), sev: "alarm", who: pvName(g), at: bad.t,
+      t: `All'alba ${nf(bad.v, 0)} V${fin(bad.e) ? ` invece di ${nf(bad.e, 0)}` : ""}`, d: `Manca ${bad.x > 1 ? "la tensione di circa " + bad.x + " pannelli" : "circa un pannello"} su ${c.n / (c.s || 1)} in serie: un diodo di bypass o un pannello in corto. Misura col tester la Voc dei pannelli di questo gruppo.` });
   });
-  if (Array.isArray(data.pv)) data.pv.forEach(g => { const ds = vcalSt[g.addr] || [], l = ds[ds.length - 1], c = S.pv[g.addr] || {};
-    if (l && l.x && l.d === dkey(now)) out.push({ id: "pvdiode" + g.addr + "-" + l.d, sev: "alarm", who: pvName(g),
-      t: `All'alba ${nf(l.v, 0)} V invece di ${nf(l.e, 0)}`, d: `Manca ${l.x > 1 ? "la tensione di circa " + l.x + " pannelli" : "circa un pannello"} su ${c.n / (c.s || 1)} in serie: un diodo di bypass o un pannello in corto. Misura col tester la Voc dei pannelli di questo gruppo.` }); });
   if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
     const gs = data.pv.filter(g => g.online !== false && fin(dayRatio(g))), rs = gs.map(dayRatio), best = Math.max(0, ...rs);
     if (gs.length > 1 && best >= .25) gs.forEach((g, j) => { if (rs[j] < best * .7)
-      out.push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: strGone(g, 1 - rs[j] / best) || "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
+      push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: strGone(g, 1 - rs[j] / best) || "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
   }
   return out;
+}
+// l'elenco di adesso: prima le protezioni, poi gli allarmi; a parità, il più recente
+function alertsNow(bs, k, f){
+  const open = Array.isArray(data.open) ? data.open : localOpen(bs, k), rank = { prot: 0, alarm: 1, fc: 2, mute: 3, tip: 4 };
+  const items = [...open.map(r => openAlert(r, bs, k)).filter(Boolean), ...appAlerts(bs, k, f)].sort((a, b) => rank[a.sev] - rank[b.sev] || b.at - a.at);
+  alSinceKeep();
+  return alNow = items;
 }
 // con più stringhe, un calo vicino a 1/n (o 2/n…) fa pensare a stringhe staccate più che a sporco o ombre
 function strGone(g, loss){
@@ -4229,7 +4174,7 @@ function nowRatio(g){
 // arrivano col meteo qualche secondo dopo l'apertura e non devono suonare. Senza un tocco Chrome blocca suono e vibrazione.
 let alSeen = null, actx = null;
 function ringNew(items){
-  const ids = new Set(items.filter(a => a.sev === "prot" || a.sev === "alarm").map(a => a.id || a.sev + (a.i ?? "") + a.t));
+  const ids = new Set(items.filter(a => a.sev === "prot" || a.sev === "alarm").map(alKey));
   const touched = !navigator.userActivation || navigator.userActivation.hasBeenActive;
   if (alSeen && touched && !document.hidden && !muted() && [...ids].some(x => !alSeen.has(x))) {
     try { if (navigator.vibrate) navigator.vibrate([180, 90, 180]); } catch (e) {}
@@ -4305,18 +4250,18 @@ function scheduleOnClose(){
   if (!S.ntfy || !isReal() || !data) return;            // anche senza previsione completa: la stima semplice della notte
   const now = Date.now() / 1000, sched = readSched();
   Object.keys(sched).forEach(q => { if (sched[q] < now - 2 * DAY) delete sched[q]; });
-  myAlarms(data.batteries || [], bank(data.batteries || []), fc).filter(a => a.sev === "fc" || a.sev === "tip").forEach(a => {
+  appAlerts(data.batteries || [], bank(data.batteries || []), fc).filter(a => a.sev === "fc" || a.sev === "tip").forEach(a => {
     const pa = /^pvfc(\d+)-/.exec(a.id); if (pa && (S.pv[pa[1]] || {}).va) return;   // con la Voc calibrata la notifica della sera la manda la scheda
     const seq = "mb-" + a.id;
     if (sched[seq] && sched[seq] <= now) return;                // già arrivata: non la ripete
     const d = new Date(); d.setHours(a.sev === "tip" ? 9 : a.id.startsWith("fclow") ? 20 : 19, 0, 0, 0);
     const pvfc = a.id.startsWith("pvfc"); // tensione all'alba: alle 19 della sera prima, e comunque almeno 3 ore prima
-    const at = Math.round(Math.max(pvfc ? Math.min(d.getTime() / 1000, a.at - 3 * HOUR) : d.getTime() / 1000, now + 600));
-    if (pvfc && at > a.at) return;
+    const at = Math.round(Math.max(pvfc ? Math.min(d.getTime() / 1000, a.dawn - 3 * HOUR) : d.getTime() / 1000, now + 600));
+    if (pvfc && at > a.dawn) return;
     if (at < muteUntil) return;                                 // silenziati: questa salta
     sched[seq] = at;
     ntfyPub({ topic: S.ntfy, sequence_id: seq, delay: String(at), title: a.sev === "tip" ? "MyBattery · consiglio" : "MyBattery · previsione",
-      message: `${a.who ? a.who + ": " : ""}${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : pvfc || a.id.startsWith("fccut") ? "warning" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : pvfc || a.id.startsWith("fccut") ? 5 : 4, click: APP_URL }, true).catch(() => {});
+      message: `${alWhen(a.at)} · ${a.who ? a.who + ": " : ""}${a.t}. ${a.d}`, tags: [a.sev === "tip" ? "bulb" : pvfc || a.id.startsWith("fccut") ? "warning" : "chart_with_downwards_trend"], priority: a.sev === "tip" ? 3 : pvfc || a.id.startsWith("fccut") ? 5 : 4, click: APP_URL }, true).catch(() => {});
   });
   writeSched(sched);
 }
@@ -4804,7 +4749,7 @@ function fillSheet(i){
 
   const tc = (b.t_cells || []).filter(fin);
   const tmin = Math.min(...tc), tmax = Math.max(...tc);
-  const flags = [...(b.prot||[]).map(c=>["prot",c]), ...(b.alarms||[]).map(c=>["alarm",c])];
+  const flags = alNow.filter(a => a.i === i && a.sev !== "fc" && a.sev !== "tip");
   const lims = [
     fin(lim.bal_start) && `Bilanciamento da ${nf(lim.bal_start/1000, 2)} V`,
     fin(lim.bal_diff) && `Avvio oltre ${nf(lim.bal_diff)} mV di differenza`,
@@ -4821,7 +4766,7 @@ function fillSheet(i){
       <div><dt>Stato di salute</dt><dd>${nf(b.soh,0)}%</dd></div>
       <div><dt>Cicli</dt><dd>${nf(b.cycles,0)}</dd></div>
     </dl>
-    ${flags.length ? `<h3>Avvisi</h3><ul class="alerts">${flags.map(([sev,c]) => alertLi({sev, t:msg(c)[0], d:msg(c)[1]})).join("")}</ul>` : ""}
+    ${flags.length ? `<h3>Avvisi</h3><ul class="alerts">${flags.map(alertLi).join("")}</ul>` : ""}
     <h3>Le ${cells.length || 16} celle${cells.length ? ' <span class="hint">· tocca una cella per leggerla</span>' : ""}</h3>
     ${cellHtml}
     <h3>Temperature</h3>
@@ -5362,7 +5307,7 @@ async function backupApply(){
   if (H && Array.isArray(H.soc) && H.soc.length === 288 && (!mine || H.t > mine.t)) lsSet(UHIST_KEY, H);
   { const o = st[PVMAX_KEY], m = lsGet(PVMAX_KEY); // picchi dei regolatori: se qui non ce ne sono
     if (o && typeof o === "object" && !Array.isArray(o) && (!m || !Object.keys(m).length)) lsSet(PVMAX_KEY, o); }
-  [[VCAL_KEY, "cal"], [VOCD_KEY, "dawn"]].forEach(([k, kind]) => { if (st[k]) lsSet(k, vocUnion(kind, lsGet(k), st[k])); }); // taratura e albe: unione, poi vanno anche sulla scheda
+  // albe e taratura no: le tiene la scheda, e alla prossima lettura arrivano da lei
   location.reload();
 }
 $("bk-out").addEventListener("click", backupOut);
