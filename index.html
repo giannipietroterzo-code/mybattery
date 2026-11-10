@@ -524,32 +524,30 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .flow .bus{fill:var(--ink)}
 .flow .fp{font-size:15px;font-weight:700;fill:var(--sun);font-variant-numeric:tabular-nums}
 [data-mecha] .flow .fv,[data-style="reattore"] .flow .fv,[data-style="plancia"] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
-/* quadro dei deviatori: leve nello stile della app (colori e forme del tema scelto) */
+/* uscita dell'inverter: una leva nello stile della app (colori e forme del tema scelto) */
 .quadro{margin-top:2px}
-.q-row{display:flex;align-items:stretch;gap:5px;padding:10px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
-.q-mod{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 0 7px;border:1px solid transparent;border-radius:11px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit;-webkit-tap-highlight-color:transparent;transition:border-color .2s,box-shadow .2s,background .2s}
+.q-one{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.q-one.cut{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.q-mod{flex:none;width:64px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 0 7px;border:1px solid transparent;border-radius:11px;background:var(--bg);color:inherit;font:inherit;cursor:pointer;transition:background .2s,border-color .2s}
 .q-mod:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
-.q-let{font-weight:800;font-size:1rem;line-height:1;color:var(--muted);transition:color .2s}
-.q-slot{position:relative;width:min(22px,64%);height:48px;border-radius:11px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
-.q-lev{position:absolute;left:3px;right:3px;top:calc(100% - 3px - 20px);height:20px;border-radius:8px;background:var(--muted);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:top .26s cubic-bezier(.3,1.5,.5,1),background .2s,box-shadow .2s}
-.q-st{display:block;width:15px;height:15px;color:var(--muted)}.q-st svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.q-let{font-weight:800;font-size:.7rem;letter-spacing:.06em;line-height:1;color:var(--muted);transition:color .2s}
+.q-slot{position:relative;width:24px;height:52px;border-radius:12px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.q-lev{position:absolute;left:3px;right:3px;top:calc(100% - 3px - 22px);height:22px;border-radius:9px;background:var(--muted);box-shadow:0 1px 3px rgba(0,0,0,.35);transition:top .25s cubic-bezier(.3,1.4,.6,1),background .2s,box-shadow .2s}
+.q-st{display:block;width:16px;height:16px;color:var(--muted)}.q-st svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .q-mod[aria-checked="true"]{border-color:color-mix(in srgb,var(--lith) 55%,transparent);background:color-mix(in srgb,var(--lith) 10%,var(--bg))}
 .q-mod[aria-checked="true"] .q-lev{top:3px;background:var(--lith);box-shadow:0 0 12px -2px var(--lith)}
 .q-mod[aria-checked="true"] .q-slot{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lith) 45%,transparent)}
 .q-mod[aria-checked="true"] :is(.q-let,.q-st){color:var(--sun)}
-.q-names{display:flex;gap:5px;padding:7px 11px 0}
-.q-names span{flex:1;min-width:0;text-align:center;font-size:.64rem;line-height:1.3;color:var(--muted);overflow:hidden}
-.q-names i{display:block;font-style:normal;white-space:nowrap;font-variant-numeric:tabular-nums}.q-names em{display:block;font-style:normal;font-size:.58rem;opacity:.8}
+.q-txt{flex:1;min-width:0}.q-txt b{display:block;font-size:1.02rem;line-height:1.25}.q-txt span{display:block;margin-top:3px;font-size:.84rem;line-height:1.4;color:var(--muted)}
+.q-one.cut .q-txt span{color:var(--warn)}
+.q-chip.off i{background:var(--muted);box-shadow:none}
 .q-leg{display:flex;justify-content:center;gap:16px;margin:8px 0 0;font-size:.74rem;color:var(--muted)}.q-leg span{display:inline-flex;align-items:center;gap:5px}
 .q-leg svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.q-leg span:first-child{color:var(--sun)}
-.q-names b{display:block;color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-[data-style] .q-row{background:transparent;border-color:color-mix(in srgb,var(--lith) 25%,transparent)}
 [data-style] .q-mod{background:color-mix(in srgb,var(--lith) 4%,var(--bg));border-color:color-mix(in srgb,var(--lith) 14%,transparent)}
 [data-style] .q-mod[aria-checked="true"]{background:color-mix(in srgb,var(--lith) 14%,var(--bg));border-color:var(--lith);box-shadow:0 0 14px -6px var(--lith)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-row,.q-mod,.q-slot,.q-lev){border-radius:0}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-one,.q-mod,.q-slot,.q-lev){border-radius:0}
 [data-style="mecha"] .q-mod{clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
-[data-style="hitech"] :is(.q-row,.q-mod){border-radius:3px}
-.q-sum{margin:10px 2px 0;font-size:.86rem;line-height:1.45}
+[data-style="hitech"] :is(.q-one,.q-mod){border-radius:3px}
 /* stanotte: badge in dashboard (verde ce la fai, giallo margine stretto, rosso stacco) */
 .night{--c:var(--good);--t:var(--good-tint);margin-top:16px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:14px;background:var(--t)}
 .night.warn{--c:var(--warn);--t:var(--warn-tint)}.night.bad{--c:var(--alert);--t:var(--alert-tint)}.night.wait{--c:var(--muted);--t:var(--surface)}
@@ -571,14 +569,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .n-tip{margin:9px 0 0;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--lith) 12%,transparent);font-size:.84rem;line-height:1.45}
 .n-tip .set-btn{margin-top:8px;padding:7px 12px;font-size:.84rem;background:var(--lith);color:#111}
 .n-tip .set-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.sw-all{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
-.sw-all button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
-.sw-all button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.sw-all button[data-act="up"] svg{color:var(--sun)}.sw-all button:disabled{opacity:.45;cursor:default}
-.sw-all small{grid-column:1/-1;margin-top:-2px;font-size:.7rem;color:var(--muted);text-align:center}
 [data-style] .night{background:color-mix(in srgb,var(--c) 7%,transparent)}
-[data-style] .sw-all button{background:transparent;border-color:color-mix(in srgb,var(--lith) 30%,transparent)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.night,.n-tip,.sw-all button){border-radius:0}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.night,.n-tip){border-radius:0}
 [data-style="mecha"] .night{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
 .q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
 .q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
@@ -1251,12 +1243,10 @@ footer{border-top:0;padding-top:0}
         <div class="pv-in" id="pv-in"></div>
       </section>
       <section aria-labelledby="h-q" id="quadro-sec">
-        <h2 id="h-q">Quadro: solare o Enel</h2>
+        <h2 id="h-q">Uscita dell'inverter</h2>
         <div class="quadro" id="quadro"></div>
-        <p class="q-leg" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Su: solare</span><span><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Giù: Enel</span></p>
-        <p class="set-note" id="q-unk" hidden>– = consumo non ancora misurato: la scheda lo misura da sola la prima volta che sposti quel deviatore.</p>
-        <div class="sw-all" id="q-all"></div>
-        <p class="q-sum" id="q-sum"></p>
+        <p class="q-leg" aria-hidden="true"><span><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Su: casa sul banco</span><span><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Giù: casa su Enel</span></p>
+        <p class="set-note">L'interruttore tra l'inverter e l'ATS: per ora lo segni qui quando lo sposti. Se l'inverter stacca, l'ATS porta la casa su Enel da solo anche con l'uscita accesa.</p>
         <div class="q-last" id="q-last"></div>
       </section>
     </div>
@@ -1481,9 +1471,6 @@ footer{border-top:0;padding-top:0}
     <h3>Nomi delle batterie</h3>
     <div class="names" id="set-names"></div>
 
-    <h3>Zone del quadro</h3>
-    <div class="names zones" id="set-zones"></div>
-    <p class="set-note">I deviatori A–G della pagina Pannelli.</p>
 
     <h3>Regolatori e pannelli</h3>
     <div class="names" id="set-pvnames"></div>
@@ -1501,7 +1488,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.77"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.78"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1529,9 +1516,9 @@ const MSG = {
   BAT_HOT:     ["Batteria calda", "Controlla la ventilazione dell'armadio."],
   BAT_COLD:    ["Troppo freddo per caricare", "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica."],
   BANK_LOW:    () => ["Carica bassa", `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.`],
-  INV_NEAR:    () => ["Vicino allo stacco dell'inverter", `L'inverter stacca a ${S.inv} V. Porta su Enel le zone che servono, a cominciare dagli scaldabagni.`],
-  INV_RISK:    ["L'inverter può staccare a momenti", "Porta su Enel le zone che servono, a cominciare dagli scaldabagni."],
-  INV_CUT:     ["L'inverter ha staccato", "Le zone su solare sono senza corrente: portale su Enel finché i pannelli non ricaricano."],
+  INV_NEAR:    () => ["Vicino allo stacco dell'inverter", `L'inverter stacca a ${S.inv} V: quando succede, l'ATS porta la casa su Enel da solo.`],
+  INV_RISK:    ["L'inverter può staccare a momenti", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare il banco puoi spegnere prima l'uscita dell'inverter."],
+  INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
   PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
   PV_FAULT:    ["Guasto del regolatore", "Il regolatore segnala un guasto: guarda il suo display."],
@@ -2011,19 +1998,20 @@ const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il ban
 const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
-/* ---------- quadro: i deviatori A–G dicono quali zone della casa prendono corrente dal solare (inverter, cioè dal banco)
-   e quali da Enel. Lo stato e lo storico dei cambi li tiene la scheda; a ogni cambio la scheda misura il salto del consumo
-   e da lì la app impara quanto assorbe ogni zona: lo toglie dai consumi imparati e lo rimette nelle previsioni ---------- */
-const ZONES = ["A", "B", "C", "D", "E", "F", "G"], SW_KEY = "mybattery.sw.v1";
+/* ---------- uscita dell'inverter: l'interruttore WiFi tra l'inverter e l'ATS (oggi lo segni qui, un domani lo comanderà la app) ----------
+   Accesa: la casa prende corrente dall'inverter, cioè dal banco. Spenta, o inverter staccato: l'ATS porta la casa su Enel da solo e il banco
+   alimenta solo l'impianto (plantW). La scheda tiene lo stato e lo storico dei cambi (/switch.bin: [t, stato, prima, dW, ora del salto]) e a ogni
+   cambio misura il salto del consumo, cioè quanto assorbiva la casa. Il registro sa, quarto d'ora per quarto d'ora, se la casa era sul banco
+   (r[8] delle righe = uscita accesa e inverter non staccato): le ore su Enel non insegnano i consumi della casa. Fino alla 1.77 qui c'erano
+   i 7 deviatori A–G. */
+const SW_KEY = "mybattery.sw.v2";
 let SW = (() => { // senza la scheda (cavo, demo) lo stato resta sul telefono, senza misura del salto
-  try { const o = JSON.parse(localStorage.getItem(SW_KEY) || "null"); if (o && fin(o.mask)) return { mask: o.mask & 127, at: o.at || 0, rows: Array.isArray(o.rows) ? o.rows : [], board: false }; } catch (e) {}
-  return { mask: 0x10, at: 0, rows: [], board: false };
+  try { const o = JSON.parse(localStorage.getItem(SW_KEY) || "null"); if (o && fin(o.mask)) return { mask: o.mask & 1, at: o.at || 0, rows: Array.isArray(o.rows) ? o.rows : [], board: false }; } catch (e) {}
+  return { mask: 1, at: 0, rows: [], board: false };
 })();
-let swAtSeen = -1, swNext = 0, swEstC = null, swHabC = null, swOverride = null, swLastTap = null;
-const swOn = (m, z) => (m >> z & 1) === 1;
-const zName = z => S.names["sw" + ZONES[z]] || "";
-const zLab = z => ZONES[z] + (zName(z) ? ` (${zName(z)})` : "");
-const zList = zs => { const a = zs.map(zLab), l = a[a.length - 1] || ""; return a.length > 1 ? a.slice(0, -1).join(", ") + (/^[AEae]/.test(l) ? " ed " : " e ") + l : l; };
+try { localStorage.removeItem("mybattery.sw.v1"); } catch (e) {}                       // i 7 deviatori di prima
+if (S.names) Object.keys(S.names).forEach(x => { if (/^sw[A-G]$/.test(x)) delete S.names[x]; });
+let swAtSeen = -1, swNext = 0, swHabC = null, swOverride = null, swLastTap = null, bankQ = null;
 const swSaveLocal = () => { try { localStorage.setItem(SW_KEY, JSON.stringify({ mask: SW.mask, at: SW.at, rows: SW.rows.slice(-2000) })); } catch (e) {} };
 const swT = r => fin(r[3]) && r[4] ? r[4] : r[0];          // ora del cambio vero: quella del salto, se misurato
 function maskAt(t){
@@ -2032,68 +2020,46 @@ function maskAt(t){
   while (lo <= hi) { const m = (lo + hi) >> 1; if (swT(r[m]) <= t) { k = m; lo = m + 1; } else hi = m - 1; }
   return k < 0 ? r[0][2] : r[k][1];
 }
-// quanto assorbe ogni zona, dai salti misurati: mediana degli ultimi 10, per fascia di 6 ore se ce ne sono almeno 2
-function swEst(){
-  if (swEstC) return swEstC;
-  const per = ZONES.map(() => [[], [], [], []]), all = ZONES.map(() => []), one = ZONES.map(() => []);
-  const moves = SW.rows.map(([t, m, p, dW, at]) => {
-    if (!fin(dW)) return null;
-    const on = m & ~p, off = p & ~m; if (!(on || off) || (on && off)) return null;   // misti: non si sa chi ha fatto cosa
-    const zs = ZONES.map((_, z) => z).filter(z => swOn(on | off, z)), v = Math.max(0, dW * (on ? 1 : -1));
-    if (zs.length === 1) one[zs[0]].push(v);
-    return { zs, v, b: Math.floor(new Date((at || t) * 1000).getHours() / 6) };
-  }).filter(Boolean);
-  const solo = one.map(a => a.length ? quant(a.slice(-10), .5) : null);
-  moves.forEach(({ zs, v, b }) => {          // più zone insieme: il salto si divide come pesano da sole, se si sa
-    const w = zs.map(z => solo[z] ?? null), known = w.every(x => x !== null && x > 0), tot = known ? w.reduce((a, x) => a + x, 0) : zs.length;
-    zs.forEach((z, i) => { const x = v * (known ? w[i] : 1) / tot; per[z][b].push(x); all[z].push(x); });
-  });
-  const med = a => quant(a.slice(-10), .5);
-  return swEstC = ZONES.map((_, z) => ({ n: all[z].length, last: all[z].length ? all[z][all[z].length - 1] : null,
-    b: per[z].map(a => a.length >= 2 ? med(a) : null), all: all[z].length ? med(all[z]) : null }));
+const invCutNow = () => !!(data && Array.isArray(data.open) && data.open.some(r => r[0] === "INV_CUT"));
+const houseNow = () => (SW.mask & 1) && !invCutNow() ? 1 : 0;   // la casa adesso è sul banco
+// la casa era sul banco in quel momento? Dal registro della scheda, se no dalla leva
+function bankAt(t){
+  if (!bankQ || bankQ.n !== STRESS.length) bankQ = { n: STRESS.length, m: new Map(STRESS.map(r => [r[0], r[8] ? 1 : 0])) };
+  const q = bankQ.m.get(Math.floor(t / 900) * 900); return q !== undefined ? q : maskAt(t) & 1;
 }
-const zW = (z, t) => { const e = swEst()[z]; if (!e.n) return null; const b = e.b[Math.floor(new Date(t * 1000).getHours() / 6)]; return b ?? e.all; };
-const zonesW = (t, m) => ZONES.reduce((a, _, z) => a + (swOn(m, z) ? zW(z, t) || 0 : 0), 0);
-// abitudini: per ogni zona e ora, quante sere su 21 era sul solare. Servono almeno 7 giorni di storico e 4 cambi
+// quanto consuma l'impianto da solo (inverter a vuoto, regolatori, scheda) con la casa su Enel: imparato dal registro, se no il tipico
+const plantW = () => model && fin(model.plantW) ? model.plantW : 48;
+// le abitudini: per ogni ora, in quante delle ultime 21 giornate l'uscita era accesa (servono 7 giorni di storico e 4 cambi)
 function swHabit(){
   const now = Date.now() / 1000;
   if (swHabC && swHabC.n === SW.rows.length && now - swHabC.at < HOUR) return swHabC.v;
   let v = null;
-  if (SW.rows.length >= 4) {
-    const start = Math.max(SW.rows[0][0], now - 21 * DAY);
-    if (now - start >= 7 * DAY) {
-      const cnt = ZONES.map(() => Array.from({ length: 24 }, () => [0, 0])), ch = ZONES.map(() => 0);
-      for (let t = Math.ceil(start / HOUR) * HOUR + 1800; t < now; t += HOUR) {
-        const m = maskAt(t), h = new Date(t * 1000).getHours();
-        ZONES.forEach((_, z) => { cnt[z][h][1]++; if (swOn(m, z)) cnt[z][h][0]++; });
-      }
-      SW.rows.forEach(r => { if (r[0] >= start) ZONES.forEach((_, z) => { if (swOn(r[1] ^ r[2], z)) ch[z]++; }); });
-      v = ZONES.map((_, z) => ch[z] >= 4 ? cnt[z].map(([a, n]) => n ? a / n : null) : null);
-    }
+  const start = SW.rows.length >= 4 ? Math.max(SW.rows[0][0], now - 21 * DAY) : now;
+  if (SW.rows.filter(r => r[0] >= start && r[1] !== r[2]).length >= 4 && now - start >= 7 * DAY) {
+    const cnt = Array.from({ length: 24 }, () => [0, 0]);
+    for (let t = Math.ceil(start / HOUR) * HOUR + 1800; t < now; t += HOUR) { const c = cnt[new Date(t * 1000).getHours()]; c[1]++; if (maskAt(t) & 1) c[0]++; }
+    v = cnt.map(([a, n]) => n ? a / n : null);
   }
   swHabC = { n: SW.rows.length, at: now, v };
   return v;
 }
-// zone previste sul banco all'ora t: per le prime ore come sono adesso, poi sempre più come le sposti di solito
-function zoneLoad(t, t0){
-  if (t < t0 - 60) return zonesW(t, maskAt(t));
-  const ov = swOverride && t < swOverride.until, cur = ov ? swOverride.mask : SW.mask, hab = ov ? null : swHabit();
-  const h = new Date(t * 1000).getHours(), w = Math.exp(-(t - t0) / (3 * HOUR));
-  let s = 0;
-  ZONES.forEach((_, z) => {
-    const e = zW(z, t); if (e === null) return;
-    let p = swOn(cur, z) ? 1 : 0;
-    if (hab && hab[z] && fin(hab[z][h])) p = w * p + (1 - w) * hab[z][h];
-    s += p * e;
-  });
-  return s;
+// la casa sul banco all'ora t (0–1): nel passato dal registro; avanti, per le prime ore com'è adesso e poi sempre più come la tieni di solito;
+// con swOverride (le simulazioni della notte) come si chiede
+function houseOn(t, t0){
+  if (t < t0 - 60) return bankAt(t);
+  if (swOverride && t < swOverride.until) return swOverride.mask & 1;
+  let p = houseNow(); const hab = swHabit(), h = new Date(t * 1000).getHours();
+  if (hab && fin(hab[h])) { const w = Math.exp(-(t - t0) / (3 * HOUR)); p = w * p + (1 - w) * hab[h]; }
+  return p;
 }
-function swChanged(){ swEstC = null; swHabC = null; nightMemo = {}; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
+// lo stato dell'uscita detto dalla scheda: se cambia, la notte e la previsione si rifanno subito
+function swTake(m){ m &= 1; if (m === SW.mask) return; SW.mask = m; nightMemo = {}; fc = null; fcAt = 0; }
+function swChanged(){ swHabC = null; nightMemo = {}; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
 async function swSync(j){
-  if (!fin(j.sw)) { SW.board = false; return; }            // firmware senza deviatori
+  if (!fin(j.sw)) { SW.board = false; return; }
   if (!SW.board) { SW.board = true; SW.rows = []; }
   const now = Date.now();
-  if (!(swLastTap && now - swLastTap.at < 6000)) SW.mask = j.sw & 127;   // una lettura partita prima del tocco non lo annulla
+  if (!(swLastTap && now - swLastTap.at < 6000)) swTake(j.sw);   // una lettura partita prima del tocco non lo annulla
   if (j.sw_at === swAtSeen && !(swNext && now >= swNext)) return;
   swAtSeen = j.sw_at; if (swNext && now >= swNext) swNext = 0;
   try {
@@ -2105,79 +2071,56 @@ async function swSync(j){
     if (changed) swChanged();
   } catch (e) {}
 }
-function swSet(m, z){
+function swSet(m){
   const prev = SW.mask, t = Math.round(Date.now() / 1000);
+  m &= 1; if (m === prev) return;
   SW.mask = m; SW.at = t;
   if (canWrite() && SW.board) {
-    boardCfg({ sw: m }).then(() => { if (mode === "remote") toast("Deviatore salvato sulla scheda"); })
-      .catch(e => { SW.mask = prev; drawSw(); toast("Deviatore non salvato: " + e.message); });
+    boardCfg({ sw: m }).then(() => { if (mode === "remote") toast("Uscita salvata sulla scheda"); })
+      .catch(e => { SW.mask = prev; drawSw(); toast("Uscita non salvata: " + e.message); });
     swNext = Date.now() + 130e3;                            // la scheda misura il salto due minuti dopo l'ultimo tocco
   } else { SW.rows.push([t, m, prev, null, 0]); swSaveLocal(); swChanged(); }
   try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
-  swLastTap = { z, prev, m, at: Date.now() };
-  fc = null; fcAt = 0;
+  swLastTap = { prev, m, at: Date.now() };
+  fc = null; fcAt = 0; nightMemo = {};
   drawSw(); drawNight();
 }
 const Q_SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3 7 7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/></svg>';
 const Q_PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0V8zM12 17v4"/></svg>';
+const UP_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>', DN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
 function drawSw(){
   const box = $("quadro"); if (!box) return;
-  const now = nowOf(data);
   if (!box.dataset.built) {
     box.dataset.built = 1;
-    box.innerHTML = `<div class="q-row" role="group" aria-label="Deviatori del quadro: su = solare, giù = Enel">` +
-      ZONES.map((z, i) => `<button class="q-mod" type="button" role="switch" data-z="${i}"><span class="q-let">${z}</span>` +
-        `<span class="q-slot"><span class="q-lev"></span></span><span class="q-st"></span></button>`).join("") +
-      `</div><div class="q-names" id="q-names"></div>`;
-    box.addEventListener("click", e => { const b = e.target.closest(".q-mod"); if (b) { const z = +b.dataset.z; swSet(SW.mask ^ (1 << z), z); } });
+    box.innerHTML = `<div class="q-one" id="q-one"><button class="q-mod" type="button" role="switch" id="q-mod"><span class="q-let">INV</span><span class="q-slot"><span class="q-lev"></span></span><span class="q-st"></span></button>` +
+      `<div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div>`;
+    $("q-mod").addEventListener("click", () => swSet(SW.mask ^ 1));
   }
-  box.querySelectorAll(".q-mod").forEach(b => {
-    const z = +b.dataset.z, on = swOn(SW.mask, z), w = zW(z, now);
-    b.setAttribute("aria-checked", on);
-    const st = b.querySelector(".q-st"), want = on ? "s" : "e";
-    if (st.dataset.v !== want) { st.dataset.v = want; st.innerHTML = on ? Q_SUN : Q_PLUG; }
-    b.setAttribute("aria-label", `${zLab(z)}: ${on ? "solare" : "Enel"}${w !== null ? `, circa ${power(w)}` : ""}`);
-  });
-  $("q-names").innerHTML = ZONES.map((z, i) => { const w = zW(i, now);
-    return `<span>${zName(i) ? `<b>${esc(zName(i))}</b>` : ""}<i>${w === null ? "–" : power(w)}</i></span>`; }).join("");
-  $("q-unk").hidden = !ZONES.some((_, i) => zW(i, now) === null);
-  const on = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z)), wOn = zonesW(now, SW.mask);
-  $("q-sum").innerHTML = on.length ? `Su solare: <b>${esc(zList(on))}</b>${wOn > 0 ? ` · il banco alimenta circa <b>${power(wOn)}</b> di queste zone` : ""}.` : "Tutte le zone su Enel: il banco alimenta solo l'inverter acceso.";
+  const on = (SW.mask & 1) === 1, cut = on && invCutNow(), cutAt = cut ? (data.open.find(r => r[0] === "INV_CUT") || [])[3] : null;
+  const b = $("q-mod"), st = b.querySelector(".q-st"), want = on ? "s" : "e";
+  b.setAttribute("aria-checked", on); b.setAttribute("aria-label", `Uscita dell'inverter: ${on ? "accesa" : "spenta"}`);
+  if (st.dataset.v !== want) { st.dataset.v = want; st.innerHTML = on ? Q_SUN : Q_PLUG; }
+  $("q-one").classList.toggle("cut", cut);
+  $("q-state").textContent = on ? "Accesa" : "Spenta";
+  $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
+    : on ? "La casa prende corrente dal banco. Se l'inverter stacca, l'ATS la porta su Enel da solo." : `La casa è su Enel: il banco alimenta solo l'impianto (circa ${power(plantW())}).`;
   const last = $("q-last"), tap = swLastTap && Date.now() - swLastTap.at < 15e3 ? swLastTap : null;
   let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
-  if (tap) { const ch = ZONES.map((_, z) => z).filter(z => swOn(tap.m ^ tap.prev, z)), up = ch.filter(z => swOn(tap.m, z)), dn = ch.filter(z => !swOn(tap.m, z));
-    last.innerHTML = `<span>${up.length ? esc(zList(up)) + " su solare" : ""}${up.length && dn.length ? ", " : ""}${dn.length ? esc(zList(dn)) + " su Enel" : ""}${!ch.length ? "Nessun deviatore cambiato" : ""}${canWrite() && SW.board && ch.length ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`; }
-  else if (r) { const ch = ZONES.map((_, z) => z).filter(z => swOn(r[1] ^ r[2], z)), t = swT(r);
-    last.innerHTML = `<span>Ultimo cambio ${new Date(t * 1000).toDateString() === new Date().toDateString() ? "alle " + hm(t) : new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(t)}: ${esc(zList(ch))} su ${swOn(r[1], ch[0]) ? "solare" : "Enel"}` +
-      `${fin(r[3]) ? ` · misurato ${r[3] >= 0 ? "+" : "−"}${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
+  if (tap) last.innerHTML = `<span>Uscita ${tap.m ? "accesa" : "spenta"}${canWrite() && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
+  else if (r) { const t = swT(r);
+    last.innerHTML = `<span>Ultimo cambio il ${alWhen(t)}: ${r[1] & 1 ? "accesa" : "spenta"}${fin(r[3]) && Math.abs(r[3]) >= 20 ? ` · la casa assorbiva circa ${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
   else last.innerHTML = "";
-  const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev, t2.z); swLastTap = null; drawSw(); };
-  swAllDraw($("q-all"));
+  const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev); swLastTap = null; drawSw(); };
   const chip = $("q-chip");
-  chip.innerHTML = `<i></i><span>Su solare: <b>${on.length ? esc(on.map(z => ZONES[z]).join(" ")) : "nessuna zona"}</b>${wOn > 0 ? ` <small>· ~${power(wOn)}</small>` : ""}</span><small>Quadro ›</small>`;
-}
-// tutti su / tutti giù: tutti i deviatori A–G insieme
-const SW_FREE = () => (1 << ZONES.length) - 1;
-const UP_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>', DN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
-function swAll(up){
-  const free = SW_FREE(), m = up ? SW.mask | free : SW.mask & ~free;
-  if (m === SW.mask) { toast(up ? "Sono già tutti su solare" : "Sono già tutti su Enel"); return; }
-  swSet(m, -1);
-}
-function swAllDraw(box){
-  if (!box) return;
-  const free = SW_FREE();
-  if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => { const b = e.target.closest("button[data-act]"); if (b) swAll(b.dataset.act === "up"); }); }
-  const allUp = (SW.mask & free) === free, allDn = (SW.mask & free) === 0;
-  const html = `<button type="button" data-act="up"${allUp ? " disabled" : ""}>${UP_ICO}Tutti su solare</button><button type="button" data-act="dn"${allDn ? " disabled" : ""}>${DN_ICO}Tutti su Enel</button>`;
-  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+  chip.innerHTML = `<i></i><span>Casa <b>${cut ? "su Enel" : on ? "sul banco" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on ? "" : " <small>· uscita spenta</small>"}</span><small>Uscita ›</small>`;
+  chip.classList.toggle("off", !on || cut);
 }
 /* ---------- la notte: un solo motore ----------
    nightRun(k, f, mask) risponde per tutti (riquadro «Stanotte», avvisi, consigli sui deviatori, rischio di stacco, previsione a 48 ore):
    quanto scende il banco tenendo i deviatori in «mask» finché i pannelli non tornano a caricare più di quanto la casa consuma, con che
    probabilità arriva allo stacco (cutSoc) o sotto il margine, e a che ora. Cambiano solo gli ingressi: col modello imparato (f, dai 7 giorni
    di registro) quelli della previsione (fullInputs: stessa runDet, stesse correzioni, stessi errori veri); prima, la stima semplice
-   (simpleInputs): il consumo delle ultime notti riportato ai deviatori, e la carica che riparte col sole a 12°. Stesso integratore e stesse
+   (simpleInputs): il consumo delle notti viste nelle 24 ore, con la casa sul banco o su Enel, e la carica che riparte col sole a 12°. Stesso integratore e stesse
    simulazioni (simPaths), stesso riassunto (nightOf). */
 const NIGHT_R = 200;
 let nightMemo = {};
@@ -2192,50 +2135,52 @@ function simpleInputs(k, mask){
   let low = el(now) < SIN12 ? now : null, resume = null;
   for (let t = now; t < now + 30 * HOUR; t += 600) { if (el(t) < SIN12) { if (low === null) low = t; } else if (low !== null) { resume = t; break; } }
   if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
-  // il consumo delle notti viste nelle ultime 24 ore, riportato ai deviatori di adesso; se stanno così da almeno un'ora vale quello misurato così
-  const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data);
-  let w = 0, c = 0, ws = 0, cs = 0;
-  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { const m = maskAt(t); if (m === SW.mask) { ws += -p; cs++; } w += -p + zonesW(t, SW.mask) - zonesW(t, m); c++; } });
-  const W0 = cs >= 12 ? ws / cs : c >= 12 ? w / c : k.p < 0 ? -k.p : null;
-  if (!W0) return null;
-  let dW = 0, unk = false;                    // le zone spostate rispetto a adesso
-  ZONES.forEach((_, z) => { if (swOn(SW.mask, z) === swOn(mask, z)) return; const zw = zW(z, now + 3 * HOUR); if (zw === null) { unk = true; return; } dW += swOn(mask, z) ? zw : -zw; });
-  const W = Math.max(30, W0 + dW), T = [], P = [], L = [], night = [];
+  // il consumo delle notti viste nelle ultime 24 ore, separato tra casa sul banco e casa su Enel; senza notti viste, quello di adesso
+  const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data), on = mask & 1;
+  let wOn = 0, cOn = 0, wOff = 0, cOff = 0;
+  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { if (bankAt(t)) { wOn += -p; cOn++; } else { wOff += -p; cOff++; } } });
+  // senza notti viste con la casa sul banco: l'ultimo salto misurato quando hai spostato l'uscita (= quanto assorbiva la casa), poi il consumo di adesso
+  const jr = SW.rows.slice().reverse().find(r => fin(r[3]) && Math.abs(r[3]) >= 20), jump = jr ? Math.abs(jr[3]) + plantW() : null;
+  const nowW = k.p < 0 ? -k.p : null, W0 = on ? (cOn >= 12 ? wOn / cOn : jump || (houseNow() ? nowW : null)) : (cOff >= 12 ? wOff / cOff : houseNow() ? plantW() : nowW || plantW());
+  if (!W0) return null;                        // la casa sul banco senza averla mai vista di notte: non si sa
+  const W = Math.max(30, W0), T = [], P = [], L = [], night = [];
   for (let t = now; t < resume; t += HOUR) T.push(t);
   T.push(resume, resume + HOUR);
   for (let i = 0; i + 1 < T.length; i++) { const dark = T[i] < resume; night.push(dark); L.push(W * (T[i + 1] - T[i]) / HOUR); P.push(dark ? 0 : W + 3000); }
   night.push(false);
-  return { T, P, L, night, M: model, t0: now, soc0: k.soc, cap: k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), batW: NaN, simple: true, unk, W, start: Math.max(now, low),
+  return { T, P, L, night, M: model, t0: now, soc0: k.soc, cap: k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), batW: NaN, simple: true, W, start: Math.max(now, low),
     draw: (rnd, gauss) => { const lf = Math.exp(gauss() * .2 - .02); return { p: () => 1, l: () => lf }; } };
 }
 // il riassunto delle simulazioni: minimo (mediana), probabilità di stacco e di margine stretto, ripartenza e ora dello stacco
 function nightOf(inp, paths){
-  const cut = cutSoc(), mar = cut + (S.marg || 10), N = inp.P.length, h0 = new Date(inp.t0 * 1000).getHours(), mins = [], res = [], cuts = [];
+  const cut = cutSoc(), mar = cut + (S.marg || 10), N = inp.P.length, h0 = new Date(inp.t0 * 1000).getHours(), mins = [], res = [], cuts = [], mars = [];
   paths.forEach(a => {
-    let dark = inp.night[0] || (h0 < 12 && !(a[1] > a[0])), mn = a[0], r = null, c = null;   // la mattina è ancora la notte passata solo finché il banco scende
+    let dark = inp.night[0] || (h0 < 12 && !(a[1] > a[0])), mn = a[0], r = null, c = null, g = null;   // la mattina è ancora la notte passata solo finché il banco scende
     for (let i = 0; i < N; i++) {
       if (inp.night[i]) dark = true;
       if (dark && !inp.night[i] && a[i + 1] > a[i]) { r = i; break; }
       mn = Math.min(mn, a[i + 1]);
-      if (c === null && dark && a[i + 1] <= cut) c = inp.T[i] + (inp.T[i + 1] - inp.T[i]) * clamp((a[i] - cut) / ((a[i] - a[i + 1]) || 1), 0, 1);
+      const at = lim => inp.T[i] + (inp.T[i + 1] - inp.T[i]) * clamp((a[i] - lim) / ((a[i] - a[i + 1]) || 1), 0, 1);
+      if (c === null && dark && a[i + 1] <= cut) c = at(cut);
+      if (g === null && dark && a[i + 1] <= mar) g = at(mar);
     }
-    mins.push(mn); res.push(r === null ? N : r); if (c !== null) cuts.push(c);
+    mins.push(mn); res.push(r === null ? N : r); if (c !== null) cuts.push(c); if (g !== null) mars.push(g);
   });
   const R = paths.length, ri = Math.round(quant(res, .5));
   return { cut, mar, t0: inp.start || inp.t0, min: quant(mins, .5), minLo: quant(mins, .1), pCut: mins.filter(m => m <= cut).length / R, pMar: mins.filter(m => m <= mar).length / R,
-    resume: ri >= N ? null : inp.T[ri], at: cuts.length >= R / 2 ? quant(cuts, .5) : null };
+    resume: ri >= N ? null : inp.T[ri], at: cuts.length >= R / 2 ? quant(cuts, .5) : null, marAt: mars.length >= R * .3 ? quant(mars, .5) : null };
 }
 function nightRun(k, f, mask){
   const full = !!(f && model && model.prof), key = (full ? "f" + f.t[0] : "s" + Math.round(((k && k.soc) || 0) * 10) + ":" + Math.floor(nowOf(data) / 300)) + ":" + mask;
   if (nightMemo[key]) return nightMemo[key];
   const inp = full ? fullInputs(f, mask) : simpleInputs(k, mask); if (!inp) return null;
   if (Object.keys(nightMemo).length > 300) nightMemo = {};
-  return nightMemo[key] = { ...nightOf(inp, simPaths(inp, NIGHT_R)), simple: !!inp.simple, unk: !!inp.unk, W: inp.W };
+  return nightMemo[key] = { ...nightOf(inp, simPaths(inp, NIGHT_R)), simple: !!inp.simple, W: inp.W };
 }
 /* ---------- il banco e gli stacchi. Il registro dice quanta energia c'è, ma l'inverter stacca per la tensione al picco di consumo:
    qui si impara da /stress.bin (i valori peggiori di ogni quarto d'ora) e da /invev.bin (stacchi e quasi-stacchi).
-   Righe: [t, vMin cV, vPk cV, iPk dA, loadPk W, cellMin mV, soc×100, socMin %, deviatori, batteria<<5|cella, bit, Wh entrati, Wh usciti, Wh pannelli].
-   Eventi (dal diario della scheda): [t, 1 stacco 2 rischio 3 vicino, src, V, A, W, soc, socMin, mV, deviatori, batteria<<5|cella]. */
+   Righe: [t, vMin cV, vPk cV, iPk dA, loadPk W, cellMin mV, soc×100, socMin %, casa sul banco, batteria<<5|cella, bit, Wh entrati, Wh usciti, Wh pannelli].
+   Eventi (dal diario della scheda): [t, 1 stacco 2 rischio 3 vicino, src, V, A, W, soc, socMin, mV, casa sul banco, batteria<<5|cella]. */
 const EPOCH_KEY = "mybattery.epoch"; let epochBusy = false;
 let STRESS = [], IEV = [], RM = null, stSeen = null, stBusy = false, stTried = false, rkC = {};
 const stOk = r => Array.isArray(r) && r.length >= 11 && fin(r[0]) && r[0] > 1.6e9 && fin(r[1]) && fin(r[4]);
@@ -2251,7 +2196,7 @@ async function epochCheck(d){
   lsSet(EPOCH_KEY, d.epoch); STRESS = []; LOG = []; fcArchive = []; stSeen = null; logSrc = "";
   await stLoad(); relearn(); epochBusy = false;
 }function stRows(u8){ const v = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), o = []; for (let i = 0; i + 28 <= u8.length; i += 28) o.push([v.getUint32(i, true), v.getUint16(i + 4, true), v.getUint16(i + 6, true), v.getInt16(i + 8, true), v.getUint16(i + 10, true), v.getUint16(i + 12, true), v.getUint16(i + 14, true), u8[i + 16], u8[i + 17], u8[i + 18], u8[i + 19], v.getUint16(i + 20, true), v.getUint16(i + 22, true), v.getUint16(i + 24, true)]); return o.filter(stOk); }
-async function stLoad(){ STRESS = ((await db.all("st")) || []).filter(stOk).sort((a, b) => a[0] - b[0]); riskLearn(); if (data) render(mode); }
+async function stLoad(){ STRESS = ((await db.all("st")) || []).filter(stOk).sort((a, b) => a[0] - b[0]); nightMemo = {}; riskLearn(); if (LOG.length) relearn(); else if (data) render(mode); }   // il registro dice anche quando la casa era sul banco: modello e notte si rifanno
 async function stMerge(rows){ if (rows && rows.length) await db.put(rows, "st", r => r[0]); await stLoad(); }
 async function stSync(at){
   if (stBusy) return; stBusy = true;
@@ -2292,7 +2237,7 @@ const rkMaxW = s => Math.max(0, (rkV0(s) - RM.vc) / RM.R * RM.vc);
 function rkDist(h, solar, t){
   let a = RM.dist.get(h + (solar ? 100 : 0)); if (!a || a.length < 8) a = RM.dist.get(solar ? -1 : -2);
   if (a && a.length >= 8) return a;
-  const zs = zonesW(t, SW_FREE()) * 1.3 + 100; return zs > 200 ? [[zs * .7, 1], [zs, 1], [zs * 1.4, 1]] : a || [];
+  const zs = (model && model.prof ? loadBase(model, t) : 400) * 1.3 + 100; return zs > 200 ? [[zs * .7, 1], [zs, 1], [zs * 1.4, 1]] : a || [];
 }
 function riskFor(k, f, mask){
   if (!RM || !k || !k.on || !fin(k.soc) || !isReal() || !mask) return mask === 0 && RM && k && fin(k.soc) ? { p: 0, p6: 0, at: null, kw: rkMaxW(k.soc) / 1000, seen: 0 } : null;
@@ -2368,35 +2313,22 @@ function drawTomorrow(k){
     `<svg class="tmr-b" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sole previsto ora per ora, dalle ${from} alle ${to}">${bars}</svg>` + (note ? `<p class="tmr-n">${note}</p>` : "");
   box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
-/* la risposta sulla notte, una per tutti: com'è con i deviatori di adesso; con tutto su Enel la domanda vera è se ce la faresti su solare
-   (su Enel è ovvio). Più il consiglio: con tutto su Enel quali zone rimettere su solare restando sopra il margine (prima le più leggere),
-   se a rischio quali portare su Enel (prima le più pesanti). st: ok, warn (margine stretto), bad (stacco o pannelli che non ricaricano). */
+/* la risposta sulla notte, una per tutti. Con l'uscita accesa: se ce la fai fino al sole, o a che ora l'inverter stacca (poi l'ATS porta la
+   casa su Enel da solo), e a che ora spegnerla per tenere il margine. Con la casa su Enel la domanda vera è come andrebbe con l'uscita accesa,
+   e se conviene riaccenderla. st: ok, warn (margine stretto), bad (stacco, o pannelli che non ricaricano in 48 ore). */
 function nightAdvice(k, f){
   if (!data || !k || !k.on || !fin(k.soc)) return null;
-  const cur = nightRun(k, f, SW.mask); if (!cur) return { wait: true };
-  const free = SW_FREE(), allEnel = (SW.mask & free) === 0, now = nowOf(data), sol = allEnel ? nightRun(k, f, SW.mask | free) : null, ev = sol || cur, mar = cur.mar;
-  const st = ev.pCut >= .2 || ev.resume === null ? "bad" : ev.pMar >= .3 ? "warn" : "ok";
-  const known = z => zW(z, now + 3 * HOUR) !== null, zw = z => zW(z, now + 3 * HOUR), safe = r => r && r.resume !== null && r.pCut < .2 && r.pMar < .3;
+  const on = houseNow(), cut = (SW.mask & 1) && invCutNow(), cur = nightRun(k, f, on); if (!cur) return { wait: true };
+  const sol = on ? null : nightRun(k, f, 1), ev = on ? cur : sol || cur, mar = cur.mar;
+  const st = ev.pCut >= .2 || ev.resume === null ? "bad" : ev.pMar >= .3 ? "warn" : "ok", safe = r => r && r.resume !== null && r.pCut < .2 && r.pMar < .3;
   let tip = null;
-  if (allEnel) {
-    const cand = ZONES.map((_, z) => z).filter(known).sort((a, b) => zw(a) - zw(b)), unk = ZONES.map((_, z) => z).filter(z => !known(z));
-    let mask = SW.mask, set = [], last = null;
-    for (const z of cand) { const r = nightRun(k, f, mask | 1 << z); if (safe(r)) { mask |= 1 << z; set.push(z); last = r; } }
-    set.sort((a, b) => a - b);
-    if (set.length && set.length === cand.length && !unk.length) tip = { mask, up: true, txt: `Puoi rimettere tutto su solare: stanotte arrivi verso ${ilP(last.min)}, sopra lo stacco con margine.`, btn: "Rimetti tutto su solare" };
-    else if (set.length) tip = { mask, up: true, txt: `Puoi rimettere su solare ${zList(set)}: stanotte arrivi verso ${ilP(last.min)}.${cand.length > set.length ? ` ${zList(cand.filter(z => !set.includes(z)).sort((a, b) => a - b))} meglio su Enel.` : ""}`,
-      note: unk.length ? `${zList(unk)}: consumo non ancora misurato.` : "", btn: `Metti ${set.map(z => ZONES[z]).join(", ")} su solare` };
-    else if (cand.length) tip = { txt: `Meglio restare tutto su Enel: anche con solo ${zLab(cand[0])} su solare scenderesti sotto il margine.` };
-    else if (unk.length) tip = { txt: "Per consigliarti quali zone rimettere su solare serve il consumo di ognuna: la scheda lo misura la prima volta che sposti ogni deviatore." };
-  } else if (st !== "ok") {
-    const cand = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z) && known(z)).sort((a, b) => zw(b) - zw(a));
-    let mask = SW.mask, set = [], last = null;
-    for (const z of cand) { mask &= ~(1 << z); set.push(z); last = nightRun(k, f, mask); if (safe(last)) break; }
-    set.sort((a, b) => a - b);
-    if (set.length && last && last.min > cur.min + 1) tip = { mask, up: false, txt: `Con ${zList(set)} su Enel arrivi verso ${ilP(last.min)}${safe(last) ? ", con margine" : ""}.`, btn: `Metti ${set.map(z => ZONES[z]).join(", ")} su Enel` };
-  }
-  const rk = riskFor(k, f, sol ? SW.mask | free : SW.mask);
-  return { cur, sol, ev, st, allEnel, tip, rk, mar, cut: cur.cut };
+  if (cut) tip = { txt: "L'inverter ha staccato: la casa resta su Enel finché non riparte." };
+  else if (!on && sol) tip = safe(sol) ? { mask: 1, up: true, txt: `Puoi riaccendere l'uscita dell'inverter: stanotte arrivi verso ${ilP(sol.min)}, sopra lo stacco con margine.`, btn: "Ho riacceso l'uscita" }
+    : { txt: `Meglio tenerla spenta: con l'uscita accesa ${fin(sol.at) ? `l'inverter staccherebbe verso le ${hm(q15(sol.at))}` : `scenderesti verso ${ilP(sol.min)}`}.` };
+  else if (!on) tip = { txt: "Con l'uscita accesa non so ancora dirlo: serve una notte con la casa sul banco." };
+  else if (st !== "ok" && fin(cur.marAt)) tip = { mask: 0, up: false, txt: `Per tenere il margine del ${S.marg}% spegni l'uscita verso le ${hm(q15(cur.marAt))}: la casa passa su Enel e il banco si ferma lì.`, btn: "Ho spento l'uscita" };
+  const rk = riskFor(k, f, 1);
+  return { cur, sol, ev, st, off: !on, cutNow: cut, tip, rk, mar, cut: cur.cut };
 }
 function drawNight(k, f){
   const box = $("night"); if (!box) return;
@@ -2410,22 +2342,22 @@ function drawNight(k, f){
     if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
     return;
   }
-  const { cur, sol, ev, st, tip, rk, mar, cut } = a, m0 = Math.max(0, ev.min);
+  const { cur, sol, ev, st, tip, rk, mar, cut, off } = a, m0 = Math.max(0, ev.min), alt = off && sol;   // alt: risponde per l'uscita accesa
   const after = ev.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(ev.resume))}</b>`;
-  const title = sol ? (st === "bad" ? "Su solare stanotte non ce la fai" : st === "warn" ? "Su solare ce la fai, ma di poco" : "Su solare stanotte ce la fai")
-    : st === "bad" ? "Stanotte rischi lo stacco" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
-  box.hidden = false; box.className = "night " + (sol && st === "bad" ? "warn" : st);   // su Enel non sei a rischio: niente rosso
+  const title = alt ? (st === "bad" ? "Con l'uscita accesa l'inverter staccherebbe" : st === "warn" ? "Con l'uscita accesa ce la fai, ma di poco" : "Con l'uscita accesa stanotte ce la fai")
+    : off ? "Stanotte la casa è su Enel" : st === "bad" ? "Stanotte l'inverter stacca" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
+  box.hidden = false; box.className = "night " + (st === "ok" || (off && !alt) ? "ok" : "warn");   // con l'ATS uno stacco non lascia la casa al buio: mai rosso
   const stacco = `Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.`, cutAt = fin(ev.at) ? ev.at : rk && rk.p >= .2 ? rk.at : null;
-  const rkTxt = rk && (sol || SW.mask) ? ` <b>Rischio di stacco ${nf(Math.max(rk.p, ev.pCut) * 100, 0)}%</b>${cutAt ? ` (dalle ${hm(q15(cutAt))} circa)` : ""}: adesso il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
-  const body = sol && st === "bad" && cutAt ? `Con tutto su solare l'inverter staccherebbe verso le <b>${hm(q15(cutAt))}</b>. ${stacco}`
-    : `${sol ? "Con tutto su solare minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
+  const rkTxt = rk && (alt || !off) ? ` <b>Rischio di stacco ${nf(Math.max(rk.p, ev.pCut) * 100, 0)}%</b>${cutAt ? ` (dalle ${hm(q15(cutAt))} circa)` : ""}: adesso il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
+  const body = st === "bad" && cutAt && (alt || !off) ? `${alt ? "Con l'uscita accesa l'inverter staccherebbe" : "L'inverter stacca"} verso le <b>${hm(q15(cutAt))}</b>, poi l'ATS porta la casa su Enel fino a quando i pannelli ricaricano. ${stacco}`
+    : `${alt ? "Con l'uscita accesa minimo" : off ? "Il banco alimenta solo l'impianto: minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
   const tipH = tip ? `<div class="n-tip">${esc(tip.txt)}${tip.note ? ` <small>${esc(tip.note)}</small>` : ""}${tip.btn ? `<br><button class="set-btn" type="button" data-mask="${tip.mask}">${tip.up ? UP_ICO : DN_ICO}${esc(tip.btn)}</button>` : ""}</div>` : "";
   const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
-    `<p class="n-d">${body}${rkTxt}${sol ? ` Se resti su Enel arrivi verso <b>${nf(Math.max(0, cur.min), 0)}%</b>.` : ""}` +
-    `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate${sol ? " e quello misurato delle zone" : " e i deviatori di adesso"}: la previsione completa arriva con 7 giorni di registro.</small>` : ""}${ev.unk ? ` <small>Alcune zone non sono ancora misurate.</small>` : ""}</p>` + tipH;
+    `<p class="n-d">${body}${rkTxt}${alt ? ` Con la casa su Enel arrivi verso <b>${nf(Math.max(0, cur.min), 0)}%</b>.` : ""}` +
+    `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate: la previsione completa arriva con 7 giorni di registro.</small>` : ""}</p>` + tipH;
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
   if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
-    const b = e.target.closest("button[data-mask]"); if (b) swSet(+b.dataset.mask & 127, -1); }); }
+    const b = e.target.closest("button[data-mask]"); if (b) swSet(+b.dataset.mask & 1); }); }
 }
 // energia adesso: i regolatori portano al nodo la potenza "lato batteria" (out_w); da lì va alle batterie o alla casa
 function drawFlow(k){
@@ -2466,33 +2398,6 @@ function drawFlow(k){
   lv.setAttribute("y", (6 + 13.5 * (1 - f)).toFixed(1)); lv.setAttribute("height", (13.5 * f).toFixed(1));
   lv.style.fill = k.soc < S.alLow ? "var(--alert)" : "var(--lith)";
   svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${home === null ? "non nota" : power(home)}`);
-}
-// consigli e avvisi sui deviatori: adesso (carica bassa), stanotte (rischio sotto soglia), oggi (sole in più)
-function swAlarms(k, f, now, hr){
-  const out = [], est = swEst(), known = z => est[z].n > 0, lim = Math.max(S.alLow, S.reserve || 0, cutSoc() + (S.marg || 10));
-  const onZ = ZONES.map((_, z) => z).filter(z => swOn(SW.mask, z));
-  if (k.on && fin(k.soc) && k.soc < S.alLow) {
-    const zs = onZ.filter(z => (zW(z, now) ?? 100) > 30);
-    if (zs.length) out.push({ id: "swlow", sev: "alarm", t: `Carica al ${nf(k.soc, 0)}% con ${zs.map(z => ZONES[z]).join(", ")} su solare`, d: `Riporta su Enel ${zList(zs)}, almeno le zone che non servono: il banco smette di scendere così in fretta.` });
-  }
-  if (!f || !model || !model.prof || !est.some(e => e.n)) return out;
-  const nt = f.night;
-  // sole in più: quali zone mettere su solare fino al tramonto, arrivando comunque al pieno e restando stanotte sopra il margine (stesso motore della notte)
-  if (S.alTip && k.i > 0.5 && hr >= 7 && hr < 14) {
-    const tF = crossAt(f.mid, x => x >= 99.5, 99.5), ss = nt.findIndex((x, i) => i > 0 && x);
-    let sr2 = -1; if (ss > 0) for (let i = ss; i < nt.length; i++) if (!nt[i] && nt[i - 1]) { sr2 = i; break; }
-    if (tF !== null && f.prob.full >= .7 && ss > 0 && sr2 > 0) {
-      const until = f.t[0] + ss * HOUR, sim = m => fullInputs(f, m, until).S;
-      const ok = S => Math.max(...S.slice(0, ss + 1)) >= 95 && Math.min(...S.slice(ss, sr2 + 3)) >= lim + 10;
-      const cand = ZONES.map((_, z) => z).filter(z => !swOn(SW.mask, z) && known(z) && zW(z, now) > 50).sort((a, b) => zW(a, now) - zW(b, now));
-      let mask = SW.mask; const set = [];
-      for (const z of cand) { const m2 = mask | (1 << z); if (ok(sim(m2))) { mask = m2; set.push(z); } }
-      if (set.length) { const mn = Math.min(...sim(mask).slice(ss, sr2 + 3));
-        out.push({ id: "swsun" + dkey(now), sev: "tip", t: "Oggi c'è sole in più",
-          d: `Arrivi al pieno verso le ${hm(q15(f.t[0] + tF * HOUR))}: puoi mettere ${zList(set)} su solare fino al tramonto e stanotte resti comunque sopra il ${nf(Math.floor(mn), 0)}%.` }); }
-    }
-  }
-  return out;
 }
 $("q-chip") && $("q-chip").addEventListener("click", () => { goPage(2); setTimeout(() => $("quadro-sec").scrollIntoView({ behavior: "smooth", block: "start" }), 350); });
 function pushShared(){
@@ -2623,7 +2528,7 @@ async function remApply(b, fresh){
   if (Array.isArray(b.ev)) boardEv = mapEv(b.ev);
   ievFromBoard();
   if (b.ip) lsSet(HOME_KEY, { ip: b.ip, pub: b.pub || (lsGet(HOME_KEY) || {}).pub || "" });
-  if (Array.isArray(b.sw) && fin(b.s.sw)) { const ch = JSON.stringify(b.sw) !== JSON.stringify(SW.rows); SW.board = true; SW.rows = b.sw; SW.mask = b.s.sw & 127; if (ch) { swEstC = null; swHabC = null; } }
+  if (Array.isArray(b.sw) && fin(b.s.sw)) { const ch = JSON.stringify(b.sw) !== JSON.stringify(SW.rows); SW.board = true; SW.rows = b.sw; swTake(b.s.sw); if (ch) { swHabC = null; nightMemo = {}; } }
   if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
   if (b.cfg && typeof b.cfg === "object" && !cfgPushT && !(fin(b.s.cfg_at) && cfgAt && b.s.cfg_at < cfgAt) && !(fin(b.t) && b.t < remCmdAt)) { // le impostazioni condivise: comanda la scheda, il canale resta quello di questo telefono
     let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
@@ -2791,7 +2696,7 @@ async function mqMsg(u8){
     if (data && mode === "remote" && fin(data.time) && fin(b.s.time) && b.s.time < data.time) return;
     const hist = data && data.history;
     data = b.s; if (!data.history && hist) data.history = hist;       // il grafico delle 24 ore arriva col pacchetto da 10 minuti
-    if (fin(b.s.sw) && !(swLastTap && Date.now() - swLastTap.at < 25e3)) SW.mask = b.s.sw & 127;
+    if (fin(b.s.sw) && !(swLastTap && Date.now() - swLastTap.at < 25e3)) swTake(b.s.sw);
     if (fin(b.s.mute_until) && Date.now() / 1000 - remCmdAt > 25) muteUntil = b.s.mute_until;
     mqLive = Date.now(); remErr = "";
     render("remote");
@@ -2830,7 +2735,7 @@ function fillRem(){
       ? `<p class="ntfy-st" id="rem-st"></p>` +
         `<div class="ntfy-row"><a class="set-btn pri" href="${REM_APP}#rem=${S.rem.t}.${S.rem.k}" target="_blank" rel="noopener">Collega l'app da fuori casa</a><button class="link-btn" id="rem-off" type="button">Spegni</button></div>` +
         `<p class="set-note">Apre l'app di GitHub su questo telefono e le consegna la chiave. Va fatto una volta per ogni telefono, da casa; poi fuori casa apri quella. I dati viaggiano cifrati: il server ntfy vede solo numeri illeggibili.</p>`
-      : `<p class="set-note" style="margin-top:0">La scheda manda ogni 10 minuti (e subito dopo un allarme) un pacchetto cifrato con tutte le letture: batterie, pannelli, deviatori, registro e diario. Fuori casa l'app di GitHub lo apre e ti mostra tutto, in sola lettura. Serve che la scheda raggiunga internet.</p>` +
+      : `<p class="set-note" style="margin-top:0">La scheda manda ogni 10 minuti (e subito dopo un allarme) un pacchetto cifrato con tutte le letture: batterie, pannelli, uscita dell'inverter, registro e diario. Fuori casa l'app di GitHub lo apre e ti mostra tutto, in sola lettura. Serve che la scheda raggiunga internet.</p>` +
         `<button class="set-btn pri" id="rem-on" type="button">Attiva la lettura da fuori casa</button>`;
   }
   remSt();
@@ -3009,7 +2914,7 @@ function render(m){
   } else if (k.i < -0.5) {
     st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
     // in scarica risponde il motore della notte (lo stesso del riquadro «Stanotte» e degli avvisi); di giorno, prima che si possa dire, il consumo di adesso
-    const fl = floorSoc(), byInv = fl > (S.reserve || 0), avail = k.rem - k.full * fl / 100, nt = nightRun(k, f, SW.mask), now = nowOf(data);
+    const fl = floorSoc(), byInv = fl > (S.reserve || 0), avail = k.rem - k.full * fl / 100, nt = nightRun(k, f, houseNow()), now = nowOf(data);
     if (avail <= 0) setEta("warn", byInv ? `Vicino allo stacco dell'inverter (${S.inv} V)` : `Sotto la riserva del ${fl}%`, "riduci i consumi");
     else if (nt && fin(nt.at) && nt.at > now) setEta("dsg", `Stacco dell'inverter (${S.inv} V) tra`, dur((nt.at - now) / HOUR), (q15(nt.at) - now) / HOUR);
     else if (nt && nt.resume !== null && nt.resume > now) setEta("dsg", "Prima del sole scendi a", nf(Math.max(0, nt.min), 0) + "%", (q15(nt.resume) - now) / HOUR);
@@ -3470,14 +3375,14 @@ function learn(rows){
   learnSig = planeSig();
   if (rows.length < 2) return null;
   const loc = here(), hours = new Map();
-  let pvRows = 0, prev = rows[0][2];
+  let pvRows = 0, prev = rows[0][2]; const plant = [];
   rows.forEach(([t, m, soc, chg, dsg, pv]) => {
     const mid = t + m * 30, d = new Date(mid * 1000); d.setMinutes(0, 0, 0);
     const key = d.getTime() / 1000, has = fin(pv);
     if (has) pvRows++;
     // consumi = sole − entrata + uscita (le perdite di carica restano nei consumi); senza i regolatori si conoscono solo col sole giù
     let load = has ? pv - chg + dsg : sinElev(mid, loc.lat, loc.lon) < -.05 ? dsg - chg : null;
-    if (fin(load) && SW.rows.length) load -= zonesW(mid, maskAt(mid)) * m / 60; // le zone sul solare si tolgono: si impara il resto della casa
+    if (fin(load) && !bankAt(mid)) { if (sinElev(mid, loc.lat, loc.lon) < -.05) plant.push(load * 60 / m); load = null; }   // casa su Enel: è solo l'impianto
     let o = hours.get(key);
     if (!o) hours.set(key, o = { t: key, lwh: 0, lmin: 0, pwh: 0, pmin: 0, cwh: 0, dwh: 0, nmin: 0, soc0: prev, soc });
     if (fin(load)) { o.lwh += Math.max(0, load); o.lmin += m; }
@@ -3492,6 +3397,7 @@ function learn(rows){
   const span = Math.min((last - first) / DAY, rows.reduce((a, r) => a + r[1], 0) / 1440 * 1.25);   // i giorni davvero registrati: un buco lungo non conta, i piccoli (aggiornamenti) sì
   const M = { span, rows: rows.length, step: rows[rows.length - 1][1], first, last, H, Hmap, pvKnown: pvRows > rows.length * .5, patterns: [], insight: {} };
   M.socT = rows.map(r => r[0] + r[1] * 60); M.socV = rows.map(r => r[2]);
+  M.plantW = plant.length >= 4 ? clamp(quant(plant, .5), 15, 200) : null;       // l'impianto da solo, con la casa su Enel
 
   // giorni: tipo (festivi come domenica), consumi ora per ora, temperatura
   const days = new Map();
@@ -3505,7 +3411,12 @@ function learn(rows){
   const loads = H.map(o => o.load).filter(v => v !== null);
   const base = M.base = loads.length ? quant(loads, .1) : NaN;
   M.days = DL;
-  if (!fin(base)) return M;
+  // il sole dei pannelli non dipende dalla casa: si impara sempre, anche senza ancora un consumo della casa (tutte le notti su Enel)
+  M.pvProf = Array.from({length: 24}, (_, h) => {
+    const v = H.filter(o => o.t >= last - 14 * DAY && o.pv !== null && new Date(o.t * 1000).getHours() === h).map(o => o.pv);
+    return v.length ? quant(v, .5) : null;
+  });
+  if (!fin(base)) { learnSun(M); learnBattery(M); return M; }
 
   // giorni di assenza: tutto il giorno al consumo di fondo (ferie, casa vuota): non sono abitudini, si escludono
   DL.forEach(D => {
@@ -3536,10 +3447,6 @@ function learn(rows){
   if (beta < 15) beta = 0; if (gamma < 15) gamma = 0;     // sotto i 15 W per grado è rumore
   if (beta || gamma) prof = profile((D, h) => D.T[h] === null ? 0 : beta * heatX(D.T[h]) + gamma * coolX(D.T[h])); // profilo a temperatura di riferimento
   M.prof = prof; M.beta = beta; M.gamma = gamma;
-  M.pvProf = Array.from({length: 24}, (_, h) => {
-    const v = H.filter(o => o.t >= last - 14 * DAY && o.pv !== null && new Date(o.t * 1000).getHours() === h).map(o => o.pv);
-    return v.length ? quant(v, .5) : null;
-  });
   const recentDays = use.filter(D => D.t >= last - 28 * DAY && D.W.filter(w => w !== null).length >= 20);
   M.dailyKwh = recentDays.length ? recentDays.reduce((a, D) => a + D.W.reduce((s, w) => s + (w || 0), 0), 0) / recentDays.length / 1000 : NaN;
   if (span >= 7) M.patterns = findPatterns(use, base);
@@ -3647,7 +3554,8 @@ function runDet(M, t0, soc0, cap, o){
     if (i === N) break;
     const lead = i < 24 ? 0 : 1, pb = pvBase(M, t, o.asFc);
     P.push(Math.max(0, (fin(pb) ? pb : 0) * pvB[lead] * (t < today.getTime() / 1000 ? 1 + (nc.fP - 1) * Math.exp(-i / 10) : 1)));
-    L.push(loadBase(M, t) * lB * (1 + (nc.fL - 1) * Math.exp(-i / 6)) + (o.actual ? zonesW(t, maskAt(t)) : zoneLoad(t, t0)));
+    const on = o.actual ? bankAt(t) : houseOn(t, t0);         // la casa sul banco (0–1); su Enel resta l'impianto
+    L.push(on * loadBase(M, t) * lB * (1 + (nc.fL - 1) * Math.exp(-i / 6)) + (1 - on) * (fin(M.plantW) ? M.plantW : 48));
   }
   return { T, P, L, night, S: integrate({ M, soc0, cap, P, L, batW: o.batW }, null) };
 }
@@ -3664,7 +3572,7 @@ function integrate(inp, fx){
   }
   return a;
 }
-// R giornate possibili. Stesso seme per ogni posizione dei deviatori: il confronto tra due posizioni non dipende dal caso
+// R giornate possibili. Stesso seme con l'uscita accesa o spenta: il confronto tra le due non dipende dal caso
 function simPaths(inp, R){
   const rnd = rng(Math.floor(inp.t0 / HOUR)), gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd()), out = [];
   for (let r = 0; r < R; r++) out.push(integrate(inp, inp.draw(rnd, gauss)));
@@ -4034,7 +3942,7 @@ function drawForecast(){
   // in probabilità, dalle 300 simulazioni
   const pr = fc.prob, pct = v => v > .99 ? "&gt;99%" : v < .01 ? "&lt;1%" : nf(v * 100, 0) + "%";
   const probs = [`<span class="fc-p"><b>${pct(pr.full)}</b> di arrivare al pieno ${pr.fullDay}</span>`];
-  const nt0 = nightRun(null, fc, SW.mask);   // la notte con i deviatori di adesso: la stessa del riquadro
+  const nt0 = nightRun(null, fc, houseNow());   // la notte con la casa com'è adesso: la stessa del riquadro
   if (nt0 && !pr.alreadyLow) probs.push(`<span class="fc-p${nt0.pCut >= .2 ? " warn" : ""}"><b>${pct(nt0.pCut)}</b> di arrivare allo stacco (${S.inv} V) prima che riprenda la carica</span>`,
     `<span class="fc-p${nt0.pMar >= .3 ? " warn" : ""}"><b>${pct(nt0.pMar)}</b> di avere meno del ${S.marg}% di margine</span>`);
   read.innerHTML = l1 + "<br>" + l2 + `<span class="fc-ps">${probs.join("")}</span>`;
@@ -4092,19 +4000,19 @@ function openAlert([code, sev, who, at], bs, k){
   else if ((code === "PV_HIGH" || code === "PV_DANGER") && g && fin(g.v)) t = `Pannelli a ${nf(g.v, 0)} V`;
   return { id: "o" + code + who, sev, who: whoName(who, bs), ...(b ? { i: who } : {}), t, d, at };
 }
-// quelli che nascono solo qui: previsioni della notte e di domani, consigli, deviatori, pannelli
+// quelli che nascono solo qui: previsioni della notte e di domani, consigli, pannelli
 function appAlerts(bs, k, f){
   const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours(), push = a => out.push({ ...a, at: fin(a.at) ? a.at : alSince(a.id) });
-  // stacco probabile nelle prossime 6 ore, dai picchi imparati: solo con zone su solare, e se la scheda non lo vede già arrivare
-  if (k.on && fin(k.v) && SW.mask && !(data.inv && data.inv.risk)) { const rk = riskFor(k, f, SW.mask);
-    if (rk && rk.p6 >= .3) push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Porta su Enel le zone più pesanti.` }); }
+  // stacco probabile nelle prossime 6 ore, dai picchi imparati: solo con la casa sul banco, e se la scheda non lo vede già arrivare
+  if (k.on && fin(k.v) && houseNow() && !(data.inv && data.inv.risk)) { const rk = riskFor(k, f, 1);
+    if (rk && rk.p6 >= .3) push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Se stacca, l'ATS porta la casa su Enel; per risparmiare il banco puoi spegnere prima l'uscita.` }); }
   let nightTold = false;
   const na = S.alFc ? nightAdvice(k, f) : null;
-  if (na && !na.wait && !na.allEnel && na.st !== "ok") {          // su Enel il rischio non c'è: il riquadro dice come sarebbe su solare
-    const n = na.cur, resT = n.resume === null ? "" : `, verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera o porta qualche zona su Enel.";
+  if (na && !na.wait && !na.off && na.st !== "ok") {          // con la casa su Enel non c'è niente da avvisare: il riquadro dice come andrebbe con l'uscita accesa
+    const n = na.cur, resT = n.resume === null ? "" : `, verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera.";
     nightTold = true;
-    if (na.st === "bad") push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte rischi lo stacco dell'inverter",
-      d: `Probabilità ${nf(Math.max(n.pCut, na.rk ? na.rk.p : 0) * 100, 0)}%: il banco può scendere sotto ${ilP(n.cut)} (${S.inv} V)${fin(n.at) ? ` verso le ${hm(q15(n.at))}` : ""}, prima che i pannelli tornino a caricare${resT}.${tip}` });
+    if (na.st === "bad") push({ id: "fccut" + dkey(now), sev: "fc", t: `Stanotte l'inverter stacca${fin(n.at) ? ` verso le ${hm(q15(n.at))}` : ""}`,
+      d: `Probabilità ${nf(Math.max(n.pCut, na.rk ? na.rk.p : 0) * 100, 0)}%: il banco scende sotto ${ilP(n.cut)} (${S.inv} V) prima che i pannelli tornino a caricare${resT}, poi l'ATS porta la casa su Enel.${tip}` });
     else push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte margine stretto: verso ${ilP(Math.max(0, n.min))}`,
       d: `Lo stacco dell'inverter è verso ${ilP(n.cut)} (${S.inv} V): quando i pannelli riprendono${resT} ti resterebbe meno del ${S.marg}% di margine.${tip}` });
   }
@@ -4123,7 +4031,6 @@ function appAlerts(bs, k, f){
     if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
       push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
   }
-  swAlarms(k, f, now, hr).forEach(push);
   // pannelli: la prossima alba col modello e la previsione del grafico, le albe anomale e la resa di oggi
   vocSeries().forEach(s => {
     const g = s.g, c = S.pv[g.addr] || {}, nx = s.fc[0], bad = s.all[s.all.length - 1];
@@ -5420,7 +5327,6 @@ function fillSettings(){
   const pv = (data && Array.isArray(data.pv) && data.pv) || [];
   $("set-pvnames").innerHTML = pv.length ? pv.map(pvCard).join("") : `<p class="set-note">Compaiono quando la scheda legge i regolatori.</p>`;
   $("set-tilt-box").hidden = pv.length > 0; // con i regolatori l'inclinazione si imposta gruppo per gruppo
-  $("set-zones").innerHTML = ZONES.map((z, i) => `<label>Deviatore ${z}<input type="text" maxlength="24" data-k="sw${z}" value="${esc(S.names["sw" + z] || "")}" placeholder="Zona ${z}" autocomplete="off" enterkeyhint="done"></label>`).join("");
 }
 // scheda di un regolatore: nome, bussola a 8 direzioni, inclinazione, potenza e numero dei pannelli
 function pvCard(g){
@@ -5553,7 +5459,7 @@ $("settings").addEventListener("change", e => {
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (data) render(mode);
 });
-["set-names", "set-pvnames", "set-zones"].forEach(id => {
+["set-names", "set-pvnames"].forEach(id => {
   $(id).addEventListener("input", e => {
     const t = e.target; if (!t.dataset.k) return;
     const v = t.value.trim();
