@@ -558,7 +558,13 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .tmr-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:11px 0 0}.tmr-g div{padding:7px 8px;border:1px solid var(--line);background:var(--bg);min-width:0}.tmr-g dt{font-size:.7rem;color:var(--muted)}.tmr-g dd{margin:2px 0 0;font:600 .86rem var(--mono);white-space:nowrap}
 .tmr-b{display:block;width:100%;height:auto;margin-top:9px}.tmr-b rect{fill:var(--lith)}.tmr-b text{font:500 9px var(--mono);fill:var(--muted)}
 .tmr-n{margin:7px 0 0;font-size:.82rem;line-height:1.4;color:var(--muted)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) .tmr{border-radius:0}
+.tmr-s{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tmr-s::-webkit-scrollbar{display:none}
+.tmr-p{flex:0 0 100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+.tmr-d{display:flex;justify-content:center;gap:6px;margin-top:10px}
+.tmr-d button{min-width:72px;padding:4px 12px;border:1px solid var(--line);border-radius:99px;background:transparent;color:var(--muted);font:inherit;font-size:.76rem;font-weight:600;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+.tmr-d button[aria-current="true"]{border-color:var(--lith);color:var(--sun);background:color-mix(in srgb,var(--lith) 12%,transparent)}
+.tmr-d button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.tmr,.tmr-d button){border-radius:0}
 .mem-g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 0}.mem-g div{padding:8px 10px;border:1px solid var(--line);background:var(--bg)}.mem-g dt{font-size:.72rem;color:var(--muted)}.mem-g dd{margin:2px 0 0;font:600 1.02rem var(--mono)}
 .mem-ev{list-style:none;margin:10px 0 0;padding:0}.mem-ev li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:.82rem;line-height:1.35}.mem-ev b{color:var(--ink)}.mem-ev i{font-style:normal;color:var(--warn)}.mem-ev i.c{color:var(--alert)}.mem-ev small{grid-column:1/-1;color:var(--muted)}
 .n-ico{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
@@ -1197,7 +1203,7 @@ footer{border-top:0;padding-top:0}
       </div>
       </section>
     <section class="night" id="night" aria-live="polite" hidden></section>
-    <section class="tmr" id="tomorrow" aria-label="Il meteo di domani" hidden></section>
+    <section class="tmr" id="wxcard" aria-label="Il meteo di oggi e di domani" hidden></section>
     <div class="notice" id="notice" role="status" hidden></div>
     <button class="q-chip" id="q-chip" type="button"></button>
     <button class="q-chip fw-chip" id="fw-chip" type="button" hidden></button>
@@ -1486,7 +1492,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.79"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.80"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2269,7 +2275,7 @@ const kOfBank = () => { const b = (data && data.batteries || []).filter(x => x.o
 const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
 const WARN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
 let nightK = null, nightF = null;
-/* ---------- domani: il meteo a colpo d'occhio, e quanto ne viene ai pannelli ---------- */
+/* ---------- meteo di oggi e di domani: a colpo d'occhio, e quanto ne viene ai pannelli. Si scorre di lato nello stesso riquadro ---------- */
 const WX_G = { sole: '<circle cx="24" cy="24" r="9"/><path d="M24 5v5M24 38v5M5 24h5M38 24h5M10.6 10.6l3.5 3.5M33.9 33.9l3.5 3.5M37.4 10.6l-3.5 3.5M14.1 33.9l-3.5 3.5"/>',
   poco: '<circle cx="17" cy="17" r="6.5"/><path d="M17 4v3.5M4 17h3.5M7.8 7.8l2.5 2.5M26.2 7.8l-2.5 2.5"/><path d="M16 39h19a7 7 0 0 0 1-13.9 10 10 0 0 0-19.2-2A8.5 8.5 0 0 0 16 39z"/>',
   coperto: '<path d="M13 37h22a8 8 0 0 0 1.2-15.9A11.5 11.5 0 0 0 14 19a9.2 9.2 0 0 0-1 18z"/>',
@@ -2285,31 +2291,50 @@ function wxKind(c, sun){
   }
   return sun > 2.5 ? ["sole", "Soleggiato"] : sun > 1.2 ? ["poco", "Variabile"] : ["coperto", "Poco sole"];
 }
-function drawTomorrow(k){
-  const box = $("tomorrow"); if (!box) return;
-  if (!data || (!wx && logSrc !== "demo")) { box.hidden = true; return; }
-  const now = nowOf(data), d0 = dayAdd(midnight(now), 1), hrs = [], ts = []; let sun = 0, pv = 0, pvM = 0, okM = true;
+// una giornata (n = 0 oggi, 1 domani). Oggi i pannelli contano quello già prodotto più quello atteso nelle ore che restano, e le ore passate sono spente
+function wxDay(k, n){
+  const now = nowOf(data), d0 = dayAdd(midnight(now), n), today = n === 0, hrs = [], ts = []; let sun = 0, pv = 0, pvM = 0, okM = true;
   const groups = Object.keys(S.pv || {}).map(a => ({ a, kw: (+S.pv[a].n || 0) * (+S.pv[a].wp || 0) / 1000 })).filter(g => g.kw > 0);
+  const read = today && Array.isArray(data.pv) ? data.pv.filter(g => fin(g.kwh_today)) : [], done = read.length ? read.reduce((a, g) => a + g.kwh_today, 0) : NaN;
   for (let h = 0; h < 24; h++) {
     const dd = new Date(d0 * 1000); dd.setHours(h, 0, 0, 0); const t = dd.getTime() / 1000, ir = irrAt(t, true); if (!ir) { hrs.push(null); continue; }
     if (fin(ir.temp)) ts.push(ir.temp); const g = fin(ir.ghi) ? ir.ghi : 0; hrs.push(g); sun += g / 1000;
-    groups.forEach(x => { const gt = planeGti(ir, planeOf({ addr: x.a }), t); pv += x.kw * (fin(gt) ? gt : g) / 1000 * .8; });
-    const v = model ? pvBase(model, t, true) : null; if (fin(v)) pvM += v; else okM = false;
+    const w = fin(done) ? clamp((t + HOUR - now) / HOUR, 0, 1) : 1; if (!w) continue;            // di oggi conta solo quello che resta
+    groups.forEach(x => { const gt = planeGti(ir, planeOf({ addr: x.a }), t); pv += w * x.kw * (fin(gt) ? gt : g) / 1000 * .8; });
+    const v = model ? pvBase(model, t, true) : null; if (fin(v)) pvM += w * v; else okM = false;
   }
-  if (hrs.every(v => v === null)) { box.hidden = true; return; }
-  const useM = model && model.sun && okM, kWh = useM ? pvM / 1000 * (model.cal ? model.cal.pvB[1] : 1) : pv;
+  if (hrs.every(v => v === null)) return null;
+  const useM = model && model.sun && okM, left = useM ? pvM / 1000 * (model.cal ? model.cal.pvB[today ? 0 : 1] : 1) : pv, kWh = left + (fin(done) ? done : 0);
   const i = wx && Array.isArray(wx.dt) ? wx.dt.findIndex(t => dkey(t + 7200) === dkey(d0 + 43200)) : -1, at = (a) => i >= 0 && a && fin(a[i]) ? a[i] : NaN;
   const [ico, txt] = wxKind(at(wx && wx.code), sun), tmin = fin(at(wx && wx.tmin)) ? at(wx.tmin) : ts.length ? Math.min(...ts) : NaN, tmax = fin(at(wx && wx.tmax)) ? at(wx.tmax) : ts.length ? Math.max(...ts) : NaN;
   const rain = at(wx && wx.rain), rainP = at(wx && wx.rainP), cap = k && fin(k.full) ? k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV) / 1000 : NaN;
-  const day = new Date(d0 * 1000).toLocaleDateString("it-IT", { weekday: "long", day: "numeric" });
-  const W = 340, H = 46, from = 7, to = 18, n = to - from + 1, bw = W / n, top = Math.max(250, ...hrs.filter(fin));
-  let bars = ""; for (let h = from; h <= to; h++) { const v = hrs[h] || 0, bh = Math.max(v > 0 ? 2 : 0, v / top * 30); bars += `<rect x="${((h - from) * bw + 3).toFixed(1)}" y="${(32 - bh).toFixed(1)}" width="${(bw - 6).toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5" opacity="${(.45 + .55 * Math.min(1, v / 500)).toFixed(2)}"/>`; if (!((h - from) % 3)) bars += `<text x="${((h - from + .5) * bw).toFixed(1)}" y="44" text-anchor="middle">${h}</text>`; }
-  const note = !(kWh > 0) ? "" : `Dai pannelli circa ${nf(kWh, kWh < 10 ? 1 : 0)} kWh${fin(cap) ? `, cioè ${ilP(Math.min(100, kWh / cap * 100))} del banco se la casa non consuma dal solare` : ""}${useM ? "" : " (stima dalla potenza installata)"}.`;
-  const html = `<div class="tmr-h"><span class="tmr-i"><svg viewBox="0 0 48 48" aria-hidden="true">${WX_G[ico]}</svg></span><div class="tmr-t"><small>Domani · ${esc(day)}</small><b>${esc(txt)}</b></div>` +
+  const day = new Date(d0 * 1000).toLocaleDateString("it-IT", { weekday: "long", day: "numeric" }), kf = v => nf(v, v < 10 ? 1 : 0);
+  const W = 340, H = 46, from = 7, to = 18, cnt = to - from + 1, bw = W / cnt, top = Math.max(250, ...hrs.filter(fin)), hNow = today ? new Date(now * 1000).getHours() : -1;
+  let bars = ""; for (let h = from; h <= to; h++) { const v = hrs[h] || 0, bh = Math.max(v > 0 ? 2 : 0, v / top * 30), op = h < hNow ? .22 : .45 + .55 * Math.min(1, v / 500); bars += `<rect x="${((h - from) * bw + 3).toFixed(1)}" y="${(32 - bh).toFixed(1)}" width="${(bw - 6).toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5" opacity="${op.toFixed(2)}"/>`; if (!((h - from) % 3)) bars += `<text x="${((h - from + .5) * bw).toFixed(1)}" y="44" text-anchor="middle">${h}</text>`; }
+  const share = fin(cap) ? `, cioè ${ilP(Math.min(100, kWh / cap * 100))} del banco se la casa non consuma dal solare` : "", est = useM ? "" : " (stima dalla potenza installata)";
+  const note = !(kWh > 0) ? "" : today && fin(done) ? `Finora ${kf(done)} kWh dai pannelli${left >= .05 ? `, ne restano circa ${kf(left)}${est}` : ""}.` : `Dai pannelli circa ${kf(kWh)} kWh${share}${est}.`;
+  return `<div class="tmr-h"><span class="tmr-i"><svg viewBox="0 0 48 48" aria-hidden="true">${WX_G[ico]}</svg></span><div class="tmr-t"><small>${today ? "Oggi" : "Domani"} · ${esc(day)}</small><b>${esc(txt)}</b></div>` +
     `<div class="tmr-c">${fin(tmin) && fin(tmax) ? `<i>${nf(tmin, 0).replace("-", "−")}°</i> ${nf(tmax, 0).replace("-", "−")}°` : ""}</div></div>` +
-    `<dl class="tmr-g"><div><dt>Sole</dt><dd>${nf(sun, 1)} kWh/m²</dd></div><div><dt>Pioggia${fin(rainP) ? " " + nf(rainP, 0) + "%" : ""}</dt><dd>${fin(rain) ? nf(rain, rain < 10 ? 1 : 0) + " mm" : "–"}</dd></div><div><dt>Pannelli</dt><dd>${kWh > 0 ? "~" + nf(kWh, kWh < 10 ? 1 : 0) + " kWh" : "–"}</dd></div></dl>` +
+    `<dl class="tmr-g"><div><dt>Sole</dt><dd>${nf(sun, 1)} kWh/m²</dd></div><div><dt>Pioggia${fin(rainP) ? " " + nf(rainP, 0) + "%" : ""}</dt><dd>${fin(rain) ? nf(rain, rain < 10 ? 1 : 0) + " mm" : "–"}</dd></div><div><dt>Pannelli</dt><dd>${kWh > 0 ? "~" + kf(kWh) + " kWh" : "–"}</dd></div></dl>` +
     `<svg class="tmr-b" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sole previsto ora per ora, dalle ${from} alle ${to}">${bars}</svg>` + (note ? `<p class="tmr-n">${note}</p>` : "");
-  box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+}
+// il riquadro si costruisce una volta sola e si aggiornano i contenuti, così una lettura nuova non riporta indietro lo scorrimento
+function drawWeather(k){
+  const box = $("wxcard"); if (!box) return;
+  if (!data || (!wx && logSrc !== "demo")) { box.hidden = true; return; }
+  const days = [wxDay(k, 0), wxDay(k, 1)]; if (!days[0] && !days[1]) { box.hidden = true; return; }
+  if (!box.dataset.built) {
+    box.dataset.built = 1;
+    box.innerHTML = `<div class="tmr-s" id="tmr-s"><div class="tmr-p"></div><div class="tmr-p"></div></div><div class="tmr-d"><button type="button" data-i="0">Oggi</button><button type="button" data-i="1">Domani</button></div>`;
+    const sc = $("tmr-s"), btn = [...box.querySelectorAll(".tmr-d button")], mark = () => { const i = Math.round(sc.scrollLeft / (sc.clientWidth || 1)); btn.forEach((b, j) => b.setAttribute("aria-current", j === i)); };
+    let raf = 0; sc.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(mark); }, { passive: true });
+    box.querySelector(".tmr-d").addEventListener("click", e => { const b = e.target.closest("button"); if (b) sc.scrollTo({ left: +b.dataset.i * sc.clientWidth, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); });
+    box.wxMark = mark;
+  }
+  box.querySelectorAll(".tmr-p").forEach((el, i) => { const h = days[i] || `<p class="tmr-n">Previsione non disponibile.</p>`; if (el.dataset.h !== h) { el.dataset.h = h; el.innerHTML = h; } });
+  box.hidden = false;
+  const sc = $("tmr-s");
+  if (!box.dataset.start && sc.clientWidth) { box.dataset.start = 1; if (new Date(nowOf(data) * 1000).getHours() >= 18) sc.scrollLeft = sc.clientWidth; box.wxMark(); }   // di sera interessa già domani
 }
 /* la risposta sulla notte, una per tutti. Con l'uscita accesa: se ce la fai fino al sole, o a che ora l'inverter stacca (poi l'ATS porta la
    casa su Enel da solo), e a che ora spegnerla per tenere il margine. Con la casa su Enel la domanda vera è come andrebbe con l'uscita accesa,
@@ -2972,7 +2997,7 @@ function render(m){
   drawSw();
   drawFlow(k);
   drawNight(k, f);
-  drawTomorrow(k);
+  drawWeather(k);
   drawFw();
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
