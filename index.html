@@ -1495,7 +1495,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.83"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.84"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1808,7 +1808,7 @@ function vocPush(ser){
   ser.forEach(s => { const c = S.pv[s.g.addr]; if (!s.md || !c) return; const va = s.md.how === "albe", vr = Math.max(s.md.rel, s.md.up || 0), vf = s.md.beta || 1, vl = s.md.b || VOC_B;
     if (!(Math.abs((c.vk || 0) / s.md.k - 1) < .004) || !!c.va !== va || !(Math.abs((c.vr || 0) - vr) < .003) || !(Math.abs((c.vf || 1) - vf) < .003) || !(Math.abs((c.vl || VOC_B) - vl) < .002)) {
       c.vk = +s.md.k.toFixed(1); c.vr = +vr.toFixed(3); c.va = va; c.vf = +vf.toFixed(3); c.vl = +vl.toFixed(3); ch = true; } });
-  if (ch) saveSettings();
+  if (ch) saveSettings(true);
 }
 const vocCol = i => `var(--vs${i % 4 + 1})`;
 const vDay = t => new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" });
@@ -1976,7 +1976,8 @@ function loadSettings(){
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
   return o;
 }
-function saveSettings(){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(); } catch (e) {} } // try: può servire prima che "mode" esista
+// auto = salvataggio fatto dalla app da sola (Voc imparata, resistenza del banco…): niente pop-up, e se non riesce si riprova più tardi
+function saveSettings(auto = false){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(auto); } catch (e) {} } // try: può servire prima che "mode" esista
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
 // restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
@@ -2240,7 +2241,7 @@ function irPush(){   // alla scheda, per avvisare anche ad app chiusa
   if ((mode !== "live" && mode !== "remote") || !RM || (!RM.Rn && !RM.vcN)) return;
   const n = { r: +RM.R.toFixed(4), ...(RM.vcN ? { vc: +RM.vc.toFixed(2) } : {}) }, o = S.ir;
   if (o && Math.abs(o.r / n.r - 1) < .05 && (o.vc || 0) === (n.vc || 0)) return;
-  S.ir = n; saveSettings();
+  S.ir = n; saveSettings(true);
 }
 const rkV0 = s => { let b = Math.floor(s * 100 / 500), v = RM.v0b.get(b); if (!fin(v)) v = RM.v0b.get(b - 1) ?? RM.v0b.get(b + 1); return fin(v) ? v : ocv(s); };
 // la potenza oltre la quale, con questa carica, il banco scende alla tensione di stacco
@@ -2428,15 +2429,21 @@ function drawFlow(k){
   svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${!onBank ? "su Enel" : home === null ? "non nota" : power(home)}`);
 }
 $("q-chip") && $("q-chip").addEventListener("click", () => { goPage(2); setTimeout(() => $("quadro-sec").scrollIntoView({ behavior: "smooth", block: "start" }), 350); });
-function pushShared(){
-  clearTimeout(cfgPushT);
+let cfgAuto = true;                                   // il salvataggio in attesa è solo automatico: nessun pop-up
+function pushShared(auto = false){
+  clearTimeout(cfgPushT); cfgAuto = cfgAuto && auto;
   cfgPushT = setTimeout(async () => {
+    const quiet = cfgAuto; cfgAuto = true;
     try {
       const rs = remSet;                                  // il canale cambia solo se l'ha chiesto questa app (firmware 0.23)
       const j = await boardCfg({app: sharedOf(), ...(rs ? {rem_set: true} : {})});   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
-      if (j && j.ok) { if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote") toast("Impostazioni salvate sulla scheda"); }
-    } catch (e) { if (mode === "remote") toast("Impostazioni non salvate sulla scheda: " + e.message); }
-    cfgPushT = 0;
+      if (j && j.ok) { if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); }
+      cfgPushT = 0;
+    } catch (e) {
+      cfgPushT = 0;
+      if (quiet) { cfgPushT = setTimeout(() => { cfgPushT = 0; pushShared(true); }, 60e3); return; }   // automatico: si riprova tra un minuto, in silenzio
+      if (mode === "remote") toast("Impostazioni non salvate sulla scheda: " + e.message);
+    }
   }, 1500);
 }
 async function pullShared(){
@@ -2618,8 +2625,11 @@ function mqStart(){
 const mqWait = new Map();
 let remCmdAt = 0;                                      // l'ultimo comando riuscito: i pacchetti più vecchi non lo disfano
 async function remCmd(op, d){
+  // appena aperta la app la diretta si sta ancora collegando: si aspetta fino a 20 secondi invece di fallire subito
+  const live = () => mq && mq.ready && mq.ws.readyState === 1;
+  if (!live()) { mqStart(); for (let i = 0; i < 80 && !live(); i++) await new Promise(r => setTimeout(r, 250)); }
   const m = mq;
-  if (!m || !m.ready || m.ws.readyState !== 1) { mqStart(); throw new Error("la diretta con la scheda non è collegata: riprova tra qualche secondo"); }
+  if (!live()) throw new Error("la diretta con la scheda non si è collegata: riprova tra poco");
   const key = await remKeyOf(), enc = new TextEncoder(), magic = enc.encode("MBC1"), iv = crypto.getRandomValues(new Uint8Array(12));
   const id = b64u(crypto.getRandomValues(new Uint8Array(9)));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: magic }, key,
@@ -2812,7 +2822,7 @@ async function poll(){
     const j = await r.json();
     if (!j || !Array.isArray(j.batteries)) throw new Error("formato");
     data = j; lastOk = Date.now(); everLive = true; mqStop();
-    if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; saveSettings(); } // comanda la scheda
+    if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; saveSettings(true); } // comanda la scheda
     render("live");
     if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();
     if (fin(j.voc_at) && j.voc_at !== vocSeen) vocPull(j.voc_at);
