@@ -1493,7 +1493,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.81"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.82"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2030,15 +2030,44 @@ const houseNow = () => (SW.mask & 1) && !invCutNow() ? 1 : 0;   // la casa adess
 // spostando l'uscita, un salto sotto questa soglia vuol dire che la casa non prendeva corrente dal banco: niente consumo da imparare
 const SW_NOJUMP = 40;
 // la casa era sul banco in quel momento? Dal registro della scheda, se no dalla leva. Ma se spegnendo l'uscita il consumo non è cambiato
-// (salto misurato sotto SW_NOJUMP), la casa non era davvero sul banco: le ore prima di quello spostamento (fino al cambio precedente, al massimo
-// 24 ore) contano come casa su Enel, qualunque cosa dicesse la leva
+// (salto sotto SW_NOJUMP), la casa in quel momento non era sul banco: si risale all'indietro, quarto d'ora per quarto d'ora, finché il
+// registro non mostra un consumo vero della casa (oltre lo zero delle misure, vedi qWatts), al massimo fino al cambio precedente e a 24 ore.
+// E di notte: almeno 2 ore di fila col solo consumo dell'impianto (meno di plantW + 40 W) vogliono dire casa su Enel, qualunque cosa dica la
+// leva: una casa con frigoriferi e congelatori sul banco non sta mai così bassa così a lungo
+const qWatts = x => { const pv = x[13] === 65535 ? 0 : x[13]; return { pv: pv * 4, diff: (pv - x[11] + x[12]) * 4 }; };   // W di un quarto d'ora: pannelli e «casa» grezza
 function bankAt(t){
   if (!bankQ || bankQ.n !== STRESS.length || bankQ.r !== SW.rows.length) {
-    const no = []; SW.rows.forEach((r, i) => { if ((r[2] & 1) && !(r[1] & 1) && fin(r[3]) && Math.abs(r[3]) < SW_NOJUMP) { const end = swT(r), prev = i ? swT(SW.rows[i - 1]) : -Infinity; no.push([Math.max(prev, end - DAY), end]); } });
-    bankQ = { n: STRESS.length, r: SW.rows.length, no, m: new Map(STRESS.map(r => [r[0], r[8] ? 1 : 0])) };
+    const byT = new Map(STRESS.map(r => [r[0], r])), no = [];
+    SW.rows.forEach((r, i) => {
+      if (!((r[2] & 1) && !(r[1] & 1) && fin(r[3]) && Math.abs(r[3]) < SW_NOJUMP)) return;
+      const end = swT(r), lim = Math.max(i ? swT(SW.rows[i - 1]) : -Infinity, end - DAY); let start = end;
+      for (let q = Math.floor(end / 900) * 900; q >= lim; q -= 900) { const x = byT.get(q); if (!x) break; const w = qWatts(x); if (w.diff >= 400 + .1 * w.pv) break; start = q; }
+      if (start < end) no.push([start, end]);
+    });
+    const flat = new Set(), lowW = plantW() + 40; let run = [];
+    const close = () => { if (run.length >= 8) run.forEach(t => flat.add(t)); run = []; };
+    STRESS.forEach(x => { const w = qWatts(x); if (x[8] && w.pv < 5 && w.diff < lowW) { if (run.length && x[0] - run[run.length - 1] !== 900) close(); run.push(x[0]); } else close(); }); close();
+    bankQ = { n: STRESS.length, r: SW.rows.length, no, m: new Map(STRESS.map(r => [r[0], r[8] && !flat.has(r[0]) ? 1 : 0])) };
   }
   if (bankQ.no.some(([a, b]) => t >= a && t < b)) return 0;
   const q = bankQ.m.get(Math.floor(t / 900) * 900); return q !== undefined ? q : maskAt(t) & 1;
+}
+/* lo «zero» della casa. La casa non si misura: è quello che mandano i regolatori meno quello che entra nelle batterie. Con la casa su Enel quella
+   differenza resta, ed è l'impianto più gli scarti di misura (il BMS non vede circa 1 A per batteria: con 5 batterie ~240 W). Si impara dalle
+   ore con la casa su Enel e col sole degli ultimi 14 giorni: zero = a + b × pannelli; al buio è l'impianto (plantW). Senza dati, nessuno zero. */
+let zeroC = null;
+function houseZero(pvW){
+  if (!(pvW > 30)) return plantW();
+  if (!zeroC || zeroC.n !== STRESS.length || zeroC.r !== SW.rows.length) {
+    const pts = STRESS.filter(r => r[13] !== 65535 && r[13] > 25 && r[0] > nowS() - 14 * DAY && !bankAt(r[0])).map(qWatts);
+    let a = NaN, b = 0;
+    if (pts.length >= 8) {
+      const n = pts.length, mx = pts.reduce((s, p) => s + p.pv, 0) / n, my = pts.reduce((s, p) => s + p.diff, 0) / n, sxx = pts.reduce((s, p) => s + (p.pv - mx) ** 2, 0);
+      b = sxx > 0 ? clamp(pts.reduce((s, p) => s + (p.pv - mx) * (p.diff - my), 0) / sxx, 0, .15) : 0; a = clamp(my - b * mx, 0, 500);
+    }
+    zeroC = { n: STRESS.length, r: SW.rows.length, a, b };
+  }
+  return fin(zeroC.a) ? zeroC.a + zeroC.b * pvW : 0;
 }
 // quanto consuma l'impianto da solo (inverter a vuoto, regolatori, scheda) con la casa su Enel: imparato dal registro, se no il tipico
 const plantW = () => model && fin(model.plantW) ? model.plantW : 48;
@@ -2448,7 +2477,7 @@ function drawFlow(k){
   }
   const v = fin(k.v) && k.v > 40 ? k.v : NOMV, pv = Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [];
   const prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null, bat = k.on && fin(k.p) ? k.p : null;
-  const home = prod !== null && bat !== null ? Math.max(0, prod - bat) : bat !== null && bat < 0 ? -bat : null;
+  const onBank = houseNow(), home = !onBank ? null : prod !== null && bat !== null ? Math.max(0, prod - bat - houseZero(prod)) : bat !== null && bat < 0 ? Math.max(0, -bat - plantW()) : null;
   const kwh = pv.reduce((a, g) => a + (fin(g.kwh_today) ? g.kwh_today : 0), 0);
   const amp = w => w === null ? "" : nf(Math.abs(w) / v, Math.abs(w) / v < 10 ? 1 : 0) + " A";
   const set = (id, t) => { const e = $(id); if (e && e.textContent !== t) e.textContent = t; };
@@ -2457,7 +2486,7 @@ function drawFlow(k){
     if (on) e.style.setProperty("--d", Math.max(.45, 2.6 - Math.log10(Math.abs(w) + 1) * .55).toFixed(2) + "s");
     if (color) e.style.stroke = color; };
   set("ft-pv", prod === null ? "–" : power(prod)); set("fa-pv", prod === null ? (Array.isArray(data.pv) ? "non rispondono" : "regolatori non letti") : amp(prod));
-  set("ft-home", home === null ? "–" : power(home)); set("fa-home", home === null ? "senza i regolatori" : amp(home));
+  set("ft-home", !onBank ? "Enel" : home === null ? "–" : power(home)); set("fa-home", !onBank ? "" : home === null ? "senza i regolatori" : amp(home));
   set("ft-bat", bat === null ? "–" : power(bat)); set("fa-bat", bat === null ? "" : amp(bat) + (Math.abs(bat) < 15 ? " · ferme" : bat > 0 ? " · in carica" : " · in scarica"));
   set("fs-bat", fin(k.soc) ? nf(k.soc, 0) + "%" : ""); set("fk-pv", prod !== null && kwh > 0 ? `oggi ${nf(kwh, 1)} kWh` : "");
   flow("ff-pv", prod, false); flow("ff-home", home, false);
@@ -2465,7 +2494,7 @@ function drawFlow(k){
   const lv = $("fb-lvl"), f = fin(k.soc) ? clamp(k.soc, 0, 100) / 100 : 0;
   lv.setAttribute("y", (6 + 13.5 * (1 - f)).toFixed(1)); lv.setAttribute("height", (13.5 * f).toFixed(1));
   lv.style.fill = k.soc < S.alLow ? "var(--alert)" : "var(--lith)";
-  svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${home === null ? "non nota" : power(home)}`);
+  svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${!onBank ? "su Enel" : home === null ? "non nota" : power(home)}`);
 }
 $("q-chip") && $("q-chip").addEventListener("click", () => { goPage(2); setTimeout(() => $("quadro-sec").scrollIntoView({ behavior: "smooth", block: "start" }), 350); });
 function pushShared(){
@@ -5555,7 +5584,9 @@ $("g-tick").innerHTML = Array.from({length: 54}, (_, i) => {
 const UPD_KEY = "mybattery.updatedFrom";
 let reloadPending = false, reloading = false;
 function toast(text){
-  const el = $("toast"); el.textContent = text; el.classList.add("show");
+  const el = $("toast"), tb = $("tabs").getBoundingClientRect(); el.textContent = text;
+  el.style.bottom = tb.height ? Math.round(innerHeight - tb.top + 12) + "px" : "";   // sempre sopra il menu in basso
+  el.classList.add("show");
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 4000);
 }
 function reloadForUpdate(){
