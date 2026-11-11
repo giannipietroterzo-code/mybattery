@@ -525,7 +525,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .flow .bus{fill:var(--ink)}
 .flow .fp{font-size:15px;font-weight:700;fill:var(--sun);font-variant-numeric:tabular-nums}
 [data-mecha] .flow .fv,[data-style="reattore"] .flow .fv,[data-style="plancia"] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
-/* uscita dell'inverter: una leva nello stile della app (colori e forme del tema scelto) */
+/* la casa sul banco o su Enel; le leve (q-mod) le usano gli interruttori dei pannelli */
 .quadro{margin-top:2px}
 .q-one{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .q-one.cut{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
@@ -539,6 +539,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .q-mod[aria-checked="true"] .q-lev{top:3px;background:var(--lith);box-shadow:0 0 12px -2px var(--lith)}
 .q-mod[aria-checked="true"] .q-slot{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--lith) 45%,transparent)}
 .q-mod[aria-checked="true"] :is(.q-let,.q-st){color:var(--sun)}
+.q-ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);color:var(--muted)}.q-ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.q-one.on .q-ico{color:var(--sun);border-color:color-mix(in srgb,var(--lith) 55%,transparent);background:color-mix(in srgb,var(--lith) 12%,var(--bg))}
 .q-txt{flex:1;min-width:0}.q-txt b{display:block;font-size:1.02rem;line-height:1.25}.q-txt span{display:block;margin-top:3px;font-size:.84rem;line-height:1.4;color:var(--muted)}
 .q-one.cut .q-txt span{color:var(--warn)}
 .q-chip.off i{background:var(--muted);box-shadow:none}
@@ -1249,9 +1251,9 @@ footer{border-top:0;padding-top:0}
         <div class="pv-in" id="pv-in"></div>
       </section>
       <section aria-labelledby="h-q" id="quadro-sec">
-        <h2 id="h-q">Uscita dell'inverter</h2>
+        <h2 id="h-q">Casa: banco o Enel</h2>
         <div class="quadro" id="quadro"></div>
-        <p class="set-note">L'interruttore tra l'inverter e l'ATS: per ora lo segni qui quando lo sposti. Se l'inverter stacca, l'ATS porta la casa su Enel da solo anche con l'uscita accesa.</p>
+        <p class="set-note">La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente. Quando ci sarà l'interruttore WiFi dopo l'inverter, qui tornerà la leva.</p>
         <div class="q-last" id="q-last"></div>
       </section>
     </div>
@@ -1493,7 +1495,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.82"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.83"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1522,7 +1524,7 @@ const MSG = {
   BAT_COLD:    ["Troppo freddo per caricare", "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica."],
   BANK_LOW:    () => ["Carica bassa", `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.`],
   INV_NEAR:    () => ["Vicino allo stacco dell'inverter", `L'inverter stacca a ${S.inv} V: quando succede, l'ATS porta la casa su Enel da solo.`],
-  INV_RISK:    ["L'inverter può staccare a momenti", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare il banco puoi spegnere prima l'uscita dell'inverter."],
+  INV_RISK:    ["L'inverter può staccare a momenti", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare il banco puoi portarla prima su Enel."],
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
   PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
@@ -2003,22 +2005,17 @@ const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il ban
 const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
-/* ---------- uscita dell'inverter: l'interruttore WiFi tra l'inverter e l'ATS (oggi lo segni qui, un domani lo comanderà la app) ----------
-   Accesa: la casa prende corrente dall'inverter, cioè dal banco. Spenta, o inverter staccato: l'ATS porta la casa su Enel da solo e il banco
-   alimenta solo l'impianto (plantW). La scheda tiene lo stato e lo storico dei cambi (/switch.bin: [t, stato, prima, dW, ora del salto]) e a ogni
-   cambio misura il salto del consumo, cioè quanto assorbiva la casa. Il registro sa, quarto d'ora per quarto d'ora, se la casa era sul banco
-   (r[8] delle righe = uscita accesa e inverter non staccato): le ore su Enel non insegnano i consumi della casa. Fino alla 1.77 qui c'erano
-   i 7 deviatori A–G. */
-const SW_KEY = "mybattery.sw.v2";
-let SW = (() => { // senza la scheda (cavo, demo) lo stato resta sul telefono, senza misura del salto
-  try { const o = JSON.parse(localStorage.getItem(SW_KEY) || "null"); if (o && fin(o.mask)) return { mask: o.mask & 1, at: o.at || 0, rows: Array.isArray(o.rows) ? o.rows : [], board: false }; } catch (e) {}
-  return { mask: 1, at: 0, rows: [], board: false };
-})();
-try { localStorage.removeItem("mybattery.sw.v1"); } catch (e) {}                       // i 7 deviatori di prima
+/* ---------- la casa: sul banco o su Enel. Lo decide la scheda dalle misure (firmware 0.38) ----------
+   Un ATS porta la casa su Enel quando l'inverter non dà corrente. La scheda riconosce dove sta la casa da quanto consuma oltre lo «zero» delle
+   misure (l'impianto e gli scarti del BMS, imparati da lei con la casa su Enel): lo scrive nel registro (r[8] di ogni quarto d'ora), nello
+   stato (`house`: on, at, w = casa oltre lo zero, zn/zd/zb = zero) e a ogni passaggio in /switch.bin ([t, stato, prima, salto, ora del salto]).
+   Qui non si corregge niente: si legge. La leva dell'uscita dell'inverter è sospesa: tornerà con l'interruttore WiFi. Senza scheda (cavo,
+   demo) la casa si considera sul banco. */
+let SW = { mask: 1, rows: [], board: false };
+try { ["mybattery.sw.v1", "mybattery.sw.v2"].forEach(x => localStorage.removeItem(x)); } catch (e) {}   // le leve di prima
 if (S.names) Object.keys(S.names).forEach(x => { if (/^sw[A-G]$/.test(x)) delete S.names[x]; });
-let swAtSeen = -1, swNext = 0, swHabC = null, swOverride = null, swLastTap = null, bankQ = null;
-const swSaveLocal = () => { try { localStorage.setItem(SW_KEY, JSON.stringify({ mask: SW.mask, at: SW.at, rows: SW.rows.slice(-2000) })); } catch (e) {} };
-const swT = r => fin(r[3]) && r[4] ? r[4] : r[0];          // ora del cambio vero: quella del salto, se misurato
+let swAtSeen = -1, swHabC = null, swOverride = null, bankQ = null;
+const swT = r => fin(r[3]) && r[4] ? r[4] : r[0];          // ora del passaggio: quella del salto, se misurato
 function maskAt(t){
   const r = SW.rows; if (!r.length) return SW.mask;
   let lo = 0, hi = r.length - 1, k = -1;
@@ -2026,52 +2023,17 @@ function maskAt(t){
   return k < 0 ? r[0][2] : r[k][1];
 }
 const invCutNow = () => !!(data && Array.isArray(data.open) && data.open.some(r => r[0] === "INV_CUT"));
-const houseNow = () => (SW.mask & 1) && !invCutNow() ? 1 : 0;   // la casa adesso è sul banco
-// spostando l'uscita, un salto sotto questa soglia vuol dire che la casa non prendeva corrente dal banco: niente consumo da imparare
-const SW_NOJUMP = 40;
-// la casa era sul banco in quel momento? Dal registro della scheda, se no dalla leva. Ma se spegnendo l'uscita il consumo non è cambiato
-// (salto sotto SW_NOJUMP), la casa in quel momento non era sul banco: si risale all'indietro, quarto d'ora per quarto d'ora, finché il
-// registro non mostra un consumo vero della casa (oltre lo zero delle misure, vedi qWatts), al massimo fino al cambio precedente e a 24 ore.
-// E di notte: almeno 2 ore di fila col solo consumo dell'impianto (meno di plantW + 40 W) vogliono dire casa su Enel, qualunque cosa dica la
-// leva: una casa con frigoriferi e congelatori sul banco non sta mai così bassa così a lungo
-const qWatts = x => { const pv = x[13] === 65535 ? 0 : x[13]; return { pv: pv * 4, diff: (pv - x[11] + x[12]) * 4 }; };   // W di un quarto d'ora: pannelli e «casa» grezza
+const houseNow = () => data && data.house ? (data.house.on ? 1 : 0) : (SW.mask & 1) && !invCutNow() ? 1 : 0;   // la casa adesso è sul banco
+// la casa era sul banco in quel momento? Il registro della scheda, quarto d'ora per quarto d'ora; dove manca, i passaggi
 function bankAt(t){
-  if (!bankQ || bankQ.n !== STRESS.length || bankQ.r !== SW.rows.length) {
-    const byT = new Map(STRESS.map(r => [r[0], r])), no = [];
-    SW.rows.forEach((r, i) => {
-      if (!((r[2] & 1) && !(r[1] & 1) && fin(r[3]) && Math.abs(r[3]) < SW_NOJUMP)) return;
-      const end = swT(r), lim = Math.max(i ? swT(SW.rows[i - 1]) : -Infinity, end - DAY); let start = end;
-      for (let q = Math.floor(end / 900) * 900; q >= lim; q -= 900) { const x = byT.get(q); if (!x) break; const w = qWatts(x); if (w.diff >= 400 + .1 * w.pv) break; start = q; }
-      if (start < end) no.push([start, end]);
-    });
-    const flat = new Set(), lowW = plantW() + 40; let run = [];
-    const close = () => { if (run.length >= 8) run.forEach(t => flat.add(t)); run = []; };
-    STRESS.forEach(x => { const w = qWatts(x); if (x[8] && w.pv < 5 && w.diff < lowW) { if (run.length && x[0] - run[run.length - 1] !== 900) close(); run.push(x[0]); } else close(); }); close();
-    bankQ = { n: STRESS.length, r: SW.rows.length, no, m: new Map(STRESS.map(r => [r[0], r[8] && !flat.has(r[0]) ? 1 : 0])) };
-  }
-  if (bankQ.no.some(([a, b]) => t >= a && t < b)) return 0;
+  if (!bankQ || bankQ.n !== STRESS.length) bankQ = { n: STRESS.length, m: new Map(STRESS.map(r => [r[0], r[8] ? 1 : 0])) };
   const q = bankQ.m.get(Math.floor(t / 900) * 900); return q !== undefined ? q : maskAt(t) & 1;
 }
-/* lo «zero» della casa. La casa non si misura: è quello che mandano i regolatori meno quello che entra nelle batterie. Con la casa su Enel quella
-   differenza resta, ed è l'impianto più gli scarti di misura (il BMS non vede circa 1 A per batteria: con 5 batterie ~240 W). Si impara dalle
-   ore con la casa su Enel e col sole degli ultimi 14 giorni: zero = a + b × pannelli; al buio è l'impianto (plantW). Senza dati, nessuno zero. */
-let zeroC = null;
-function houseZero(pvW){
-  if (!(pvW > 30)) return plantW();
-  if (!zeroC || zeroC.n !== STRESS.length || zeroC.r !== SW.rows.length) {
-    const pts = STRESS.filter(r => r[13] !== 65535 && r[13] > 25 && r[0] > nowS() - 14 * DAY && !bankAt(r[0])).map(qWatts);
-    let a = NaN, b = 0;
-    if (pts.length >= 8) {
-      const n = pts.length, mx = pts.reduce((s, p) => s + p.pv, 0) / n, my = pts.reduce((s, p) => s + p.diff, 0) / n, sxx = pts.reduce((s, p) => s + (p.pv - mx) ** 2, 0);
-      b = sxx > 0 ? clamp(pts.reduce((s, p) => s + (p.pv - mx) * (p.diff - my), 0) / sxx, 0, .15) : 0; a = clamp(my - b * mx, 0, 500);
-    }
-    zeroC = { n: STRESS.length, r: SW.rows.length, a, b };
-  }
-  return fin(zeroC.a) ? zeroC.a + zeroC.b * pvW : 0;
-}
-// quanto consuma l'impianto da solo (inverter a vuoto, regolatori, scheda) con la casa su Enel: imparato dal registro, se no il tipico
-const plantW = () => model && fin(model.plantW) ? model.plantW : 48;
-// le abitudini: per ogni ora, in quante delle ultime 21 giornate l'uscita era accesa (servono 7 giorni di storico e 4 cambi)
+// lo «zero» della casa (impianto e scarti di misura), imparato dalla scheda: al buio zn, col sole zd + zb × pannelli
+const houseZero = pvW => { const h = data && data.house; return !h ? 0 : pvW > 30 ? h.zd + h.zb * pvW : h.zn; };
+// quanto consuma l'impianto da solo (inverter a vuoto, regolatori, scheda) con la casa su Enel: lo zero al buio della scheda, se no dal registro
+const plantW = () => data && data.house && fin(data.house.zn) ? data.house.zn : model && fin(model.plantW) ? model.plantW : 48;
+// le abitudini: per ogni ora, in quante delle ultime 21 giornate la casa era sul banco (servono 7 giorni di storico e 4 passaggi)
 function swHabit(){
   const now = Date.now() / 1000;
   if (swHabC && swHabC.n === SW.rows.length && now - swHabC.at < HOUR) return swHabC.v;
@@ -2079,13 +2041,13 @@ function swHabit(){
   const start = SW.rows.length >= 4 ? Math.max(SW.rows[0][0], now - 21 * DAY) : now;
   if (SW.rows.filter(r => r[0] >= start && r[1] !== r[2]).length >= 4 && now - start >= 7 * DAY) {
     const cnt = Array.from({ length: 24 }, () => [0, 0]);
-    for (let t = Math.ceil(start / HOUR) * HOUR + 1800; t < now; t += HOUR) { const c = cnt[new Date(t * 1000).getHours()]; c[1]++; if (maskAt(t) & 1) c[0]++; }
+    for (let t = Math.ceil(start / HOUR) * HOUR + 1800; t < now; t += HOUR) { const c = cnt[new Date(t * 1000).getHours()]; c[1]++; if (bankAt(t)) c[0]++; }
     v = cnt.map(([a, n]) => n ? a / n : null);
   }
   swHabC = { n: SW.rows.length, at: now, v };
   return v;
 }
-// la casa sul banco all'ora t (0–1): nel passato dal registro; avanti, per le prime ore com'è adesso e poi sempre più come la tieni di solito;
+// la casa sul banco all'ora t (0–1): nel passato dal registro; avanti, per le prime ore com'è adesso e poi sempre più come sta di solito;
 // con swOverride (le simulazioni della notte) come si chiede
 function houseOn(t, t0){
   if (t < t0 - 60) return bankAt(t);
@@ -2094,68 +2056,39 @@ function houseOn(t, t0){
   if (hab && fin(hab[h])) { const w = Math.exp(-(t - t0) / (3 * HOUR)); p = w * p + (1 - w) * hab[h]; }
   return p;
 }
-// lo stato dell'uscita detto dalla scheda: se cambia, la notte e la previsione si rifanno subito
+// lo stato detto dalla scheda: se cambia, la notte e la previsione si rifanno subito
 function swTake(m){ m &= 1; if (m === SW.mask) return; SW.mask = m; nightMemo = {}; fc = null; fcAt = 0; }
 function swChanged(){ swHabC = null; nightMemo = {}; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
 async function swSync(j){
   if (!fin(j.sw)) { SW.board = false; return; }
-  if (!SW.board) { SW.board = true; SW.rows = []; }
-  const now = Date.now();
-  if (!(swLastTap && now - swLastTap.at < 6000)) swTake(j.sw);   // una lettura partita prima del tocco non lo annulla
-  if (j.sw_at === swAtSeen && !(swNext && now >= swNext)) return;
-  swAtSeen = j.sw_at; if (swNext && now >= swNext) swNext = 0;
+  SW.board = true; swTake(j.sw);
+  if (j.sw_at === swAtSeen) return;
+  swAtSeen = j.sw_at;
   try {
     const r = await (await fetch("/api/switch", { cache: "no-store" })).json();
     if (!Array.isArray(r.rows)) return;
     const changed = r.rows.length !== SW.rows.length || JSON.stringify(r.rows[r.rows.length - 1]) !== JSON.stringify(SW.rows[SW.rows.length - 1]);
     SW.rows = r.rows;
-    if (r.pend) swNext = now + 30e3;
     if (changed) swChanged();
   } catch (e) {}
 }
-function swSet(m){
-  const prev = SW.mask, t = Math.round(Date.now() / 1000);
-  m &= 1; if (m === prev) return;
-  SW.mask = m; SW.at = t;
-  if (canWrite() && SW.board) {
-    boardCfg({ sw: m }).then(() => { if (mode === "remote") toast("Uscita salvata sulla scheda"); })
-      .catch(e => { SW.mask = prev; drawSw(); toast("Uscita non salvata: " + e.message); });
-    swNext = Date.now() + 130e3;                            // la scheda misura il salto due minuti dopo l'ultimo tocco
-  } else { SW.rows.push([t, m, prev, null, 0]); swSaveLocal(); swChanged(); }
-  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
-  swLastTap = { prev, m, at: Date.now() };
-  fc = null; fcAt = 0; nightMemo = {};
-  drawSw(); drawNight();
-}
 const Q_SUN = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3 7 7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/></svg>';
 const Q_PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6.5 8h11v3.5a5.5 5.5 0 0 1-11 0V8zM12 17v4"/></svg>';
-const UP_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>', DN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+// dove sta la casa, come la vede la scheda: niente leva da toccare
 function drawSw(){
   const box = $("quadro"); if (!box) return;
-  if (!box.dataset.built) {
-    box.dataset.built = 1;
-    box.innerHTML = `<div class="q-one" id="q-one"><button class="q-mod" type="button" role="switch" id="q-mod"><span class="q-let">INV</span><span class="q-slot"><span class="q-lev"></span></span><span class="q-st"></span></button>` +
-      `<div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div>`;
-    $("q-mod").addEventListener("click", () => swSet(SW.mask ^ 1));
-  }
-  const on = (SW.mask & 1) === 1, cut = on && invCutNow(), cutAt = cut ? (data.open.find(r => r[0] === "INV_CUT") || [])[3] : null;
-  const b = $("q-mod"), st = b.querySelector(".q-st"), want = on ? "s" : "e";
-  b.setAttribute("aria-checked", on); b.setAttribute("aria-label", `Uscita dell'inverter: ${on ? "accesa" : "spenta"}`);
-  if (st.dataset.v !== want) { st.dataset.v = want; st.innerHTML = on ? Q_SUN : Q_PLUG; }
-  $("q-one").classList.toggle("cut", cut);
-  $("q-state").textContent = on ? "Accesa" : "Spenta";
+  if (!box.dataset.built) { box.dataset.built = 1; box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div>`; }
+  const on = houseNow() === 1, cut = invCutNow(), h = data && data.house, cutAt = cut ? (data.open.find(r => r[0] === "INV_CUT") || [])[3] : null, ico = $("q-ico"), want = on ? "s" : "e";
+  if (ico.dataset.v !== want) { ico.dataset.v = want; ico.innerHTML = on ? Q_SUN : Q_PLUG; }
+  $("q-one").classList.toggle("cut", cut); $("q-one").classList.toggle("on", on);
+  $("q-state").textContent = on ? `Sul banco${h && fin(h.w) ? ` · circa ${power(h.w)}` : ""}` : "Su Enel";
   $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
-    : on ? "La casa prende corrente dal banco. Se l'inverter stacca, l'ATS la porta su Enel da solo." : `La casa è su Enel: il banco alimenta solo l'impianto (circa ${power(plantW())}).`;
-  const last = $("q-last"), tap = swLastTap && Date.now() - swLastTap.at < 15e3 ? swLastTap : null;
-  let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
-  if (tap) last.innerHTML = `<span>Uscita ${tap.m ? "accesa" : "spenta"}${canWrite() && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
-  else if (r) { const t = swT(r);
-    last.innerHTML = `<span>Ultimo cambio il ${alWhen(t)}: ${r[1] & 1 ? "accesa" : "spenta"}${fin(r[3]) ? (Math.abs(r[3]) >= SW_NOJUMP ? ` · la casa assorbiva circa ${power(Math.abs(r[3]))}` : " · il consumo non è cambiato: la casa non era sul banco") : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
-  else last.innerHTML = "";
-  const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev); swLastTap = null; drawSw(); };
+    : on ? "La casa prende corrente dall'inverter, cioè dal banco." : `Il banco alimenta solo l'impianto (circa ${power(plantW())}).`;
+  const last = $("q-last"); let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
+  last.innerHTML = r ? `<span>Il ${alWhen(swT(r))} è passata ${r[1] & 1 ? "sul banco" : "su Enel"}${fin(r[3]) && Math.abs(r[3]) >= 50 ? ` · ${r[1] & 1 ? "+" : "−"}${power(Math.abs(r[3]))}` : ""}</span>` : SW.board ? "" : "<span>Senza la scheda la casa si considera sul banco.</span>";
   const chip = $("q-chip");
-  chip.innerHTML = `<i></i><span>Casa <b>${cut ? "su Enel" : on ? "sul banco" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on ? "" : " <small>· uscita spenta</small>"}</span><small>Uscita ›</small>`;
-  chip.classList.toggle("off", !on || cut);
+  chip.innerHTML = `<i></i><span>Casa <b>${on ? "sul banco" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && h && fin(h.w) ? ` <small>· ~${power(h.w)}</small>` : ""}</span><small>Casa ›</small>`;
+  chip.classList.toggle("off", !on);
 }
 /* ---------- la notte: un solo motore ----------
    nightRun(k, f, mask) risponde per tutti (riquadro «Stanotte», avvisi, consigli sui deviatori, rischio di stacco, previsione a 48 ore):
@@ -2172,12 +2105,12 @@ function fullInputs(f, mask, until = f.t[0] + 40 * HOUR){
   return { ...d, M, t0: f.t[0], soc0: f.mid[0], cap: f.cap, batW: f.batW, draw: f.draw };
 }
 // il consumo di notte dal banco, con la casa sul banco (on = 1) o su Enel: le notti viste nelle ultime 24 ore; senza notti viste con la casa
-// sul banco, l'ultimo salto misurato quando hai spostato l'uscita (= quanto assorbiva la casa) più l'impianto, poi il consumo di adesso
+// sul banco, l'ultimo salto misurato quando la casa è passata di qua o di là (= quanto assorbiva) più l'impianto, poi il consumo di adesso
 function nightW(k, on){
   const h = data.history || {}, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data), loc = here(), el = t => sinElev(t, loc.lat, loc.lon);
   let wOn = 0, cOn = 0, wOff = 0, cOff = 0;
   (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { if (bankAt(t)) { wOn += -p; cOn++; } else { wOff += -p; cOff++; } } });
-  const jr = SW.rows.slice().reverse().find(r => fin(r[3]) && Math.abs(r[3]) >= SW_NOJUMP), jump = jr ? Math.abs(jr[3]) + plantW() : null;
+  const jr = SW.rows.slice().reverse().find(r => fin(r[3]) && Math.abs(r[3]) >= 50), jump = jr ? Math.abs(jr[3]) + plantW() : null;
   const nowW = k.p < 0 ? -k.p : null;
   return on ? (cOn >= 12 ? wOn / cOn : jump || (houseNow() ? nowW : null)) : (cOff >= 12 ? wOff / cOff : houseNow() ? plantW() : nowW || plantW());
 }
@@ -2222,9 +2155,9 @@ function nightRun(k, f, mask){
   if (Object.keys(nightMemo).length > 300) nightMemo = {};
   return nightMemo[key] = { ...nightOf(inp, simPaths(inp, NIGHT_R)), simple: !!inp.simple, W: inp.W };
 }
-/* ---------- autonomia su solare: quanto dura il banco con la casa sul banco, qualunque sia adesso l'uscita ----------
+/* ---------- autonomia su solare: quanto dura il banco con la casa sul banco, ovunque sia adesso ----------
    Due risposte dallo stesso motore della notte: al buio (l'energia fino allo stacco divisa per il consumo della casa) e, col modello, col sole
-   previsto (simulazioni a 48 ore con l'uscita accesa per tutto il tempo: quando l'inverter staccherebbe, e con che probabilità). */
+   previsto (simulazioni a 48 ore con la casa sul banco per tutto il tempo: quando l'inverter staccherebbe, e con che probabilità). */
 function autonomy(k, f){
   if (!data || !k || !k.on || !fin(k.soc) || !fin(k.full)) return null;
   const full = !!(f && model && model.prof), cut = cutSoc(), key = "a" + (full ? f.t[0] : Math.round(k.soc * 10) + ":" + Math.floor(nowOf(data) / 300));
@@ -2246,10 +2179,10 @@ function drawAuto(k, f){
   const a = autonomy(k, f); if (!a) { box.hidden = true; return; }
   const now = nowOf(data), enel = !houseNow(), html0 = (cls, t, d) => { box.hidden = false; box.className = "night " + cls; const h = `<div class="n-h"><span class="n-ico">${AUTO_ICO}</span><span class="n-t">${t}</span></div><p class="n-d">${d}</p>`; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
   const stacco = `stacco dell'inverter (${ilP(a.cut)}, ${S.inv} V)`, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
-  if (a.unknown) return html0("wait", "Autonomia su solare: serve il consumo della casa", "La scheda lo misura la prima volta che sposti l'uscita dell'inverter, o dopo una notte con la casa sul banco.");
+  if (a.unknown) return html0("wait", "Autonomia su solare: serve il consumo della casa", "La scheda lo misura la prima volta che la casa passa sul banco, o dopo una notte con la casa sul banco.");
   if (!(a.left > 0)) return html0("warn", "Su solare il banco è già allo stacco", `La carica è già sotto lo ${stacco}: l'ATS terrebbe la casa su Enel.`);
   const darkTxt = `Al buio, al consumo della casa (~${power(a.W)}), arriverebbe allo ${stacco} in <b>${dur(a.dark)}</b>.`;
-  const en = enel ? " <small>Adesso la casa è su Enel: è come andrebbe con l'uscita accesa.</small>" : "";
+  const en = enel ? " <small>Adesso la casa è su Enel: è come andrebbe con la casa sul banco.</small>" : "";
   if (!a.full) return html0(a.dark < 12 ? "warn" : "ok", `Su solare il banco dura <b>${dur(a.dark)}</b> al buio`, `${darkTxt} <small>Il sole non è ancora contato: la previsione completa arriva con 7 giorni di registro.</small>${en}`);
   if (a.at) return html0("warn", `Su solare l'inverter staccherebbe tra <b>${dur((a.at - now) / HOUR)}</b>`,
     `Col sole previsto ${ora(a.at)}, probabilità ${nf(a.p * 100, 0)}% nelle prossime 48 ore; poi l'ATS porterebbe la casa su Enel. ${darkTxt}${en}`);
@@ -2410,8 +2343,8 @@ function drawWeather(k){
   const sc = $("tmr-s");
   if (!box.dataset.start && sc.clientWidth) { box.dataset.start = 1; if (new Date(nowOf(data) * 1000).getHours() >= 18) sc.scrollLeft = sc.clientWidth; box.wxMark(); }   // di sera interessa già domani
 }
-/* la risposta sulla notte, una per tutti. Con l'uscita accesa: se ce la fai fino al sole, o a che ora l'inverter stacca (poi l'ATS porta la
-   casa su Enel da solo), e a che ora spegnerla per tenere il margine. Con la casa su Enel la domanda vera è come andrebbe con l'uscita accesa,
+/* la risposta sulla notte, una per tutti. Con la casa sul banco: se ce la fai fino al sole, o a che ora l'inverter stacca (poi l'ATS porta la
+   casa su Enel da solo), e a che ora portarla su Enel per tenere il margine. Con la casa su Enel la domanda vera è come andrebbe sul banco,
    e se conviene riaccenderla. st: ok, warn (margine stretto), bad (stacco, o pannelli che non ricaricano in 48 ore). */
 function nightAdvice(k, f){
   if (!data || !k || !k.on || !fin(k.soc)) return null;
@@ -2420,10 +2353,10 @@ function nightAdvice(k, f){
   const st = ev.pCut >= .2 || ev.resume === null ? "bad" : ev.pMar >= .3 ? "warn" : "ok", safe = r => r && r.resume !== null && r.pCut < .2 && r.pMar < .3;
   let tip = null;
   if (cut) tip = { txt: "L'inverter ha staccato: la casa resta su Enel finché non riparte." };
-  else if (!on && sol) tip = safe(sol) ? { mask: 1, up: true, txt: `Puoi riaccendere l'uscita dell'inverter: stanotte arrivi verso ${ilP(sol.min)}, sopra lo stacco con margine.`, btn: "Ho riacceso l'uscita" }
-    : { txt: `Meglio tenerla spenta: con l'uscita accesa ${fin(sol.at) ? `l'inverter staccherebbe verso le ${hm(q15(sol.at))}` : `scenderesti verso ${ilP(sol.min)}`}.` };
-  else if (!on) tip = { txt: "Con l'uscita accesa non so ancora dirlo: serve una notte con la casa sul banco." };
-  else if (st !== "ok" && fin(cur.marAt)) tip = { mask: 0, up: false, txt: `Per tenere il margine del ${S.marg}% spegni l'uscita verso le ${hm(q15(cur.marAt))}: la casa passa su Enel e il banco si ferma lì.`, btn: "Ho spento l'uscita" };
+  else if (!on && sol) tip = safe(sol) ? { txt: `Puoi rimettere la casa sul banco: stanotte arrivi verso ${ilP(sol.min)}, sopra lo stacco con margine.` }
+    : { txt: `Meglio lasciarla su Enel: sul banco ${fin(sol.at) ? `l'inverter staccherebbe verso le ${hm(q15(sol.at))}` : `scenderesti verso ${ilP(sol.min)}`}.` };
+  else if (!on) tip = { txt: "Con la casa sul banco non so ancora dirlo: serve una notte con la casa sul banco." };
+  else if (st !== "ok" && fin(cur.marAt)) tip = { txt: `Per tenere il margine del ${S.marg}% porta la casa su Enel verso le ${hm(q15(cur.marAt))}: il banco si ferma lì.` };
   const rk = riskFor(k, f, 1);
   return { cur, sol, ev, st, off: !on, cutNow: cut, tip, rk, mar, cut: cur.cut };
 }
@@ -2439,22 +2372,20 @@ function drawNight(k, f){
     if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
     return;
   }
-  const { cur, sol, ev, st, tip, rk, mar, cut, off } = a, m0 = Math.max(0, ev.min), alt = off && sol;   // alt: risponde per l'uscita accesa
+  const { cur, sol, ev, st, tip, rk, mar, cut, off } = a, m0 = Math.max(0, ev.min), alt = off && sol;   // alt: risponde per la casa sul banco
   const after = ev.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(ev.resume))}</b>`;
-  const title = alt ? (st === "bad" ? "Con l'uscita accesa l'inverter staccherebbe" : st === "warn" ? "Con l'uscita accesa ce la fai, ma di poco" : "Con l'uscita accesa stanotte ce la fai")
+  const title = alt ? (st === "bad" ? "Con la casa sul banco l'inverter staccherebbe" : st === "warn" ? "Con la casa sul banco ce la fai, ma di poco" : "Con la casa sul banco stanotte ce la fai")
     : off ? "Stanotte la casa è su Enel" : st === "bad" ? "Stanotte l'inverter stacca" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
   box.hidden = false; box.className = "night " + (st === "ok" || (off && !alt) ? "ok" : "warn");   // con l'ATS uno stacco non lascia la casa al buio: mai rosso
   const stacco = `Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.`, cutAt = fin(ev.at) ? ev.at : rk && rk.p >= .2 ? rk.at : null;
   const rkTxt = rk && (alt || !off) ? ` <b>Rischio di stacco ${nf(Math.max(rk.p, ev.pCut) * 100, 0)}%</b>${cutAt ? ` (dalle ${hm(q15(cutAt))} circa)` : ""}: adesso il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
-  const body = st === "bad" && cutAt && (alt || !off) ? `${alt ? "Con l'uscita accesa l'inverter staccherebbe" : "L'inverter stacca"} verso le <b>${hm(q15(cutAt))}</b>, poi l'ATS porta la casa su Enel fino a quando i pannelli ricaricano. ${stacco}`
-    : `${alt ? "Con l'uscita accesa minimo" : off ? "Il banco alimenta solo l'impianto: minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
-  const tipH = tip ? `<div class="n-tip">${esc(tip.txt)}${tip.note ? ` <small>${esc(tip.note)}</small>` : ""}${tip.btn ? `<br><button class="set-btn" type="button" data-mask="${tip.mask}">${tip.up ? UP_ICO : DN_ICO}${esc(tip.btn)}</button>` : ""}</div>` : "";
+  const body = st === "bad" && cutAt && (alt || !off) ? `${alt ? "Con la casa sul banco l'inverter staccherebbe" : "L'inverter stacca"} verso le <b>${hm(q15(cutAt))}</b>, poi l'ATS porta la casa su Enel fino a quando i pannelli ricaricano. ${stacco}`
+    : `${alt ? "Con la casa sul banco minimo" : off ? "Il banco alimenta solo l'impianto: minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
+  const tipH = tip ? `<div class="n-tip">${esc(tip.txt)}</div>` : "";
   const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
     `<p class="n-d">${body}${rkTxt}${alt ? ` Con la casa su Enel arrivi verso <b>${nf(Math.max(0, cur.min), 0)}%</b>.` : ""}` +
     `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate: la previsione completa arriva con 7 giorni di registro.</small>` : ""}</p>` + tipH;
   if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
-  if (!box.dataset.built) { box.dataset.built = 1; box.addEventListener("click", e => {
-    const b = e.target.closest("button[data-mask]"); if (b) swSet(+b.dataset.mask & 1); }); }
 }
 // energia adesso: i regolatori portano al nodo la potenza "lato batteria" (out_w); da lì va alle batterie o alla casa
 function drawFlow(k){
@@ -2477,7 +2408,7 @@ function drawFlow(k){
   }
   const v = fin(k.v) && k.v > 40 ? k.v : NOMV, pv = Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [];
   const prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null, bat = k.on && fin(k.p) ? k.p : null;
-  const onBank = houseNow(), home = !onBank ? null : prod !== null && bat !== null ? Math.max(0, prod - bat - houseZero(prod)) : bat !== null && bat < 0 ? Math.max(0, -bat - plantW()) : null;
+  const onBank = houseNow(), hb = data.house, home = !onBank ? null : hb && fin(hb.w) ? hb.w : prod !== null && bat !== null ? Math.max(0, prod - bat - houseZero(prod)) : bat !== null && bat < 0 ? Math.max(0, -bat - plantW()) : null;
   const kwh = pv.reduce((a, g) => a + (fin(g.kwh_today) ? g.kwh_today : 0), 0);
   const amp = w => w === null ? "" : nf(Math.abs(w) / v, Math.abs(w) / v < 10 ? 1 : 0) + " A";
   const set = (id, t) => { const e = $(id); if (e && e.textContent !== t) e.textContent = t; };
@@ -2793,7 +2724,7 @@ async function mqMsg(u8){
     if (data && mode === "remote" && fin(data.time) && fin(b.s.time) && b.s.time < data.time) return;
     const hist = data && data.history;
     data = b.s; if (!data.history && hist) data.history = hist;       // il grafico delle 24 ore arriva col pacchetto da 10 minuti
-    if (fin(b.s.sw) && !(swLastTap && Date.now() - swLastTap.at < 25e3)) swTake(b.s.sw);
+    if (fin(b.s.sw)) swTake(b.s.sw);
     if (fin(b.s.mute_until) && Date.now() / 1000 - remCmdAt > 25) muteUntil = b.s.mute_until;
     mqLive = Date.now(); remErr = "";
     render("remote");
@@ -2832,7 +2763,7 @@ function fillRem(){
       ? `<p class="ntfy-st" id="rem-st"></p>` +
         `<div class="ntfy-row"><a class="set-btn pri" href="${REM_APP}#rem=${S.rem.t}.${S.rem.k}" target="_blank" rel="noopener">Collega l'app da fuori casa</a><button class="link-btn" id="rem-off" type="button">Spegni</button></div>` +
         `<p class="set-note">Apre l'app di GitHub su questo telefono e le consegna la chiave. Va fatto una volta per ogni telefono, da casa; poi fuori casa apri quella. I dati viaggiano cifrati: il server ntfy vede solo numeri illeggibili.</p>`
-      : `<p class="set-note" style="margin-top:0">La scheda manda ogni 10 minuti (e subito dopo un allarme) un pacchetto cifrato con tutte le letture: batterie, pannelli, uscita dell'inverter, registro e diario. Fuori casa l'app di GitHub lo apre e ti mostra tutto, in sola lettura. Serve che la scheda raggiunga internet.</p>` +
+      : `<p class="set-note" style="margin-top:0">La scheda manda ogni 10 minuti (e subito dopo un allarme) un pacchetto cifrato con tutte le letture: batterie, pannelli, casa (banco o Enel), registro e diario. Fuori casa l'app di GitHub lo apre e ti mostra tutto, in sola lettura. Serve che la scheda raggiunga internet.</p>` +
         `<button class="set-btn pri" id="rem-on" type="button">Attiva la lettura da fuori casa</button>`;
   }
   remSt();
@@ -3670,7 +3601,7 @@ function integrate(inp, fx){
   }
   return a;
 }
-// R giornate possibili. Stesso seme con l'uscita accesa o spenta: il confronto tra le due non dipende dal caso
+// R giornate possibili. Stesso seme con la casa sul banco o su Enel: il confronto tra le due non dipende dal caso
 function simPaths(inp, R){
   const rnd = rng(Math.floor(inp.t0 / HOUR)), gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(2 * Math.PI * rnd()), out = [];
   for (let r = 0; r < R; r++) out.push(integrate(inp, inp.draw(rnd, gauss)));
@@ -4103,10 +4034,10 @@ function appAlerts(bs, k, f){
   const out = [], now = nowOf(data), hr = new Date(now * 1000).getHours(), push = a => out.push({ ...a, at: fin(a.at) ? a.at : alSince(a.id) });
   // stacco probabile nelle prossime 6 ore, dai picchi imparati: solo con la casa sul banco, e se la scheda non lo vede già arrivare
   if (k.on && fin(k.v) && houseNow() && !(data.inv && data.inv.risk)) { const rk = riskFor(k, f, 1);
-    if (rk && rk.p6 >= .3) push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Se stacca, l'ATS porta la casa su Enel; per risparmiare il banco puoi spegnere prima l'uscita.` }); }
+    if (rk && rk.p6 >= .3) push({ id: "invfc", sev: "alarm", who: "Banco", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `Con questa carica il banco regge circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}. Se stacca, l'ATS porta la casa su Enel; per risparmiare il banco puoi portarla prima su Enel.` }); }
   let nightTold = false;
   const na = S.alFc ? nightAdvice(k, f) : null;
-  if (na && !na.wait && !na.off && na.st !== "ok") {          // con la casa su Enel non c'è niente da avvisare: il riquadro dice come andrebbe con l'uscita accesa
+  if (na && !na.wait && !na.off && na.st !== "ok") {          // con la casa su Enel non c'è niente da avvisare: il riquadro dice come andrebbe sul banco
     const n = na.cur, resT = n.resume === null ? "" : `, verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera.";
     nightTold = true;
     if (na.st === "bad") push({ id: "fccut" + dkey(now), sev: "fc", t: `Stanotte l'inverter stacca${fin(n.at) ? ` verso le ${hm(q15(n.at))}` : ""}`,
