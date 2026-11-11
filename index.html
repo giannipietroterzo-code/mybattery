@@ -579,6 +579,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 [data-style] .night{background:color-mix(in srgb,var(--c) 7%,transparent)}
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.night,.n-tip){border-radius:0}
 [data-style="mecha"] .night{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
+.q-cal{margin-top:8px}.q-cal .set-note{margin:8px 2px 0}.q-cal .link-btn{padding:0;font-size:inherit}
 .q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
 .q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
 a.q-chip{text-decoration:none}.fw-chip i{background:var(--sun)!important;box-shadow:0 0 8px var(--sun)!important}
@@ -1495,7 +1496,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.84"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.85"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1949,7 +1950,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ir: null, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -1971,9 +1972,18 @@ function loadSettings(){
     if (Number.isInteger(c.s) && c.s >= 1 && c.s <= 50 && !(v.n < c.s)) v.s = c.s; // stringhe in parallelo
     if (fin(c.voc) && c.voc >= 5 && c.voc <= 120) v.voc = Math.round(c.voc * 10) / 10; // Voc di un pannello (targhetta)
     if (VMAX.includes(c.vmax)) v.vmax = c.vmax; // tensione massima dei pannelli sul regolatore
+    // la Voc imparata (vocPush): k a 25 °C, fascia, se viene dalle albe, correzione della sera prima, sensibilità alla luce
+    if (fin(c.vk) && c.vk > 20 && c.vk < 400) v.vk = c.vk;
+    if (fin(c.vr) && c.vr >= .005 && c.vr <= .1) v.vr = c.vr;
+    if (typeof c.va === "boolean") v.va = c.va;
+    if (fin(c.vf) && c.vf >= .94 && c.vf <= 1.06) v.vf = c.vf;
+    if (fin(c.vl) && c.vl >= .02 && c.vl <= .08) v.vl = c.vl;
     if (Object.keys(v).length) o.pv[a] = v;
   });
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
+  // imparati: resistenza del banco e tensione di stacco (irPush), taratura della casa con l'inverter (hcal)
+  if (s.ir && fin(s.ir.r) && s.ir.r >= .005 && s.ir.r <= .06) o.ir = { r: s.ir.r, ...(fin(s.ir.vc) && s.ir.vc > 44 && s.ir.vc < 54 ? { vc: s.ir.vc } : {}) };
+  if (Array.isArray(s.hcal)) o.hcal = s.hcal.filter(r => Array.isArray(r) && r.length === 3 && r.every(fin) && r[0] > 100 && r[0] < 20000 && r[1] > 0 && r[1] < 20000).slice(-10);
   return o;
 }
 // auto = salvataggio fatto dalla app da sola (Voc imparata, resistenza del banco…): niente pop-up, e se non riesce si riprova più tardi
@@ -2003,7 +2013,7 @@ function cutSoc(){
 const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
 const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
-const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
+const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* ---------- la casa: sul banco o su Enel. Lo decide la scheda dalle misure (firmware 0.38) ----------
@@ -2032,6 +2042,28 @@ function bankAt(t){
 }
 // lo «zero» della casa (impianto e scarti di misura), imparato dalla scheda: al buio zn, col sole zd + zb × pannelli
 const houseZero = pvW => { const h = data && data.house; return !h ? 0 : pvW > 30 ? h.zd + h.zb * pvW : h.zn; };
+/* la casa vista dall'inverter. La app vede la casa dal lato del banco (in continua, comprese le perdite dell'inverter: l'11/11 2,7 kW dal banco
+   per 2,17 kW alla casa). Con la casa sul banco scrivi quanto segna l'inverter: la coppia [W dal banco, W dell'inverter, ora] va nelle
+   impostazioni condivise (S.hcal, ultime 10). Un punto: inverter = η × (banco − impianto). Due o più a carichi diversi (almeno 500 W di
+   differenza): la retta inverter = a × banco + b, che impara anche la perdita fissa. */
+let hcalC = null;
+function hcalFit(){
+  const p = (Array.isArray(S.hcal) ? S.hcal : []).filter(r => Array.isArray(r) && r[0] > 100 && r[1] > 0 && r[1] < r[0] * 1.05), p0 = plantW(), key = JSON.stringify(p) + p0;
+  if (hcalC && hcalC.key === key) return hcalC.v;
+  let v = null;
+  if (p.length) {
+    const xs = p.map(r => r[0]), span = Math.max(...xs) - Math.min(...xs); let a, b;
+    if (p.length >= 2 && span >= 500) {
+      const n = p.length, mx = xs.reduce((s, x) => s + x, 0) / n, my = p.reduce((s, r) => s + r[1], 0) / n;
+      a = clamp(p.reduce((s, r) => s + (r[0] - mx) * (r[1] - my), 0) / p.reduce((s, r) => s + (r[0] - mx) ** 2, 0), .6, 1); b = Math.min(0, my - a * mx);
+    } else { a = clamp(quant(p.map(r => r[1] / Math.max(1, r[0] - p0)), .5), .6, 1); b = -a * p0; }
+    v = { a, b, n: p.length, eta: a, loss: -b / a };
+  }
+  return (hcalC = { key, v }).v;
+}
+// la casa adesso in continua, dal banco: regolatori − batterie, senza gli scarti di misura ma con l'impianto (l'inverter a vuoto è suo)
+const houseDC = (prod, bat) => prod !== null && bat !== null ? Math.max(0, prod - bat - houseZero(prod) + plantW()) : bat !== null && bat < 0 ? -bat : null;
+const houseAC = dc => { const f = hcalFit(); return f && fin(dc) ? Math.max(0, f.a * dc + f.b) : null; };
 // quanto consuma l'impianto da solo (inverter a vuoto, regolatori, scheda) con la casa su Enel: lo zero al buio della scheda, se no dal registro
 const plantW = () => data && data.house && fin(data.house.zn) ? data.house.zn : model && fin(model.plantW) ? model.plantW : 48;
 // le abitudini: per ogni ora, in quante delle ultime 21 giornate la casa era sul banco (servono 7 giorni di storico e 4 passaggi)
@@ -2078,17 +2110,32 @@ const Q_PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3
 // dove sta la casa, come la vede la scheda: niente leva da toccare
 function drawSw(){
   const box = $("quadro"); if (!box) return;
-  if (!box.dataset.built) { box.dataset.built = 1; box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div>`; }
+  if (!box.dataset.built) {
+    box.dataset.built = 1;
+    box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div><div class="q-cal" id="q-cal"></div>`;
+    box.addEventListener("submit", e => { e.preventDefault(); const i = e.target.querySelector("input"), w = +String(i.value).replace(",", "."), h = data && data.house;
+      const dc = h && fin(h.w) ? h.w + plantW() : null;                // la media al minuto della scheda, come il display dell'inverter
+      if (!(w > 50) || !(dc > 100)) { toast(dc > 100 ? "Scrivi i watt che segna l'inverter" : "Serve la casa sul banco per tarare"); return; }
+      S.hcal = [...(Array.isArray(S.hcal) ? S.hcal : []), [Math.round(dc), Math.round(w), Math.round(nowOf(data))]].slice(-10); hcalC = null; saveSettings(); i.value = "";
+      const f = hcalFit(); toast(f ? `Tarata: l'inverter rende circa ${ilP(f.eta * 100)}` : "Lettura salvata"); drawSw(); if (data) render(mode); });
+    box.addEventListener("click", e => { if (e.target.closest("#q-cal-del")) { S.hcal = []; hcalC = null; saveSettings(); drawSw(); if (data) render(mode); } });
+  }
   const on = houseNow() === 1, cut = invCutNow(), h = data && data.house, cutAt = cut ? (data.open.find(r => r[0] === "INV_CUT") || [])[3] : null, ico = $("q-ico"), want = on ? "s" : "e";
   if (ico.dataset.v !== want) { ico.dataset.v = want; ico.innerHTML = on ? Q_SUN : Q_PLUG; }
   $("q-one").classList.toggle("cut", cut); $("q-one").classList.toggle("on", on);
-  $("q-state").textContent = on ? `Sul banco${h && fin(h.w) ? ` · circa ${power(h.w)}` : ""}` : "Su Enel";
+  const hdc = h && fin(h.w) ? h.w + plantW() : null, hac = houseAC(hdc), fit = hcalFit();
+  $("q-state").textContent = on ? `Sul banco${hac !== null ? ` · circa ${power(hac)}` : hdc !== null ? ` · circa ${power(hdc)} dal banco` : ""}` : "Su Enel";
+  const cal = $("q-cal"), calH = (on && hdc > 100 ? `<form class="loc-f" autocomplete="off"><input type="number" inputmode="decimal" min="50" step="1" placeholder="W che segna l'inverter adesso" aria-label="Watt che segna l'inverter adesso"><button class="set-btn pri" type="submit">Tara</button></form>` : "") +
+    `<p class="set-note">${fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}. I watt della casa sono quelli dell'inverter. <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
+      : on ? "La app vede la casa dal banco, perdite dell'inverter comprese. Scrivi quanto segna l'inverter: da lì mostra i watt della casa come lui (meglio due letture a carichi diversi)."
+      : "Quando la casa è sul banco puoi tarare i watt della casa con quelli che segna l'inverter."}</p>`;
+  if (cal.dataset.h !== calH && !cal.contains(document.activeElement)) { cal.dataset.h = calH; cal.innerHTML = calH; }
   $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
     : on ? "La casa prende corrente dall'inverter, cioè dal banco." : `Il banco alimenta solo l'impianto (circa ${power(plantW())}).`;
   const last = $("q-last"); let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
   last.innerHTML = r ? `<span>Il ${alWhen(swT(r))} è passata ${r[1] & 1 ? "sul banco" : "su Enel"}${fin(r[3]) && Math.abs(r[3]) >= 50 ? ` · ${r[1] & 1 ? "+" : "−"}${power(Math.abs(r[3]))}` : ""}</span>` : SW.board ? "" : "<span>Senza la scheda la casa si considera sul banco.</span>";
   const chip = $("q-chip");
-  chip.innerHTML = `<i></i><span>Casa <b>${on ? "sul banco" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && h && fin(h.w) ? ` <small>· ~${power(h.w)}</small>` : ""}</span><small>Casa ›</small>`;
+  chip.innerHTML = `<i></i><span>Casa <b>${on ? "sul banco" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && hdc !== null ? ` <small>· ~${power(hac !== null ? hac : hdc)}</small>` : ""}</span><small>Casa ›</small>`;
   chip.classList.toggle("off", !on);
 }
 /* ---------- la notte: un solo motore ----------
@@ -2409,7 +2456,9 @@ function drawFlow(k){
   }
   const v = fin(k.v) && k.v > 40 ? k.v : NOMV, pv = Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [];
   const prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null, bat = k.on && fin(k.p) ? k.p : null;
-  const onBank = houseNow(), hb = data.house, home = !onBank ? null : hb && fin(hb.w) ? hb.w : prod !== null && bat !== null ? Math.max(0, prod - bat - houseZero(prod)) : bat !== null && bat < 0 ? Math.max(0, -bat - plantW()) : null;
+  // la casa nello stesso istante di pannelli e batterie (regolatori − banco − zero delle misure): la media al minuto della scheda serve a lei per
+  // decidere dove sta la casa, qui farebbe sembrare la casa più grande del banco. È dal lato del banco: comprende le perdite dell'inverter
+  const onBank = houseNow(), dc = onBank ? houseDC(prod, bat) : null, ac = houseAC(dc), home = !onBank || dc === null ? null : ac !== null ? ac : Math.max(0, dc - plantW());
   const kwh = pv.reduce((a, g) => a + (fin(g.kwh_today) ? g.kwh_today : 0), 0);
   const amp = w => w === null ? "" : nf(Math.abs(w) / v, Math.abs(w) / v < 10 ? 1 : 0) + " A";
   const set = (id, t) => { const e = $(id); if (e && e.textContent !== t) e.textContent = t; };
@@ -2418,7 +2467,7 @@ function drawFlow(k){
     if (on) e.style.setProperty("--d", Math.max(.45, 2.6 - Math.log10(Math.abs(w) + 1) * .55).toFixed(2) + "s");
     if (color) e.style.stroke = color; };
   set("ft-pv", prod === null ? "–" : power(prod)); set("fa-pv", prod === null ? (Array.isArray(data.pv) ? "non rispondono" : "regolatori non letti") : amp(prod));
-  set("ft-home", !onBank ? "Enel" : home === null ? "–" : power(home)); set("fa-home", !onBank ? "" : home === null ? "senza i regolatori" : amp(home));
+  set("ft-home", !onBank ? "Enel" : home === null ? "–" : power(home)); set("fa-home", !onBank ? "" : home === null ? "senza i regolatori" : ac !== null ? "dal banco " + power(dc) : "dal banco");
   set("ft-bat", bat === null ? "–" : power(bat)); set("fa-bat", bat === null ? "" : amp(bat) + (Math.abs(bat) < 15 ? " · ferme" : bat > 0 ? " · in carica" : " · in scarica"));
   set("fs-bat", fin(k.soc) ? nf(k.soc, 0) + "%" : ""); set("fk-pv", prod !== null && kwh > 0 ? `oggi ${nf(kwh, 1)} kWh` : "");
   flow("ff-pv", prod, false); flow("ff-home", home, false);
