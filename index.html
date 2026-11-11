@@ -580,6 +580,39 @@ dialog[open]{animation:sheet-up .28s ease-out}
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.night,.n-tip){border-radius:0}
 [data-style="mecha"] .night{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
 .q-cal{margin-top:8px}.q-cal .set-note{margin:8px 2px 0}.q-cal .link-btn{padding:0;font-size:inherit}
+.ql-cap{margin:0 2px 6px;font-size:.78rem;color:var(--muted)}
+.ql-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px;margin:2px 0 12px}
+.ql-sum div{padding:9px 9px;min-width:0;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.ql-sum b{font-size:.98rem;font-variant-numeric:tabular-nums;white-space:nowrap}.ql-sum span{font-size:.74rem;color:var(--muted)}
+.ql-rib{display:flex;flex-direction:column;gap:6px;padding:12px 12px 8px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
+.ql-day,.ql-ax{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px}
+.ql-dl{font-size:.76rem;color:var(--muted);text-transform:capitalize;white-space:nowrap}.ql-day:last-of-type .ql-dl{color:var(--ink);font-weight:600}
+.ql-dh{font-size:.74rem;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ql-bar{position:relative;height:14px;border-radius:5px;overflow:hidden;background:color-mix(in srgb,var(--muted) 22%,var(--surface))}
+.ql-bar i{position:absolute;top:0;bottom:0}
+i.ql-on{background:var(--lith);box-shadow:0 0 6px color-mix(in srgb,var(--lith) 60%,transparent)}
+i.ql-unk{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--muted) 14%,var(--surface)) 0 3px,var(--surface) 3px 6px)}
+i.ql-fut{background:var(--surface)}
+.ql-bar i.ql-cut{width:3px;margin-left:-1px;background:var(--alert);box-shadow:0 0 0 1px var(--surface)}
+.ql-ax div{position:relative;height:12px}.ql-ax i{position:absolute;transform:translateX(-50%);font-style:normal;font-size:.66rem;color:var(--muted)}
+.ql-ax i:nth-child(1){left:0;transform:none}.ql-ax i:nth-child(2){left:25%}.ql-ax i:nth-child(3){left:50%}.ql-ax i:nth-child(4){left:75%}.ql-ax i:nth-child(5){left:100%;transform:translateX(-100%)}
+.ql-leg{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 4px 4px;font-size:.74rem;color:var(--muted)}
+.ql-leg span{display:flex;align-items:center;gap:6px}.ql-leg i{display:inline-block;width:14px;height:8px;border-radius:3px;background:color-mix(in srgb,var(--muted) 22%,var(--surface))}
+.ql-leg i.ql-on{background:var(--lith);box-shadow:none}.ql-leg i.ql-unk{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--muted) 30%,var(--surface)) 0 2px,var(--surface) 2px 4px);border:1px solid var(--line)}.ql-leg i.ql-cut{width:3px;border-radius:1px;background:var(--alert)}
+.ql-list{list-style:none;margin:10px 0 0;padding:0}
+.ql-dhd{margin:12px 2px 4px;font-size:.74rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.ql-it{position:relative;display:grid;grid-template-columns:30px 44px 1fr;align-items:center;gap:10px;padding:7px 4px}
+.ql-it:not(:last-child)::after{content:"";position:absolute;left:18px;top:34px;bottom:-8px;width:2px;background:var(--line)}
+.ql-ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--line);color:var(--muted);z-index:1}
+.ql-ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ql-it.on .ql-ic{color:var(--sun);border-color:color-mix(in srgb,var(--lith) 55%,transparent);background:color-mix(in srgb,var(--lith) 12%,var(--bg))}
+.ql-it.cut .ql-ic{color:var(--alert);border-color:color-mix(in srgb,var(--alert) 55%,var(--line))}
+.ql-it time{font-size:.86rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+.ql-it div{display:flex;flex-direction:column;min-width:0}.ql-it b{font-size:.88rem;font-weight:600}.ql-it.cut b{color:var(--alert)}
+.ql-it div span{font-size:.76rem;color:var(--muted)}
+.ql-it.now b::after{content:"adesso";margin-left:8px;padding:1px 7px;border-radius:999px;font-size:.66rem;font-weight:600;vertical-align:1px;background:color-mix(in srgb,var(--lith) 18%,var(--surface));color:var(--sun)}
+.ql-it.now:not(.on) b::after{background:color-mix(in srgb,var(--muted) 18%,var(--surface));color:var(--muted)}
+.ql-more{display:block;margin:6px auto 0}
 .q-last{display:flex;align-items:center;gap:10px;margin:6px 2px 0;font-size:.8rem;color:var(--muted)}.q-last .link-btn{padding:0;font-size:.8rem}
 .q-chip{display:flex;align-items:center;gap:8px;width:100%;margin:10px 0 0;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;cursor:pointer;text-align:left}
 a.q-chip{text-decoration:none}.fw-chip i{background:var(--sun)!important;box-shadow:0 0 8px var(--sun)!important}
@@ -1257,6 +1290,10 @@ footer{border-top:0;padding-top:0}
         <p class="set-note">La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente. Quando ci sarà l'interruttore WiFi dopo l'inverter, qui tornerà la leva.</p>
         <div class="q-last" id="q-last"></div>
       </section>
+      <section aria-labelledby="h-ql" id="ql-sec" hidden>
+        <h2 id="h-ql">Registro dei passaggi</h2>
+        <div class="ql" id="ql"></div>
+      </section>
     </div>
     <div class="page" id="pg-3" role="tabpanel" aria-labelledby="tab-3">
     <section class="panel" aria-labelledby="h-hist">
@@ -1496,7 +1533,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.85"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.86"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2091,6 +2128,7 @@ function houseOn(t, t0){
 }
 // lo stato detto dalla scheda: se cambia, la notte e la previsione si rifanno subito
 function swTake(m){ m &= 1; if (m === SW.mask) return; SW.mask = m; nightMemo = {}; fc = null; fcAt = 0; }
+document.addEventListener("click", e => { if (e.target.closest("#ql-more")) { qlAll = !qlAll; qlC = ""; drawSwLog(); } });
 function swChanged(){ swHabC = null; nightMemo = {}; if (typeof relearn === "function" && LOG && LOG.length) relearn(); else if (data) drawSw(); }
 async function swSync(j){
   if (!fin(j.sw)) { SW.board = false; return; }
@@ -2137,6 +2175,61 @@ function drawSw(){
   const chip = $("q-chip");
   chip.innerHTML = `<i></i><span>Casa <b>${on ? "sul banco" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && hdc !== null ? ` <small>· ~${power(hac !== null ? hac : hdc)}</small>` : ""}</span><small>Casa ›</small>`;
   chip.classList.toggle("off", !on);
+  drawSwLog();
+}
+/* il registro dei passaggi tra banco ed Enel, dalle righe della scheda (/switch.bin): gli ultimi 7 giorni come nastri (giallo = casa sul banco),
+   poi ogni passaggio con l'ora, il salto misurato, quanto è durato e, per le ore sul banco, l'energia data alla casa (dal registro dei quarti
+   d'ora, nei watt dell'inverter se tarata). Un passaggio su Enel con uno stacco dell'inverter nel diario entro 10 minuti è lo stacco. */
+let qlC = "", qlAll = false;
+const qlDur = s => { const m = Math.max(1, Math.round(s / 60)); return m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)} h${m % 60 ? " " + String(m % 60).padStart(2, "0") : ""}` : `${nf(m / 1440, m < 14400 ? 1 : 0)} giorni`; };
+function qlKWh(a, b){
+  let wh = 0, n = 0;
+  STRESS.forEach(r => { if (r[0] + 900 <= a || r[0] >= b || !r[8]) return;
+    const pv = r[13] === 65535 ? 0 : r[13], w = Math.max(0, (pv + r[12] - r[11]) * 4 - houseZero(pv * 4)), ac = houseAC(w + plantW());
+    const part = (Math.min(b, r[0] + 900) - Math.max(a, r[0])) / 900; wh += (ac !== null ? ac : w) / 4 * part; n++; });
+  return n ? wh / 1000 : null;
+}
+function drawSwLog(){
+  const sec = $("ql-sec"), box = $("ql"); if (!sec) return;
+  const rows = SW.rows.filter(r => Array.isArray(r) && (r[1] & 1) !== (r[2] & 1)).sort((a, b) => swT(a) - swT(b));
+  sec.hidden = !SW.board && !rows.length; if (sec.hidden) return;
+  const now = nowOf(data), cuts = (boardEv || []).filter(e => e.code === "INV_CUT").map(e => e.s);
+  const key = [rows.length, JSON.stringify(rows[rows.length - 1] || 0), Math.floor(now / 60), STRESS.length, cuts.length, qlAll, JSON.stringify(S.hcal)].join("|");
+  if (key === qlC) return; qlC = key;
+  if (!rows.length) { box.innerHTML = `<p class="set-note">Ancora nessun passaggio: la scheda li segna da sola quando la casa va sul banco o torna su Enel.</p>`; return; }
+  // i soggiorni: dal passaggio al successivo (l'ultimo arriva ad adesso)
+  const st = rows.map((r, i) => { const a = swT(r), b = i + 1 < rows.length ? swT(rows[i + 1]) : now, on = r[1] & 1;
+    return { a, b, on, open: i === rows.length - 1, dW: fin(r[3]) && Math.abs(r[3]) >= 50 ? r[3] : null, cut: !on && cuts.some(c => Math.abs(c - a) < 600), kwh: on ? qlKWh(a, b) : null }; });
+  const t0 = st[0].a, day0 = new Date(now * 1000); day0.setHours(0, 0, 0, 0);
+  // i nastri degli ultimi 7 giorni
+  let rib = "", onS = 0, kwh = 0, nP = 0, seen = 0;
+  const firstK = Math.min(6, Math.max(0, Math.floor((day0.getTime() / 1000 - t0) / 86400) + 1)); let anyCut = false;   // niente giorni vuoti prima del registro
+  for (let k = firstK; k >= 0; k--) {
+    const d = new Date(day0); d.setDate(d.getDate() - k); const a = d.getTime() / 1000, e = new Date(d); e.setDate(e.getDate() + 1); const b = e.getTime() / 1000, end = Math.min(b, now), len = b - a;
+    const pc = t => ((t - a) / len * 100).toFixed(2); let seg = "", h = 0;
+    if (t0 > a) seg += `<i class="ql-unk" style="left:0;width:${pc(Math.min(t0, end))}%"></i>`;
+    st.forEach(s => { const x = Math.max(a, s.a), y = Math.min(end, s.b); if (y <= x) return; if (s.on) { h += y - x; seg += `<i class="ql-on" style="left:${pc(x)}%;width:${pc(y) - pc(x)}%"></i>`; } else if (s.cut && s.a >= a && s.a < b) anyCut = true, seg += `<i class="ql-cut" style="left:${pc(s.a)}%"></i>`; });
+    if (end < b) seg += `<i class="ql-fut" style="left:${pc(end)}%;width:${(100 - pc(end)).toFixed(2)}%"></i>`;
+    onS += h; seen += Math.max(0, end - Math.max(a, t0));
+    rib += `<div class="ql-day"><span class="ql-dl">${k ? d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" }) : "oggi"}</span><div class="ql-bar">${seg}</div><span class="ql-dh">${t0 >= end ? "–" : h ? qlDur(h) : "0"}</span></div>`;
+  }
+  const w0 = day0.getTime() / 1000 - 6 * 86400;
+  st.forEach(s => { if (s.a >= w0) nP++; if (s.on && s.kwh !== null && s.b > w0) kwh += s.a >= w0 ? s.kwh : qlKWh(w0, s.b) || 0; });
+  const sum = `<div class="ql-sum"><div><b>${onS >= 86400 ? nf(onS / 3600, 0) + " h" : onS ? qlDur(onS) : "0"}</b><span>sul banco</span></div><div><b>${seen ? nf(onS / seen * 100, 0) + "%" : "–"}</b><span>del tempo</span></div><div><b>${nP}</b><span>${nP === 1 ? "passaggio" : "passaggi"}</span></div>${kwh > .05 ? `<div><b>${nf(kwh, kwh < 10 ? 1 : 0)} kWh</b><span>alla casa</span></div>` : ""}</div>`;
+  // l'elenco, dal più recente, per giorno
+  const list = st.slice().reverse(), shown = qlAll ? list : list.slice(0, 12); let li = "", lastD = "";
+  shown.forEach(s => {
+    const dl = new Date(s.a * 1000).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+    if (dl !== lastD) { lastD = dl; li += `<li class="ql-dhd">${dl}</li>`; }
+    const what = s.on ? "Sul banco" : s.cut ? "Su Enel · l'inverter ha staccato" : "Su Enel", det = [];
+    if (s.dW !== null) det.push(`${s.dW > 0 ? "+" : "−"}${power(Math.abs(s.dW))}`);
+    det.push(s.open ? `da ${qlDur(s.b - s.a)}` : `per ${qlDur(s.b - s.a)}`);
+    if (s.on && s.kwh !== null && s.kwh >= .05) det.push(`${nf(s.kwh, s.kwh < 10 ? 1 : 0)} kWh alla casa`);
+    li += `<li class="ql-it${s.on ? " on" : ""}${s.cut ? " cut" : ""}${s.open ? " now" : ""}"><span class="ql-ic">${s.on ? Q_SUN : Q_PLUG}</span><time>${hm(s.a)}</time><div><b>${what}</b><span>${det.join(" · ")}</span></div></li>`;
+  });
+  box.innerHTML = `<p class="ql-cap">${firstK ? `Ultimi ${firstK + 1} giorni` : "Oggi"}</p>${sum}<div class="ql-rib">${rib}<div class="ql-ax"><span></span><div><i>0</i><i>6</i><i>12</i><i>18</i><i>24</i></div><span></span></div></div>
+    <div class="ql-leg"><span><i class="ql-on"></i>sul banco</span><span><i></i>su Enel</span>${anyCut ? `<span><i class="ql-cut"></i>stacco dell'inverter</span>` : ""}${t0 > day0.getTime() / 1000 - firstK * 86400 ? `<span><i class="ql-unk"></i>prima del registro</span>` : ""}</div>
+    <ul class="ql-list">${li}</ul>${list.length > 12 ? `<button class="link-btn plain ql-more" id="ql-more" type="button">${qlAll ? "Mostra meno" : `Mostra tutti (${list.length})`}</button>` : ""}`;
 }
 /* ---------- la notte: un solo motore ----------
    nightRun(k, f, mask) risponde per tutti (riquadro «Stanotte», avvisi, consigli sui deviatori, rischio di stacco, previsione a 48 ore):
