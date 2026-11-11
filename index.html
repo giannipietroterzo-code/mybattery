@@ -1202,6 +1202,7 @@ footer{border-top:0;padding-top:0}
       <div class="eta" id="eta"></div>
       </div>
       </section>
+    <section class="night" id="auto" aria-live="polite" hidden></section>
     <section class="night" id="night" aria-live="polite" hidden></section>
     <section class="tmr" id="wxcard" aria-label="Il meteo di oggi e di domani" hidden></section>
     <div class="notice" id="notice" role="status" hidden></div>
@@ -1492,7 +1493,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.80"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.81"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2026,9 +2027,17 @@ function maskAt(t){
 }
 const invCutNow = () => !!(data && Array.isArray(data.open) && data.open.some(r => r[0] === "INV_CUT"));
 const houseNow = () => (SW.mask & 1) && !invCutNow() ? 1 : 0;   // la casa adesso è sul banco
-// la casa era sul banco in quel momento? Dal registro della scheda, se no dalla leva
+// spostando l'uscita, un salto sotto questa soglia vuol dire che la casa non prendeva corrente dal banco: niente consumo da imparare
+const SW_NOJUMP = 40;
+// la casa era sul banco in quel momento? Dal registro della scheda, se no dalla leva. Ma se spegnendo l'uscita il consumo non è cambiato
+// (salto misurato sotto SW_NOJUMP), la casa non era davvero sul banco: le ore prima di quello spostamento (fino al cambio precedente, al massimo
+// 24 ore) contano come casa su Enel, qualunque cosa dicesse la leva
 function bankAt(t){
-  if (!bankQ || bankQ.n !== STRESS.length) bankQ = { n: STRESS.length, m: new Map(STRESS.map(r => [r[0], r[8] ? 1 : 0])) };
+  if (!bankQ || bankQ.n !== STRESS.length || bankQ.r !== SW.rows.length) {
+    const no = []; SW.rows.forEach((r, i) => { if ((r[2] & 1) && !(r[1] & 1) && fin(r[3]) && Math.abs(r[3]) < SW_NOJUMP) { const end = swT(r), prev = i ? swT(SW.rows[i - 1]) : -Infinity; no.push([Math.max(prev, end - DAY), end]); } });
+    bankQ = { n: STRESS.length, r: SW.rows.length, no, m: new Map(STRESS.map(r => [r[0], r[8] ? 1 : 0])) };
+  }
+  if (bankQ.no.some(([a, b]) => t >= a && t < b)) return 0;
   const q = bankQ.m.get(Math.floor(t / 900) * 900); return q !== undefined ? q : maskAt(t) & 1;
 }
 // quanto consuma l'impianto da solo (inverter a vuoto, regolatori, scheda) con la casa su Enel: imparato dal registro, se no il tipico
@@ -2112,7 +2121,7 @@ function drawSw(){
   let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
   if (tap) last.innerHTML = `<span>Uscita ${tap.m ? "accesa" : "spenta"}${canWrite() && SW.board ? " · la scheda misura il salto fra 2 minuti" : ""}</span><button class="link-btn" id="q-undo" type="button">Annulla</button>`;
   else if (r) { const t = swT(r);
-    last.innerHTML = `<span>Ultimo cambio il ${alWhen(t)}: ${r[1] & 1 ? "accesa" : "spenta"}${fin(r[3]) && Math.abs(r[3]) >= 20 ? ` · la casa assorbiva circa ${power(Math.abs(r[3]))}` : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
+    last.innerHTML = `<span>Ultimo cambio il ${alWhen(t)}: ${r[1] & 1 ? "accesa" : "spenta"}${fin(r[3]) ? (Math.abs(r[3]) >= SW_NOJUMP ? ` · la casa assorbiva circa ${power(Math.abs(r[3]))}` : " · il consumo non è cambiato: la casa non era sul banco") : SW.board ? "" : " · senza la scheda il salto non si misura"}</span>`; }
   else last.innerHTML = "";
   const u = $("q-undo"); if (u) u.onclick = () => { const t2 = swLastTap; swLastTap = null; swSet(t2.prev); swLastTap = null; drawSw(); };
   const chip = $("q-chip");
@@ -2133,20 +2142,23 @@ function fullInputs(f, mask, until = f.t[0] + 40 * HOUR){
   const M = model, d = withMask(mask, until, () => runDet(M, f.t[0], f.mid[0], f.cap, { asFc: true, pvB: M.cal ? M.cal.pvB : [1, 1], lB: M.cal ? M.cal.lB : 1, nc: f.nc, batW: f.batW }));
   return { ...d, M, t0: f.t[0], soc0: f.mid[0], cap: f.cap, batW: f.batW, draw: f.draw };
 }
+// il consumo di notte dal banco, con la casa sul banco (on = 1) o su Enel: le notti viste nelle ultime 24 ore; senza notti viste con la casa
+// sul banco, l'ultimo salto misurato quando hai spostato l'uscita (= quanto assorbiva la casa) più l'impianto, poi il consumo di adesso
+function nightW(k, on){
+  const h = data.history || {}, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data), loc = here(), el = t => sinElev(t, loc.lat, loc.lon);
+  let wOn = 0, cOn = 0, wOff = 0, cOff = 0;
+  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { if (bankAt(t)) { wOn += -p; cOn++; } else { wOff += -p; cOff++; } } });
+  const jr = SW.rows.slice().reverse().find(r => fin(r[3]) && Math.abs(r[3]) >= SW_NOJUMP), jump = jr ? Math.abs(jr[3]) + plantW() : null;
+  const nowW = k.p < 0 ? -k.p : null;
+  return on ? (cOn >= 12 ? wOn / cOn : jump || (houseNow() ? nowW : null)) : (cOff >= 12 ? wOff / cOff : houseNow() ? plantW() : nowW || plantW());
+}
 function simpleInputs(k, mask){
   if (!k || !k.on || !fin(k.soc) || !fin(k.full) || k.full <= 0 || !data.history) return null;
   const now = nowOf(data), loc = here(), el = t => sinElev(t, loc.lat, loc.lon), SIN12 = Math.sin(12 * Math.PI / 180);
   let low = el(now) < SIN12 ? now : null, resume = null;
   for (let t = now; t < now + 30 * HOUR; t += 600) { if (el(t) < SIN12) { if (low === null) low = t; } else if (low !== null) { resume = t; break; } }
   if (low === null || resume === null || low - now > 4 * HOUR) return null;     // di giorno, troppo presto per dirlo
-  // il consumo delle notti viste nelle ultime 24 ore, separato tra casa sul banco e casa su Enel; senza notti viste, quello di adesso
-  const h = data.history, st = h.step || 300, n = (h.p || []).length, tEnd = nowOf(data), on = mask & 1;
-  let wOn = 0, cOn = 0, wOff = 0, cOff = 0;
-  (h.p || []).forEach((p, i) => { const t = tEnd - (n - 1 - i) * st; if (fin(p) && p < 0 && el(t) < 0) { if (bankAt(t)) { wOn += -p; cOn++; } else { wOff += -p; cOff++; } } });
-  // senza notti viste con la casa sul banco: l'ultimo salto misurato quando hai spostato l'uscita (= quanto assorbiva la casa), poi il consumo di adesso
-  const jr = SW.rows.slice().reverse().find(r => fin(r[3]) && Math.abs(r[3]) >= 20), jump = jr ? Math.abs(jr[3]) + plantW() : null;
-  const nowW = k.p < 0 ? -k.p : null, W0 = on ? (cOn >= 12 ? wOn / cOn : jump || (houseNow() ? nowW : null)) : (cOff >= 12 ? wOff / cOff : houseNow() ? plantW() : nowW || plantW());
-  if (!W0) return null;                        // la casa sul banco senza averla mai vista di notte: non si sa
+  const W0 = nightW(k, mask & 1); if (!W0) return null;   // la casa sul banco senza averla mai vista di notte: non si sa
   const W = Math.max(30, W0), T = [], P = [], L = [], night = [];
   for (let t = now; t < resume; t += HOUR) T.push(t);
   T.push(resume, resume + HOUR);
@@ -2180,6 +2192,39 @@ function nightRun(k, f, mask){
   const inp = full ? fullInputs(f, mask) : simpleInputs(k, mask); if (!inp) return null;
   if (Object.keys(nightMemo).length > 300) nightMemo = {};
   return nightMemo[key] = { ...nightOf(inp, simPaths(inp, NIGHT_R)), simple: !!inp.simple, W: inp.W };
+}
+/* ---------- autonomia su solare: quanto dura il banco con la casa sul banco, qualunque sia adesso l'uscita ----------
+   Due risposte dallo stesso motore della notte: al buio (l'energia fino allo stacco divisa per il consumo della casa) e, col modello, col sole
+   previsto (simulazioni a 48 ore con l'uscita accesa per tutto il tempo: quando l'inverter staccherebbe, e con che probabilità). */
+function autonomy(k, f){
+  if (!data || !k || !k.on || !fin(k.soc) || !fin(k.full)) return null;
+  const full = !!(f && model && model.prof), cut = cutSoc(), key = "a" + (full ? f.t[0] : Math.round(k.soc * 10) + ":" + Math.floor(nowOf(data) / 300));
+  if (nightMemo[key]) return nightMemo[key];
+  const cap = full ? f.cap : k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), soc = full ? f.mid[0] : k.soc, left = Math.max(0, soc - cut) / 100 * cap;
+  let o;
+  if (full) {
+    const inp = fullInputs(f, 1, f.t[0] + 48 * HOUR), paths = simPaths(inp, NIGHT_R), N = inp.P.length, W = inp.L.slice(0, 24).reduce((a, x) => a + x, 0) / Math.min(24, N);
+    const ts = paths.map(a => { for (let i = 0; i < N; i++) if (a[i + 1] <= cut) return inp.T[i] + HOUR * clamp((a[i] - cut) / ((a[i] - a[i + 1]) || 1), 0, 1); return Infinity; }).sort((x, y) => x - y);
+    const med = ts[Math.floor(ts.length / 2)];
+    o = { W, dark: left / W, p: ts.filter(fin).length / ts.length, at: fin(med) ? med : null, full: true };
+  } else { const W = nightW(k, 1); o = W ? { W, dark: left / W } : { unknown: true }; }
+  if (Object.keys(nightMemo).length > 300) nightMemo = {};
+  return nightMemo[key] = { ...o, cut, left };
+}
+const AUTO_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4M9.5 15.5h5M9.5 11.5h5"/></svg>';
+function drawAuto(k, f){
+  const box = $("auto"); if (!box) return;
+  const a = autonomy(k, f); if (!a) { box.hidden = true; return; }
+  const now = nowOf(data), enel = !houseNow(), html0 = (cls, t, d) => { box.hidden = false; box.className = "night " + cls; const h = `<div class="n-h"><span class="n-ico">${AUTO_ICO}</span><span class="n-t">${t}</span></div><p class="n-d">${d}</p>`; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
+  const stacco = `stacco dell'inverter (${ilP(a.cut)}, ${S.inv} V)`, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
+  if (a.unknown) return html0("wait", "Autonomia su solare: serve il consumo della casa", "La scheda lo misura la prima volta che sposti l'uscita dell'inverter, o dopo una notte con la casa sul banco.");
+  if (!(a.left > 0)) return html0("warn", "Su solare il banco è già allo stacco", `La carica è già sotto lo ${stacco}: l'ATS terrebbe la casa su Enel.`);
+  const darkTxt = `Al buio, al consumo della casa (~${power(a.W)}), arriverebbe allo ${stacco} in <b>${dur(a.dark)}</b>.`;
+  const en = enel ? " <small>Adesso la casa è su Enel: è come andrebbe con l'uscita accesa.</small>" : "";
+  if (!a.full) return html0(a.dark < 12 ? "warn" : "ok", `Su solare il banco dura <b>${dur(a.dark)}</b> al buio`, `${darkTxt} <small>Il sole non è ancora contato: la previsione completa arriva con 7 giorni di registro.</small>${en}`);
+  if (a.at) return html0("warn", `Su solare l'inverter staccherebbe tra <b>${dur((a.at - now) / HOUR)}</b>`,
+    `Col sole previsto ${ora(a.at)}, probabilità ${nf(a.p * 100, 0)}% nelle prossime 48 ore; poi l'ATS porterebbe la casa su Enel. ${darkTxt}${en}`);
+  return html0("ok", "Su solare il banco regge oltre 48 ore", `Col sole previsto i pannelli ricaricano prima dello stacco${a.p >= .01 ? ` (probabilità di stacco ${nf(a.p * 100, 0)}% nelle 48 ore)` : ""}. ${darkTxt}${en}`);
 }
 /* ---------- il banco e gli stacchi. Il registro dice quanta energia c'è, ma l'inverter stacca per la tensione al picco di consumo:
    qui si impara da /stress.bin (i valori peggiori di ogni quarto d'ora) e da /invev.bin (stacchi e quasi-stacchi).
@@ -2996,6 +3041,7 @@ function render(m){
   drawPv(data.pv, k);
   drawSw();
   drawFlow(k);
+  drawAuto(k, f);
   drawNight(k, f);
   drawWeather(k);
   drawFw();
