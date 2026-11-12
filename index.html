@@ -552,6 +552,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 [data-style] .q-mod[aria-checked="true"]{background:color-mix(in srgb,var(--lith) 14%,var(--bg));border-color:var(--lith);box-shadow:0 0 14px -6px var(--lith)}
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-one,.q-mod,.q-slot,.q-lev){border-radius:0}
 [data-style="mecha"] .q-mod{clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+[data-mecha] .q-ico{border-radius:50%;border:2.2px solid var(--muted);background:var(--bg);color:var(--muted)}   /* come i cerchi di «Energia adesso» */
+[data-mecha] .q-one.on .q-ico{border-color:var(--sun);color:var(--sun);background:var(--bg)}
 [data-style="hitech"] :is(.q-one,.q-mod){border-radius:3px}
 /* stanotte: badge in dashboard (verde ce la fai, giallo margine stretto, rosso stacco) */
 .night{--c:var(--good);--t:var(--good-tint);margin-top:16px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:14px;background:var(--t)}
@@ -593,70 +595,52 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .q-cb .cb-sw.lost{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}.q-cb .cb-sw.lost i{background:var(--warn)}
 .q-cb .hot{border-color:color-mix(in srgb,var(--alert) 55%,var(--line))}.q-cb .hot b{color:var(--alert)}
 .q-cb .cb-err{grid-column:1/-1;margin:2px 2px 0;font-size:.78rem;line-height:1.4;color:var(--muted)}
-.cb-ctl{margin-top:10px}.cb-well{position:relative;overflow:hidden;border-radius:16px;border:1px solid var(--line);background:var(--bg);padding:6px}
-.cb-btn{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,var(--alert) 60%,var(--line));
-  background:color-mix(in srgb,var(--alert) 18%,var(--surface));color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .12s,filter .2s}
-.cb-btn.off{border-color:color-mix(in srgb,var(--sun) 60%,var(--line));background:color-mix(in srgb,var(--sun) 16%,var(--surface))}
-.cb-btn svg{flex:none;width:30px;height:30px;fill:none;stroke:var(--alert);stroke-width:2.4;stroke-linecap:round}.cb-btn.off svg{stroke:var(--sun)}
-.cb-btn b{display:block;font-size:1rem}.cb-btn small{display:block;margin-top:2px;font-size:.78rem;color:var(--muted)}
-.cb-btn:disabled{filter:saturate(.4) brightness(.8);cursor:default}.cb-btn:not(:disabled):active{transform:scale(.98)}
-.cb-well.open .cb-btn{box-shadow:0 0 0 3px color-mix(in srgb,var(--alert) 30%,transparent)}.cb-well.open .cb-btn.off{box-shadow:0 0 0 3px color-mix(in srgb,var(--sun) 30%,transparent)}
-.cb-glass{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;
-  border-radius:15px;border:1px solid rgba(255,255,255,.28);color:rgba(255,255,255,.92);font-size:.86rem;font-weight:600;letter-spacing:.02em;
-  background:linear-gradient(112deg,rgba(255,255,255,.20),rgba(255,255,255,.06) 38%,rgba(255,255,255,.14) 52%,rgba(255,255,255,.04) 70%,rgba(255,255,255,.10));
-  -webkit-backdrop-filter:blur(2.5px) saturate(.7);backdrop-filter:blur(2.5px) saturate(.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -8px 20px rgba(0,0,0,.18);
-  transition:transform .35s cubic-bezier(.2,.8,.2,1)}
-.cb-glass:active{cursor:grabbing}.cb-glass svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;animation:cbNudge 1.8s ease-in-out infinite}
-.cb-glass .cb-hint{text-shadow:0 1px 2px rgba(0,0,0,.5)}
-.cb-screw{position:absolute;left:10px;top:9px;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ddd,#777);box-shadow:0 0 0 1px rgba(0,0,0,.4)}.cb-screw.b{top:auto;bottom:9px}
-.cb-timer{position:absolute;left:6px;bottom:2px;height:3px;width:0;border-radius:2px;background:var(--sun);max-width:calc(100% - 12px)}
-.cb-well.open .cb-glass{transform:translateX(calc(100% + 12px))}.cb-well.open .cb-timer{animation:cbTime 8s linear forwards}
-.cb-well.lock .cb-glass{cursor:not-allowed;color:var(--muted)}.cb-well.lock .cb-glass svg{display:none}
-.cb-msg{margin:6px 2px 0;font-size:.8rem;line-height:1.4;color:var(--muted)}.cb-msg.good{color:var(--good)}.cb-msg.bad{color:var(--alert)}
-.cb-screw.c,.cb-screw.d,.cb-haz,.cb-grip,.cb-tag{display:none}
-/* mecha: pannello di comando con i bordi smussati, vetro blindato ambra con viti agli angoli, maniglia zigrinata, banda di pericolo e testi condensati */
-[data-mecha] .ql-sum div{border-radius:0;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
-[data-mecha] .ql-sum b{font-family:"Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.02em}
-[data-mecha] .q-cb .cb-sw b{text-transform:uppercase;letter-spacing:.06em}[data-mecha] .q-cb .cb-sw i{border-radius:0;transform:rotate(45deg)}
+.q-cb{grid-template-columns:repeat(3,minmax(0,1fr))}.q-cb>div{overflow:hidden}.q-cb b{overflow:hidden;text-overflow:ellipsis}
+.q-cb .cb-sw.on b{color:var(--good)}.q-cb .cb-sw.off b{color:var(--alert)}
+.q-cb .cb-sw.on i{background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 25%,transparent)}
+.cb-ctl{margin-top:10px}.cb-tag{display:none}
+/* il pulsante a due tocchi: a sinistra lo stato (ON verde, OFF rosso), a destra cosa farà il tocco */
+.cb-btn{--st:var(--muted);--arm:0;position:relative;overflow:hidden;width:100%;display:grid;grid-template-columns:96px 1fr;align-items:stretch;padding:0;
+  border:2px solid color-mix(in srgb,var(--st) 70%,var(--line));border-radius:14px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .1s}
+.cb-btn.is-on{--st:var(--good)}.cb-btn.is-off{--st:var(--alert)}
+.cb-btn:not(:disabled):active{transform:scale(.985)}.cb-btn:disabled{cursor:default}
+.cb-now{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:12px 6px;background:color-mix(in srgb,var(--st) 16%,var(--bg));border-right:2px solid color-mix(in srgb,var(--st) 55%,var(--line))}
+.cb-now small,.cb-act small{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cb-now b{font-size:1.9rem;line-height:1;font-weight:800;letter-spacing:.04em;color:var(--st);text-shadow:0 0 14px color-mix(in srgb,var(--st) 45%,transparent)}
+.cb-act{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:12px 16px}
+.cb-act b{font-size:1.12rem;font-weight:700;letter-spacing:.03em}
+.cb-btn:disabled .cb-act{opacity:.5}
+.cb-btn.armed{border-color:var(--warn);animation:cbPulse .6s ease-in-out infinite alternate}
+.cb-btn.armed .cb-act{background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--warn) 22%,transparent) 0 10px,transparent 10px 20px);background-size:28px 28px;animation:cbStripe .8s linear infinite}
+.cb-btn.armed .cb-act b{color:var(--warn)}
+.cb-btn.armed .cb-act :is(b,small){width:fit-content;padding:2px 8px;background:#111;color:var(--warn)}
+.q-cb .cb-sw.lost b{color:var(--muted)}.q-cb>div{min-height:64px}.q-cb span{overflow-wrap:anywhere}
+.cb-arm-t{position:absolute;left:0;bottom:0;height:4px;width:calc(var(--arm) * 100%);background:var(--warn);transition:width .5s linear}
+.cb-msg{display:flex;align-items:flex-start;gap:8px;min-height:1.4em;margin:8px 2px 0;font-size:.82rem;line-height:1.4;color:var(--muted)}
+.cb-ph{flex:none;padding:2px 7px;border-radius:5px;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#111;background:var(--muted)}
+.cb-ph.arm{background:var(--warn)}.cb-ph.wait{background:var(--muted)}.cb-ph.ok{background:var(--sun)}.cb-ph.good{background:var(--good)}.cb-ph.bad{background:var(--alert);color:#fff}
+@keyframes cbPulse{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--warn) 0%,transparent)}to{box-shadow:0 0 0 4px color-mix(in srgb,var(--warn) 35%,transparent)}}
+@keyframes cbStripe{to{background-position:28px 0}}
+/* mecha: pannello smussato, testi condensati, banda di pericolo sull'etichetta */
 [data-mecha] .cb-tag{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:700 .72rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--lith)}
 [data-mecha] .cb-tag::before{content:"";width:26px;height:8px;background:repeating-linear-gradient(-45deg,var(--lith) 0 3px,transparent 3px 6px)}
 [data-mecha] .cb-tag::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 70%,transparent),transparent)}
-[data-mecha] .cb-well{--bd:color-mix(in srgb,var(--lith) 70%,#000);isolation:isolate;border:0;border-radius:0;padding:8px;background:var(--bd);
+[data-mecha] .ql-sum div{border-radius:0;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
+[data-mecha] .ql-sum b{font-family:"Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.02em}
+[data-mecha] .q-cb .cb-sw b{text-transform:uppercase;letter-spacing:.06em}[data-mecha] .q-cb .cb-sw i{border-radius:0;transform:rotate(45deg)}
+[data-mecha] .cb-btn{border:0;border-radius:0;padding:2px;background:color-mix(in srgb,var(--st) 75%,#000);grid-template-columns:100px 1fr;
   clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
-[data-mecha] .cb-well::before{content:"";position:absolute;inset:2px;z-index:-1;background:repeating-linear-gradient(-45deg,#151515 0 6px,#111 6px 12px);
-  clip-path:polygon(13px 0,100% 0,100% calc(100% - 13px),calc(100% - 13px) 100%,0 100%,0 13px)}
-[data-mecha] .cb-well.open{--bd:var(--alert)}[data-mecha] .cb-well.open:has(.cb-btn.off){--bd:var(--lith)}[data-mecha] .cb-well.lock{--bd:#3a3a3a}
-[data-mecha] .cb-btn{border-radius:0;border:0;padding:14px 16px 14px 12px;gap:14px;color:#fff;
-  background:linear-gradient(180deg,color-mix(in srgb,var(--alert) 85%,#fff 0%),color-mix(in srgb,var(--alert) 70%,#000));
-  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35)}
-[data-mecha] .cb-btn.off{color:#111;background:linear-gradient(180deg,var(--lith),color-mix(in srgb,var(--lith) 72%,#000))}
-[data-mecha] .cb-btn svg{width:38px;height:38px;padding:6px;stroke:currentColor;stroke-width:2.6;background:rgba(0,0,0,.28);clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}
-[data-mecha] .cb-btn.off svg{stroke:#111;background:rgba(0,0,0,.14)}
-[data-mecha] .cb-btn b{font:700 1.08rem/1.1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.06em;text-transform:uppercase}
-[data-mecha] .cb-btn small{color:inherit;opacity:.82;font-size:.76rem}
-[data-mecha] .cb-btn:disabled{filter:saturate(.35) brightness(.55)}
-[data-mecha] .cb-well.open .cb-btn{box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35);animation:cbArm 1s ease-in-out infinite alternate}
-[data-mecha] .cb-glass{inset:4px;border:0;border-radius:0;justify-content:center;gap:10px;color:var(--lith);
-  font:700 .92rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.16em;text-transform:uppercase;
-  background:linear-gradient(120deg,rgba(255,255,255,.12),rgba(255,255,255,0) 30%,rgba(255,255,255,0) 58%,rgba(255,255,255,.07) 66%,rgba(255,255,255,0) 74%),
-    linear-gradient(180deg,rgba(22,24,27,.68),rgba(6,7,8,.78));
-  -webkit-backdrop-filter:blur(2.5px) saturate(.15) brightness(.6);backdrop-filter:blur(2.5px) saturate(.15) brightness(.6);
-  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--lith) 75%,transparent),inset 0 0 0 4px rgba(0,0,0,.45),inset 0 10px 24px rgba(255,255,255,.06);
-  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
-[data-mecha] .cb-glass .cb-hint{text-shadow:0 0 10px color-mix(in srgb,var(--lith) 60%,transparent),0 1px 2px #000}
-[data-mecha] .cb-glass svg{stroke-width:2.8}
-[data-mecha] .cb-screw{display:block;width:8px;height:8px;top:9px;left:auto;right:10px;background:radial-gradient(circle at 40% 35%,#cfcfcf,#5a5a5a 70%);box-shadow:0 0 0 1px #000}
-[data-mecha] .cb-screw::after{content:"";position:absolute;left:1px;right:1px;top:3.5px;height:1px;background:#222;transform:rotate(35deg)}
-[data-mecha] .cb-screw.b{top:auto;bottom:9px}[data-mecha] .cb-screw.c{top:9px;right:auto;left:40px}[data-mecha] .cb-screw.d{top:auto;bottom:9px;right:auto;left:40px}
-[data-mecha] .cb-haz{display:block;position:absolute;left:0;top:0;bottom:0;width:30px;background:repeating-linear-gradient(-45deg,var(--lith) 0 6px,#111 6px 12px);opacity:.9;
-  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px)}
-[data-mecha] .cb-grip{display:block;position:absolute;left:30px;top:10px;bottom:10px;width:3px;background:#000;opacity:.6}
-[data-mecha] .cb-well.lock .cb-glass{color:#777}[data-mecha] .cb-well.lock .cb-haz{filter:grayscale(1);opacity:.4}
-[data-mecha] .cb-timer{left:8px;bottom:3px;height:4px;border-radius:0;max-width:calc(100% - 16px);background:repeating-linear-gradient(90deg,var(--lith) 0 10px,transparent 10px 13px)}
-[data-mecha] .cb-msg{font-family:"Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.03em}
-@keyframes cbArm{from{filter:brightness(1)}to{filter:brightness(1.18)}}
-@keyframes cbNudge{0%,60%,100%{transform:translateX(0)}30%{transform:translateX(5px)}}@keyframes cbTime{from{width:100%}to{width:0}}
-@media (prefers-reduced-motion:reduce){.cb-glass svg,.cb-well.open .cb-btn{animation:none!important}.cb-glass{transition:none}}
+[data-mecha] .cb-btn.armed{background:var(--warn);animation:none}
+[data-mecha] .cb-now{border:0;margin-right:2px;background:linear-gradient(180deg,#1b1b1b,#0d0d0d);clip-path:polygon(12px 0,100% 0,100% 100%,0 100%,0 12px)}
+[data-mecha] .cb-now b{font:700 2.2rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.06em}
+[data-mecha] .cb-act{background:linear-gradient(180deg,#1a1a1a,#101010);clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)}
+[data-mecha] .cb-btn.armed .cb-act{background:repeating-linear-gradient(-45deg,rgba(255,224,77,.55) 0 10px,#121212 10px 20px);background-size:28px 28px}
+[data-mecha] :is(.cb-act b,.cb-now small,.cb-act small,.cb-ph){font-family:"Roboto Condensed","Arial Narrow",sans-serif}
+[data-mecha] .cb-act b{text-transform:uppercase;letter-spacing:.08em;font-size:1.2rem}
+[data-mecha] .cb-ph{border-radius:0;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);padding:2px 9px}
+[data-mecha] .cb-arm-t{height:5px;background:repeating-linear-gradient(90deg,#111 0 3px,transparent 3px 10px),var(--warn)}
+[data-mecha] .q-cb .cb-sw b{font-size:1.15rem}
+@media (prefers-reduced-motion:reduce){.cb-btn.armed,.cb-btn.armed .cb-act{animation:none}}
 .ql-rib{display:flex;flex-direction:column;gap:6px;padding:12px 12px 8px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .ql-day,.ql-ax{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px}
 .ql-dl{font-size:.76rem;color:var(--muted);text-transform:capitalize;white-space:nowrap}.ql-day:last-of-type .ql-dl{color:var(--ink);font-weight:600}
@@ -1606,7 +1590,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.89"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.90"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2240,9 +2224,8 @@ function drawSw(){
   const hdc = h && fin(h.w) ? h.w + plantW() : null, hac = houseAC(hdc), fit = hcalFit();
   $("q-state").textContent = on ? `Sulle batterie${hac !== null ? ` · circa ${power(hac)}` : hdc !== null ? ` · circa ${power(hdc)} dalle batterie` : ""}` : "Su Enel";
   const cal = $("q-cal"), calH = (on && hdc > 100 ? `<form class="loc-f" autocomplete="off"><input type="number" inputmode="decimal" min="50" step="1" placeholder="W che segna l'inverter adesso" aria-label="Watt che segna l'inverter adesso"><button class="set-btn pri" type="submit">Tara</button></form>` : "") +
-    `<p class="set-note">${fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}. I watt della casa sono quelli dell'inverter. <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
-      : on ? "La app vede la casa dalle batterie, perdite dell'inverter comprese. Scrivi quanto segna l'inverter: da lì mostra i watt della casa come lui (meglio due letture a carichi diversi)."
-      : "Quando la casa è sulle batterie puoi tarare i watt della casa con quelli che segna l'inverter."}</p>`;
+    ((t => t ? `<p class="set-note">${t}</p>` : "")(fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}. I watt della casa sono quelli dell'inverter. <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
+      : ""));
   if (cal.dataset.h !== calH && !cal.contains(document.activeElement)) { cal.dataset.h = calH; cal.innerHTML = calH; }
   $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
     : on ? "La casa prende corrente dall'inverter, cioè dalle batterie." : `Le batterie alimentano solo l'impianto (circa ${power(plantW())}).`;
@@ -2254,86 +2237,93 @@ function drawSw(){
   chip.classList.toggle("off", !on);
   drawSwLog();
 }
-/* l'interruttore Shelly Pro 2CB tra l'uscita dell'inverter e l'ATS (firmware 0.43, sola lettura): chiuso o aperto, la tensione che dà
-   l'inverter, la temperatura interna e gli errori. Quando risponde è lui a dire alla scheda dove sta la casa. Si alimenta dall'inverter:
-   con l'inverter spento non risponde, ed è normale. */
+/* l'interruttore Shelly Pro 2CB tra l'uscita dell'inverter e l'ATS (firmware 0.43): ON o OFF, la tensione che dà l'inverter, la
+   temperatura interna e gli errori. Si alimenta dall'inverter: con l'inverter spento non risponde, ed è normale. Con OFF la casa è su
+   Enel per certo; con ON dove sta la casa lo dicono le misure, perché l'ATS può sceglierla Enel da sé. */
 const CB_ERRS = { lever: "leva manuale", overtemp: "troppo caldo", overvoltage: "tensione troppo alta", undervoltage: "tensione troppo bassa", overcurrent: "corrente troppo alta", overpower: "potenza troppo alta" };
 const cbErrText = () => { const c = data && data.cb; return c && Array.isArray(c.err) ? c.err.map(e => CB_ERRS[e] ? `${CB_ERRS[e]} («${e}»)` : `«${e}»`).join(", ") : ""; };
 function drawCb(){
   const box = $("q-cb"), note = $("q-note"), c = data && data.cb; if (!box) return;
   const by = data && data.house ? data.house.by === "cb" : !(c && c.on);   // senza «house» è la demo
   note.textContent = !c ? "La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente."
-    : by ? (c.ok ? "L'interruttore Shelly è aperto: la casa è su Enel per certo." : "Lo Shelly è sparito mentre l'inverter non dava più corrente: la casa è su Enel.")
-    : c.ok && c.on ? "Interruttore chiuso: l'inverter arriva all'ATS, ma l'ATS può tenere la casa su Enel per conto suo. Per questo dove sta la casa lo dicono le misure, da quanto consuma oltre l'impianto."
+    : by ? (c.ok ? "Interruttore OFF: la casa è su Enel per certo." : "Lo Shelly è sparito mentre l'inverter non dava più corrente: la casa è su Enel.")
+    : c.ok && c.on ? ""
     : "Lo Shelly non risponde: la scheda riconosce la casa dalle misure, da quanto consuma oltre l'impianto.";
+  note.hidden = !note.textContent;
   box.hidden = !c; if (!c) return;
-  const ok = !!c.ok, on = ok && c.on, vOk = ok && fin(c.v) && c.v >= 180;
-  const t1 = ok ? (c.on ? "Chiuso" : "Aperto") : "Non risponde", s1 = ok ? (c.on ? "interruttore · inverter all'ATS" : "interruttore · inverter staccato") : `interruttore${fin(c.at) ? " · dal " + alWhen(c.at) : ""}`;
-  const t2 = ok && fin(c.v) ? `${nf(c.v, 0)} V` : "—", s2 = ok ? (vOk ? "dall'inverter" : "l'inverter non dà corrente") : "inverter spento?";
-  const t3 = ok && fin(c.t) ? `${nf(c.t, 0)} °C` : "—", s3 = "dentro lo Shelly";
+  const ok = !!c.ok, vOk = ok && fin(c.v) && c.v >= 180;
+  const t1 = ok ? (c.on ? "ON" : "OFF") : "—", s1 = ok ? "interruttore" : "non risponde";
+  const t2 = ok && fin(c.v) ? `${nf(c.v, 0)} V` : "—", s2 = ok ? (vOk ? "dall'inverter" : "inverter senza tensione") : "inverter spento?";
+  const t3 = ok && fin(c.t) ? `${nf(c.t, 0)} °C` : "—", s3 = "nello Shelly";
   const err = ok ? cbErrText() : "";
-  const h = `<div class="cb-sw ${on ? "on" : ok ? "off" : "lost"}"><b><i></i>${t1}</b><span>${s1}</span></div><div><b>${t2}</b><span>${s2}</span></div><div class="${ok && c.t >= 70 ? "hot" : ""}"><b>${t3}</b><span>${s3}</span></div>`
+  const h = `<div class="cb-sw ${!ok ? "lost" : c.on ? "on" : "off"}"><b><i></i>${t1}</b><span>${s1}</span></div><div><b>${t2}</b><span>${s2}</span></div><div class="${ok && c.t >= 70 ? "hot" : ""}"><b>${t3}</b><span>${s3}</span></div>`
     + (err ? `<p class="cb-err">Segnala: ${err}</p>` : !ok ? `<p class="cb-err">Lo Shelly prende corrente dall'inverter: se l'inverter è spento o ha staccato, è normale che non risponda.</p>` : "");
   if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
   drawCbCtl();
 }
-/* il comando dell'interruttore: due gesti diversi, come il coperchio di un pulsante d'emergenza. Prima si fa scorrere di lato il vetro
-   (oltre metà larghezza, o un colpo veloce), poi si preme il tasto sotto; se non lo si preme entro 8 secondi il vetro si richiude da solo.
-   In casa POST /api/cb, da fuori casa il comando cifrato «cb» (firmware 0.43); la scheda ne accetta uno al minuto e rilegge lo stato. */
-const CB_CTL = `<div class="cb-ctl" id="cb-ctl" hidden><p class="cb-tag">Uscita dell'inverter</p><div class="cb-well" id="cb-well">
-  <button type="button" class="cb-btn" id="cb-btn" tabindex="-1" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg><span><b id="cb-btn-t"></b><small id="cb-btn-s"></small></span></button>
-  <div class="cb-glass" id="cb-glass" role="button" tabindex="0" aria-label="Fai scorrere il vetro di protezione"><i class="cb-screw"></i><i class="cb-screw b"></i><i class="cb-screw c"></i><i class="cb-screw d"></i><i class="cb-haz"></i><i class="cb-grip"></i><span class="cb-hint">Scorri il vetro</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/><path d="m4 6 6 6-6 6" opacity=".45"/></svg></div><i class="cb-timer"></i>
-</div><p class="cb-msg" id="cb-msg" aria-live="polite"></p></div>`;
-let cbOpenT = 0, cbSent = null;   // cbSent: {on, at, err} dell'ultimo comando partito da questo telefono
-function cbGlass(open){
-  const g = $("cb-glass"), b = $("cb-btn"), w = $("cb-well"); if (!g) return;
-  clearTimeout(cbOpenT); g.style.transform = ""; g.style.transition = "";
-  w.classList.toggle("open", open); b.disabled = !open; b.tabIndex = open ? 0 : -1; g.tabIndex = open ? -1 : 0;
-  if (open) { b.focus({ preventScroll: true }); cbOpenT = setTimeout(() => cbGlass(false), 8000); }
-}
+/* il comando: un pulsante a due tocchi. Il primo lo arma (strisce di pericolo, «Conferma», 5 secondi per decidere), il secondo manda il
+   comando; se non arriva, si disarma da solo. Lo stato attuale (ON/OFF) sta sempre a sinistra, grande, col suo colore; a destra quello
+   che il tocco farà. Sotto, una riga sola con la fase dell'ultimo comando: si sostituisce, non si accumula, e sparisce un minuto dopo
+   l'esito. In casa POST /api/cb, da fuori casa il comando cifrato «cb»; la scheda ne accetta uno ogni 30 s (firmware 0.45). */
+const CB_CTL = `<div class="cb-ctl" id="cb-ctl" hidden><p class="cb-tag">Uscita dell'inverter</p>
+  <button type="button" class="cb-btn" id="cb-btn"><span class="cb-now"><small>adesso</small><b id="cb-now"></b></span><span class="cb-act"><small id="cb-act-s"></small><b id="cb-act"></b></span><i class="cb-arm-t"></i></button>
+  <p class="cb-msg" id="cb-msg" aria-live="polite"></p></div>`;
+const CB_ARM_MS = 5000;
+let cbArmAt = 0, cbSent = null, cbTick = 0;   // cbSent: {on, t, base, st: "send"|"ok"|"err", msg} dell'ultimo comando partito da questo telefono
+function cbLoop(){ clearInterval(cbTick); cbTick = setInterval(() => { drawCbCtl(); if (!cbArmAt && !(cbSent && cbSent.st !== "err" && Date.now() - cbSent.t < 120e3)) clearInterval(cbTick); }, 500); }
 function cbCtlInit(){
-  const g = $("cb-glass"), b = $("cb-btn"); let x0 = null, t0 = 0, dx = 0;
-  g.addEventListener("pointerdown", e => { const w = $("cb-well"); if (w.classList.contains("open") || w.classList.contains("lock")) return; x0 = e.clientX; t0 = performance.now(); dx = 0; g.setPointerCapture(e.pointerId); g.style.transition = "none"; });
-  g.addEventListener("pointermove", e => { if (x0 === null) return; dx = Math.max(0, e.clientX - x0); g.style.transform = `translateX(${dx}px)`; });
-  const end = () => { if (x0 === null) return; const fast = dx > 40 && dx / (performance.now() - t0) > .6; x0 = null;
-    if (dx > g.offsetWidth * .5 || fast) cbGlass(true); else { g.style.transition = ""; g.style.transform = ""; } };
-  g.addEventListener("pointerup", end); g.addEventListener("pointercancel", end);
-  g.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !$("cb-well").classList.contains("lock")) { e.preventDefault(); cbGlass(true); } });
+  const b = $("cb-btn");
   b.addEventListener("click", async () => {
     const c = data && data.cb; if (!c || b.disabled) return;
-    const want = !c.on; cbGlass(false); cbSent = { on: want, at: Date.now(), err: "" }; drawCbCtl();
+    if (!cbArmAt || Date.now() - cbArmAt > CB_ARM_MS) { cbArmAt = Date.now(); cbLoop(); drawCbCtl(); return; }   // primo tocco: arma
+    cbArmAt = 0; const want = !c.on;
+    cbSent = { on: want, t: Date.now(), base: c.cmd && fin(c.cmd.at) ? c.cmd.at : 0, st: "send", msg: "" }; cbLoop(); drawCbCtl();
     try {
       if (mode === "live") {
         const r = await fetch("/api/cb", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ on: want }) });
         const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.msg || "la scheda non risponde");
       } else if (mode === "remote") await remCmd("cb", { on: want });
-      else if (!isReal()) { demoCb.cmd = { st: 1, on: want, at: Math.round(Date.now() / 1000), msg: "" };
-        setTimeout(() => { demoCb.on = want; demoCb.cmd = { ...demoCb.cmd, st: 2, msg: want ? "acceso" : "spento" }; }, 2500); }
+      else if (!isReal()) { const at = Math.round(Date.now() / 1000) + 1; demoCb.cmd = { st: 1, on: want, at, msg: "" };
+        setTimeout(() => { demoCb.on = want; demoCb.cmd = { st: 2, on: want, at, msg: want ? "acceso" : "spento" }; }, 2500); }
       else throw new Error("serve la scheda: col cavo USB non si comanda");
-    } catch (e) { cbSent.err = /non permesso/.test(e.message) ? "da fuori casa serve il firmware 0.43 sulla scheda" : e.message; }
+      cbSent.st = "ok";
+    } catch (e) { cbSent.st = "err"; cbSent.msg = /non permesso/.test(e.message) ? "da fuori casa serve il firmware 0.43 sulla scheda" : e.message; }
     drawCbCtl();
   });
 }
+function cbPhase(c){       // la fase da mostrare: [classe, etichetta, testo] o null
+  const k = c.cmd, me = cbSent && Date.now() - cbSent.t < 120e3 ? cbSent : null, now = Date.now() / 1000;
+  const S = x => x ? "ON" : "OFF";
+  if (cbArmAt) return ["arm", "Conferma", `Tocca di nuovo entro ${Math.max(1, Math.ceil((CB_ARM_MS - (Date.now() - cbArmAt)) / 1000))} s per portare l'interruttore a ${S(!c.on)}.`];
+  if (me) {
+    if (me.st === "send") return ["wait", "Invio", "Mando il comando alla scheda…"];
+    if (me.st === "err") return ["bad", "Rifiutato", `${me.msg.charAt(0).toUpperCase() + me.msg.slice(1)}.`];
+    const r = k && k.at > me.base && k.on === me.on ? k : null;   // l'esito di questo comando, non di uno vecchio
+    if (!r || r.st === 1) return ["ok", "Accolto", `La scheda ha preso il comando: lo Shelly porta l'interruttore a ${S(me.on)}…`];
+    if (r.st === 2) return Date.now() - me.t < 60e3 + 5e3 ? ["good", "Fatto", `Interruttore ${S(r.on)} alle ${hm(r.at)}.`] : null;
+    return ["bad", "Non eseguito", `${r.msg || "lo Shelly ha rifiutato"}.${r.on ? " Se l'avevi spento con la leva o è scattato, si riaccende solo a mano." : ""}`];
+  }
+  if (k && now - k.at < 60) return k.st === 1 ? ["ok", "In corso", `Comando da un altro telefono: interruttore a ${S(k.on)}…`]
+    : k.st === 2 ? ["good", "Fatto", `Interruttore ${S(k.on)} alle ${hm(k.at)} (da un altro telefono).`] : ["bad", "Non eseguito", `${k.msg || "lo Shelly ha rifiutato"}.`];
+  return null;
+}
 function drawCbCtl(){
   const box = $("cb-ctl"), c = data && data.cb; if (!box) return;
-  const can = !!(c && c.ok && (mode === "live" || mode === "remote" || !isReal()));
   box.hidden = !c; if (!c) return;
-  const on = !!c.on, k = c.cmd, mine = cbSent && Date.now() - cbSent.at < 180e3 ? cbSent : null;
-  $("cb-btn-t").textContent = on ? "Spegni l'uscita dell'inverter" : "Riaccendi l'uscita dell'inverter";
-  $("cb-btn-s").textContent = on ? "l'ATS porta la casa su Enel" : "la casa torna sulle batterie, se l'ATS la sceglie";
-  $("cb-btn").classList.toggle("off", !on);
-  $("cb-well").classList.toggle("lock", !can); if (!can) cbGlass(false);
-  const hint = box.querySelector(".cb-hint"); hint.textContent = can ? "Scorri il vetro" : c.ok ? "Comando non disponibile" : "Lo Shelly non risponde";
-  let m = "", cls = "";
-  if (mine && mine.err) { m = `Non inviato: ${mine.err}.`; cls = "bad"; }
-  else if (k && k.st === 1) m = `${k.on ? "Riaccensione" : "Spegnimento"} in corso…`;
-  else if (k && k.st === 2) { m = `Fatto: uscita ${k.on ? "riaccesa" : "spenta"} alle ${hm(k.at)}.`; cls = "good"; }
-  else if (k && k.st === 3) { m = `Non eseguito: ${k.msg || "lo Shelly ha rifiutato"}.${k.on ? " Se l'avevi spento con la leva o è scattato, si riaccende solo a mano." : ""}`; cls = "bad"; }
-  else if (mine) m = "Comando inviato, aspetto la scheda…";
-  else m = mode === "remote" ? "Da fuori casa: il comando arriva cifrato alla scheda. Uno al minuto." : "Uno al minuto. Riaccendere da qui funziona solo se l'avevi spento da qui.";
-  const p = $("cb-msg"); p.textContent = m; p.className = "cb-msg " + cls;
+  if (cbArmAt && Date.now() - cbArmAt > CB_ARM_MS) cbArmAt = 0;
+  const can = !!(c.ok && (mode === "live" || mode === "remote" || !isReal())), busy = !!(cbSent && cbSent.st === "send");
+  const b = $("cb-btn"), on = !!c.on;
+  b.disabled = !can || busy; b.classList.toggle("is-on", c.ok && on); b.classList.toggle("is-off", c.ok && !on); b.classList.toggle("armed", !!cbArmAt && can);
+  $("cb-now").textContent = c.ok ? (on ? "ON" : "OFF") : "—";
+  $("cb-act-s").textContent = !can ? (c.ok ? "comando non disponibile" : "lo Shelly non risponde") : cbArmAt ? "conferma" : busy ? "invio" : "tocca per";
+  $("cb-act").textContent = !can ? "—" : cbArmAt ? `${on ? "Spegni" : "Accendi"} · ${on ? "OFF" : "ON"}` : on ? "Spegni" : "Accendi";
+  b.style.setProperty("--arm", cbArmAt ? Math.max(0, 1 - (Date.now() - cbArmAt) / CB_ARM_MS) : 0);
+  b.setAttribute("aria-label", `Interruttore ${c.ok ? (on ? "ON" : "OFF") : "non raggiungibile"}. ${cbArmAt ? "Tocca di nuovo per confermare" : "Tocca due volte per " + (on ? "spegnere" : "accendere")}`);
+  const ph = cbPhase(c), p = $("cb-msg");
+  const h = ph ? `<span class="cb-ph ${ph[0]}">${ph[1]}</span><span>${esc(ph[2])}</span>`
+    : `<span>${mode === "remote" ? "Da fuori casa il comando arriva cifrato. " : ""}Due tocchi: il primo arma, il secondo esegue. Un comando ogni 30 s.</span>`;
+  if (p.dataset.h !== h) { p.dataset.h = h; p.innerHTML = h; }
 }
-
 /* il registro dei passaggi tra banco ed Enel, dalle righe della scheda (/switch.bin): gli ultimi 7 giorni come nastri (giallo = casa sulle batterie),
    poi ogni passaggio con l'ora, il salto misurato, quanto è durato e, per le ore sulle batterie, l'energia data alla casa (dal registro dei quarti
    d'ora, nei watt dell'inverter se tarata). Un passaggio su Enel con uno stacco dell'inverter nel diario entro 10 minuti è lo stacco. */
