@@ -527,6 +527,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .flow .fa{font-size:11px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
 .flow .fn{font-size:9.5px;font-weight:700;letter-spacing:.09em;fill:var(--muted);text-transform:uppercase}
 .flow .bus{fill:var(--ink)}
+.flow .fs{fill:var(--lith);font-size:11px;letter-spacing:.04em}
 .flow .fp{font-size:15px;font-weight:700;fill:var(--sun);font-variant-numeric:tabular-nums}
 [data-mecha] .flow .fv,[data-style="reattore"] .flow .fv,[data-style="plancia"] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
 /* la casa sulle batterie o su Enel; le leve (q-mod) le usano gli interruttori dei pannelli */
@@ -552,6 +553,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 [data-style] .q-mod[aria-checked="true"]{background:color-mix(in srgb,var(--lith) 14%,var(--bg));border-color:var(--lith);box-shadow:0 0 14px -6px var(--lith)}
 :is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-one,.q-mod,.q-slot,.q-lev){border-radius:0}
 [data-style="mecha"] .q-mod{clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+[data-mecha] .fc-p{background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 10%,#161616),#131313);box-shadow:inset 3px 0 0 var(--lith)}
+[data-mecha] .q-mod,[data-mecha] .q-mod[aria-checked="true"]{background:linear-gradient(180deg,#1a1a1a,#0f0f0f)}   /* niente fondi gialli: lo stato lo dicono bordo, leva e testo */
 [data-mecha] .q-ico{border-radius:50%;border:2.2px solid var(--muted);background:var(--bg);color:var(--muted)}   /* come i cerchi di «Energia adesso» */
 [data-mecha] .q-one.on .q-ico{border-color:var(--sun);color:var(--sun);background:var(--bg)}
 [data-style="hitech"] :is(.q-one,.q-mod){border-radius:3px}
@@ -611,7 +614,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .cb-act b{font-size:1.12rem;font-weight:700;letter-spacing:.03em}
 .cb-btn:disabled .cb-act{opacity:.5}
 .cb-btn.armed{border-color:var(--warn);animation:cbPulse .6s ease-in-out infinite alternate}
-.cb-btn.armed .cb-act{background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--warn) 22%,transparent) 0 10px,transparent 10px 20px);background-size:28px 28px;animation:cbStripe .8s linear infinite}
+.cb-btn.armed .cb-act{background:repeating-linear-gradient(-45deg,var(--warn) 0 10px,#0d0d0d 10px 20px);background-size:28.28px 28.28px;animation:cbStripe .8s linear infinite}
 .cb-btn.armed .cb-act b{color:var(--warn)}
 .cb-btn.armed .cb-act :is(b,small){width:fit-content;padding:2px 8px;background:#111;color:var(--warn)}
 .q-cb .cb-sw.lost b{color:var(--muted)}.q-cb>div{min-height:64px}.q-cb span{overflow-wrap:anywhere}
@@ -620,7 +623,16 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .cb-ph{flex:none;padding:2px 7px;border-radius:5px;font-size:.68rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#111;background:var(--muted)}
 .cb-ph.arm{background:var(--warn)}.cb-ph.wait{background:var(--muted)}.cb-ph.ok{background:var(--sun)}.cb-ph.good{background:var(--good)}.cb-ph.bad{background:var(--alert);color:#fff}
 @keyframes cbPulse{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--warn) 0%,transparent)}to{box-shadow:0 0 0 4px color-mix(in srgb,var(--warn) 35%,transparent)}}
-@keyframes cbStripe{to{background-position:28px 0}}
+@keyframes cbStripe{to{background-position:28.28px 0}}
+/* in corso: il tasto è fermo e pulsa piano, una luce scorre sul lato destro, una barra va avanti e indietro, e il testo dice cosa si aspetta */
+.cb-btn.busy{--st:var(--lith);border-color:var(--lith);cursor:progress}.cb-btn.busy:disabled .cb-act{opacity:1}
+.cb-btn.busy .cb-act{position:relative;background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--lith) 22%,transparent) 50%,transparent 70%) 0 0/220% 100% no-repeat,#121212;animation:cbScan 1.3s linear infinite}
+.cb-btn.busy .cb-act b{color:var(--lith);animation:cbBlink 1s ease-in-out infinite alternate}
+.cb-btn.busy .cb-act b::after{content:"";display:inline-block;width:.9em;height:.9em;margin-left:10px;vertical-align:-.1em;border:2.5px solid color-mix(in srgb,var(--lith) 30%,transparent);border-top-color:var(--lith);border-radius:50%;animation:cbSpin .8s linear infinite}
+.cb-busy-t{display:none;position:absolute;left:0;bottom:0;height:4px;width:30%;background:var(--lith)}
+.cb-btn.busy .cb-busy-t{display:block;animation:cbSlide 1.2s ease-in-out infinite alternate}
+@keyframes cbScan{from{background-position:120% 0,0 0}to{background-position:-120% 0,0 0}}
+@keyframes cbBlink{from{opacity:1}to{opacity:.55}}@keyframes cbSpin{to{transform:rotate(360deg)}}@keyframes cbSlide{from{left:0}to{left:70%}}
 /* mecha: pannello smussato, testi condensati, banda di pericolo sull'etichetta */
 [data-mecha] .cb-tag{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:700 .72rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--lith)}
 [data-mecha] .cb-tag::before{content:"";width:26px;height:8px;background:repeating-linear-gradient(-45deg,var(--lith) 0 3px,transparent 3px 6px)}
@@ -634,13 +646,14 @@ dialog[open]{animation:sheet-up .28s ease-out}
 [data-mecha] .cb-now{border:0;margin-right:2px;background:linear-gradient(180deg,#1b1b1b,#0d0d0d);clip-path:polygon(12px 0,100% 0,100% 100%,0 100%,0 12px)}
 [data-mecha] .cb-now b{font:700 2.2rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.06em}
 [data-mecha] .cb-act{background:linear-gradient(180deg,#1a1a1a,#101010);clip-path:polygon(0 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%)}
-[data-mecha] .cb-btn.armed .cb-act{background:repeating-linear-gradient(-45deg,rgba(255,224,77,.55) 0 10px,#121212 10px 20px);background-size:28px 28px}
+[data-mecha] .cb-btn.armed .cb-act{background:repeating-linear-gradient(-45deg,var(--warn) 0 10px,#0d0d0d 10px 20px);background-size:28.28px 28.28px}
+[data-mecha] .cb-btn.busy{background:var(--lith)}
 [data-mecha] :is(.cb-act b,.cb-now small,.cb-act small,.cb-ph){font-family:"Roboto Condensed","Arial Narrow",sans-serif}
 [data-mecha] .cb-act b{text-transform:uppercase;letter-spacing:.08em;font-size:1.2rem}
 [data-mecha] .cb-ph{border-radius:0;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);padding:2px 9px}
 [data-mecha] .cb-arm-t{height:5px;background:repeating-linear-gradient(90deg,#111 0 3px,transparent 3px 10px),var(--warn)}
 [data-mecha] .q-cb .cb-sw b{font-size:1.15rem}
-@media (prefers-reduced-motion:reduce){.cb-btn.armed,.cb-btn.armed .cb-act{animation:none}}
+@media (prefers-reduced-motion:reduce){.cb-btn.armed,.cb-btn.armed .cb-act,.cb-btn.busy .cb-act,.cb-btn.busy .cb-act b,.cb-btn.busy .cb-busy-t{animation:none}}
 .ql-rib{display:flex;flex-direction:column;gap:6px;padding:12px 12px 8px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .ql-day,.ql-ax{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px}
 .ql-dl{font-size:.76rem;color:var(--muted);text-transform:capitalize;white-space:nowrap}.ql-day:last-of-type .ql-dl{color:var(--ink);font-weight:600}
@@ -880,6 +893,24 @@ footer{border-top:0;padding-top:0}
 [data-mecha] :is(.kpis dt,.state,.tab,.pv-st,.pv-n){text-transform:uppercase;letter-spacing:.06em}
 [data-mecha] :is(.kpis dd,.pv-w){font-weight:700}
 [data-mecha] section h2{display:flex;align-items:center;gap:8px;color:var(--lith);font-size:.86rem}
+/* mecha, revisione 1.91: niente cornici arrotondate (riquadri con l'angolo smussato, pillole a parallelogramma) */
+[data-mecha] :is(.q-chip,.vocw,.pvi-row,.alerts li.no,.pvi-adv li,.wx-d,.pv-in>div,.ql-list,.ql-it,.tmr,.n-tip,.usb-card){border-radius:0;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)}
+[data-mecha] :is(.al-tag,.ri,.grab,.cb-ph){border-radius:0}
+[data-mecha] :is(.app-ver,.conn,.al-mute,.pv-st,.vl,.fc-p,.toast,.q-chip i){border-radius:0;clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);padding-left:12px;padding-right:12px}
+[data-mecha] .q-chip i{padding:0}
+/* sezioni con titolo: più aria sopra e una riga di rivetti che le separa dalla precedente */
+/* angolo smussato con il bordino: il ritaglio taglia via il bordo sulla diagonale, un tratto dello stesso colore (border-color: inherit) lo ridisegna */
+[data-mecha] :is(.tmr,.night,.q-chip,.pvi-row,.q-mod,.pvi-adv li,.ql-sum div,.flow-box){position:relative}
+[data-mecha] :is(.tmr,.night,.q-chip,.pvi-row,.q-mod,.pvi-adv li,.ql-sum div,.flow-box)::after{content:"";position:absolute;top:-1px;left:calc(100% - var(--ch,10px) + 1px);
+  width:calc(var(--ch,10px) * 1.4142);height:0;border-top:2px solid;border-top-color:inherit;transform:rotate(45deg);transform-origin:0 0;pointer-events:none;z-index:2}
+[data-mecha] .flow-box::before{content:"";position:absolute;left:-1px;top:calc(100% - 14px + 1px);width:calc(14px * 1.4142);height:0;border-top:2px solid;border-top-color:inherit;
+  transform:rotate(45deg);transform-origin:0 0;pointer-events:none;z-index:2}
+[data-mecha] .night{--ch:12px}[data-mecha] .q-mod{--ch:7px}[data-mecha] .ql-sum div{--ch:8px}[data-mecha] .flow-box{--ch:14px}
+[data-mecha] .al-mute{border-color:transparent;background:color-mix(in srgb,var(--ink) 8%,var(--surface))}
+[data-mecha] .page>section:has(>h2):not(:first-child){margin-top:30px}
+[data-mecha] .page>section:has(>h2):not(:first-child):not(.panel)::before{content:"";display:block;height:3px;margin:0 0 22px;
+  background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--lith) 38%,transparent) 0 3px,transparent 3px 9px)}
+[data-mecha] .page>section:has(>h2)>h2{margin-bottom:12px}
 [data-mecha] section h2::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--lith),transparent)}
 [data-mecha] .g-arc{stroke-width:13;stroke-linecap:butt}
 [data-mecha] .g-track{stroke:#262626}
@@ -1291,7 +1322,7 @@ footer{border-top:0;padding-top:0}
       </div>
       <p class="state idle" id="state">In attesa dei dati</p>
       <div class="eta volt" id="volt" role="img"></div>
-      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 9 340 169" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
+      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 9 340 198" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
       <div class="eta" id="eta"></div>
       </div>
       </section>
@@ -1337,17 +1368,17 @@ footer{border-top:0;padding-top:0}
         <div class="pv-day" id="pv-day"></div>
         <p class="pv-empty" id="pv-empty" hidden>I gruppi di pannelli compaiono quando la scheda legge i regolatori Epever.</p>
       </section>
-      <section aria-labelledby="h-pvi" id="pvin-sec" hidden>
+      <section class="panel plain" aria-labelledby="h-pvi" id="pvin-sec" hidden>
         <h2 id="h-pvi">Interruttori dei pannelli</h2>
         <div class="pv-in" id="pv-in"></div>
       </section>
-      <section aria-labelledby="h-q" id="quadro-sec">
+      <section class="panel plain" aria-labelledby="h-q" id="quadro-sec">
         <h2 id="h-q">Casa: batterie o Enel</h2>
         <div class="quadro" id="quadro"></div>
         <p class="set-note" id="q-note">La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente.</p>
         <div class="q-last" id="q-last"></div>
       </section>
-      <section aria-labelledby="h-ql" id="ql-sec" hidden>
+      <section class="panel plain" aria-labelledby="h-ql" id="ql-sec" hidden>
         <h2 id="h-ql">Registro dei passaggi</h2>
         <div class="ql" id="ql"></div>
       </section>
@@ -1590,7 +1621,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.90"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.91"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2266,7 +2297,7 @@ function drawCb(){
    che il tocco farà. Sotto, una riga sola con la fase dell'ultimo comando: si sostituisce, non si accumula, e sparisce un minuto dopo
    l'esito. In casa POST /api/cb, da fuori casa il comando cifrato «cb»; la scheda ne accetta uno ogni 30 s (firmware 0.45). */
 const CB_CTL = `<div class="cb-ctl" id="cb-ctl" hidden><p class="cb-tag">Uscita dell'inverter</p>
-  <button type="button" class="cb-btn" id="cb-btn"><span class="cb-now"><small>adesso</small><b id="cb-now"></b></span><span class="cb-act"><small id="cb-act-s"></small><b id="cb-act"></b></span><i class="cb-arm-t"></i></button>
+  <button type="button" class="cb-btn" id="cb-btn"><span class="cb-now"><small>adesso</small><b id="cb-now"></b></span><span class="cb-act"><small id="cb-act-s"></small><b id="cb-act"></b></span><i class="cb-arm-t"></i><i class="cb-busy-t"></i></button>
   <p class="cb-msg" id="cb-msg" aria-live="polite"></p></div>`;
 const CB_ARM_MS = 5000;
 let cbArmAt = 0, cbSent = null, cbTick = 0;   // cbSent: {on, t, base, st: "send"|"ok"|"err", msg} dell'ultimo comando partito da questo telefono
@@ -2311,15 +2342,17 @@ function drawCbCtl(){
   const box = $("cb-ctl"), c = data && data.cb; if (!box) return;
   box.hidden = !c; if (!c) return;
   if (cbArmAt && Date.now() - cbArmAt > CB_ARM_MS) cbArmAt = 0;
-  const can = !!(c.ok && (mode === "live" || mode === "remote" || !isReal())), busy = !!(cbSent && cbSent.st === "send");
+  const ph = cbPhase(c), can = !!(c.ok && (mode === "live" || mode === "remote" || !isReal()));
+  const busy = !!(ph && (ph[0] === "wait" || (ph[0] === "ok" && cbSent && cbSent.st === "ok")));   // invio, o accolto e lo Shelly non ha ancora finito
   const b = $("cb-btn"), on = !!c.on;
-  b.disabled = !can || busy; b.classList.toggle("is-on", c.ok && on); b.classList.toggle("is-off", c.ok && !on); b.classList.toggle("armed", !!cbArmAt && can);
+  b.disabled = !can || busy; b.classList.toggle("is-on", c.ok && on); b.classList.toggle("is-off", c.ok && !on); b.classList.toggle("armed", !!cbArmAt && can); b.classList.toggle("busy", busy);
   $("cb-now").textContent = c.ok ? (on ? "ON" : "OFF") : "—";
-  $("cb-act-s").textContent = !can ? (c.ok ? "comando non disponibile" : "lo Shelly non risponde") : cbArmAt ? "conferma" : busy ? "invio" : "tocca per";
-  $("cb-act").textContent = !can ? "—" : cbArmAt ? `${on ? "Spegni" : "Accendi"} · ${on ? "OFF" : "ON"}` : on ? "Spegni" : "Accendi";
+  const to = cbSent ? (cbSent.on ? "ON" : "OFF") : "";
+  $("cb-act-s").textContent = !can ? (c.ok ? "comando non disponibile" : "lo Shelly non risponde") : busy ? (ph[0] === "wait" ? "invio alla scheda" : "lo Shelly esegue") : cbArmAt ? "conferma" : "tocca per";
+  $("cb-act").textContent = !can ? "—" : busy ? `In corso · ${to}` : cbArmAt ? `${on ? "Spegni" : "Accendi"} · ${on ? "OFF" : "ON"}` : on ? "Spegni" : "Accendi";
   b.style.setProperty("--arm", cbArmAt ? Math.max(0, 1 - (Date.now() - cbArmAt) / CB_ARM_MS) : 0);
   b.setAttribute("aria-label", `Interruttore ${c.ok ? (on ? "ON" : "OFF") : "non raggiungibile"}. ${cbArmAt ? "Tocca di nuovo per confermare" : "Tocca due volte per " + (on ? "spegnere" : "accendere")}`);
-  const ph = cbPhase(c), p = $("cb-msg");
+  const p = $("cb-msg");
   const h = ph ? `<span class="cb-ph ${ph[0]}">${ph[1]}</span><span>${esc(ph[2])}</span>`
     : `<span>${mode === "remote" ? "Da fuori casa il comando arriva cifrato. " : ""}Due tocchi: il primo arma, il secondo esegue. Un comando ogni 30 s.</span>`;
   if (p.dataset.h !== h) { p.dataset.h = h; p.innerHTML = h; }
@@ -2685,14 +2718,14 @@ function drawFlow(k){
     const HOME = '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.8 9.5V20h12.4V9.5"/><path d="M10 20v-5.5h4V20"/>';
     const BAT = '<rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4"/><rect id="fb-lvl" x="8.6" y="6" width="6.8" height="13.5" rx=".8" style="stroke:none"/>';
     svg.innerHTML =
-      `<path class="tr" d="M80 50H162"/><path class="tr" d="M178 50H260"/><path class="tr" d="M170 58V109"/>` +
-      `<path class="fl" id="ff-pv" d="M80 50H162" style="stroke:var(--sun)"/><path class="fl" id="ff-home" d="M178 50H260" style="stroke:var(--out)"/><path class="fl" id="ff-bat" d="M170 58V109"/>` +
+      `<path class="tr" d="M80 50H162"/><path class="tr" d="M178 50H260"/><path class="tr" d="M170 58V95"/>` +
+      `<path class="fl" id="ff-pv" d="M80 50H162" style="stroke:var(--sun)"/><path class="fl" id="ff-home" d="M178 50H260" style="stroke:var(--out)"/><path class="fl" id="ff-bat" d="M170 58V95"/>` +
       `<circle class="bus" cx="170" cy="50" r="5"/>` +
-      node("pv", 52, 50, "var(--sun)", SUN) + node("home", 288, 50, "var(--out)", HOME) + node("bat", 170, 137, "var(--lith)", BAT) +
+      node("pv", 52, 50, "var(--sun)", SUN) + node("home", 288, 50, "var(--out)", HOME) + node("bat", 170, 122, "var(--lith)", BAT) +
       `<text class="fn" x="52" y="96" text-anchor="middle">Pannelli</text><text class="fv" id="ft-pv" x="52" y="114" text-anchor="middle"></text><text class="fa" id="fa-pv" x="52" y="128" text-anchor="middle"></text>` +
       `<text class="fn" x="288" y="96" text-anchor="middle">Casa</text><text class="fv" id="ft-home" x="288" y="114" text-anchor="middle"></text><text class="fa" id="fa-home" x="288" y="128" text-anchor="middle"></text>` +
-      `<text class="fn" id="fn2-bat" x="208" y="124">Batterie</text><text class="fv" id="ft-bat" x="208" y="142"></text><text class="fa" id="fa-bat" x="208" y="157"></text>` +
-      `<text class="fp" id="fs-bat" x="132" y="142" text-anchor="end"></text><text class="fa" id="fk-pv" x="52" y="143" text-anchor="middle"></text>`;
+      `<text class="fn" id="fn2-bat" x="170" y="168" text-anchor="middle">Batterie<tspan class="fs" id="fs-bat" dx="5"></tspan></text><text class="fv" id="ft-bat" x="170" y="186" text-anchor="middle"></text><text class="fa" id="fa-bat" x="170" y="200" text-anchor="middle"></text>` +   /* sotto il cerchio, come pannelli e casa */
+      `<text class="fa" id="fk-pv" x="52" y="143" text-anchor="middle"></text>`;
   }
   const v = fin(k.v) && k.v > 40 ? k.v : NOMV, pv = Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [];
   const prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null, bat = k.on && fin(k.p) ? k.p : null;
@@ -2709,7 +2742,7 @@ function drawFlow(k){
   set("ft-pv", prod === null ? "–" : power(prod)); set("fa-pv", prod === null ? (Array.isArray(data.pv) ? "non rispondono" : "regolatori non letti") : amp(prod));
   set("ft-home", !onBank ? "Enel" : home === null ? "–" : power(home)); set("fa-home", !onBank ? "" : home === null ? "senza i regolatori" : ac !== null ? "dalle batterie " + power(dc) : "dalle batterie");
   set("ft-bat", bat === null ? "–" : power(bat)); set("fa-bat", bat === null ? "" : amp(bat) + (Math.abs(bat) < 15 ? " · ferme" : bat > 0 ? " · in carica" : " · in scarica"));
-  set("fs-bat", fin(k.soc) ? nf(k.soc, 0) + "%" : ""); set("fk-pv", prod !== null && kwh > 0 ? `oggi ${nf(kwh, 1)} kWh` : "");
+  set("fs-bat", fin(k.soc) ? nf(k.soc, 0) + "%" : "");   // accanto a «Batterie», sotto il cerchio set("fk-pv", prod !== null && kwh > 0 ? `oggi ${nf(kwh, 1)} kWh` : "");
   flow("ff-pv", prod, false); flow("ff-home", home, false);
   flow("ff-bat", bat, bat !== null && bat < 0, bat !== null && bat < 0 ? "var(--out)" : "var(--lith)");
   const lv = $("fb-lvl"), f = fin(k.soc) ? clamp(k.soc, 0, 100) / 100 : 0;
