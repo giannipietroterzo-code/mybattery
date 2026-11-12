@@ -60,6 +60,10 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "strings": 2                   // facoltativo: stringhe in parallelo (la app lo imposta con POST /api/config)
     }],
     "inv": { "v": 48, "cuts": [[1794000000, 48.6, 12.0]] },   // stacco dell'inverter (impostazione) e stacchi veri visti: [t, V, carica]
+    "house": { "on": true, "at": 1794000000, "w": 1830, "by": "mis" },  // casa sulle batterie, da quando, W oltre lo zero; by "cb" = su Enel perché lo Shelly è aperto (o sparito), "mis" = dalle misure
+    "cb": { "ip": "192.168.0.29", "ok": true, "on": true, "v": 225.7, "t": 47.3, "err": ["lever"], "src": "SHC", "at": 1794000000, "chg": 1793990000, "ver": "2.0.0" },
+                                     // interruttore Shelly Pro 2CB tra inverter e ATS (dalla 0.43, sola lettura): ok = risponde, on = chiuso,
+                                     // v = tensione dall'inverter, t = °C interni, chg = ultimo cambio visto. Si spegne con l'inverter.
     "fw": "0.19", "fw_new": "0.20",  // firmware della scheda e quello nuovo pubblicato su GitHub (si installa dalla app o da /diag)
     "fw_trial": true,                // firmware appena installato, non ancora confermato (torna al vecchio se in 10 min non si collega)
     "fw_upd": { "st": 2, "pct": 45, "v": "0.20", "msg": "" },   // installazione in corso: st 1 controllo, 2 scarico, 3 fatto, 4 errore
@@ -584,6 +588,33 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .ql-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px;margin:2px 0 12px}
 .ql-sum div{padding:9px 9px;min-width:0;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
 .ql-sum b{font-size:.98rem;font-variant-numeric:tabular-nums;white-space:nowrap}.ql-sum span{font-size:.74rem;color:var(--muted)}
+.q-cb{margin:8px 0 0}.q-cb .cb-sw b{display:flex;align-items:center;gap:6px}.q-cb .cb-sw i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.q-cb .cb-sw.on i{background:var(--sun);box-shadow:0 0 0 3px color-mix(in srgb,var(--sun) 25%,transparent)}.q-cb .cb-sw.off i{background:transparent;border:2px solid var(--muted);width:6px;height:6px}
+.q-cb .cb-sw.lost{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}.q-cb .cb-sw.lost i{background:var(--warn)}
+.q-cb .hot{border-color:color-mix(in srgb,var(--alert) 55%,var(--line))}.q-cb .hot b{color:var(--alert)}
+.q-cb .cb-err{grid-column:1/-1;margin:2px 2px 0;font-size:.78rem;line-height:1.4;color:var(--muted)}
+.cb-ctl{margin-top:10px}.cb-well{position:relative;overflow:hidden;border-radius:16px;border:1px solid var(--line);background:var(--bg);padding:6px}
+.cb-btn{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,var(--alert) 60%,var(--line));
+  background:color-mix(in srgb,var(--alert) 18%,var(--surface));color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .12s,filter .2s}
+.cb-btn.off{border-color:color-mix(in srgb,var(--sun) 60%,var(--line));background:color-mix(in srgb,var(--sun) 16%,var(--surface))}
+.cb-btn svg{flex:none;width:30px;height:30px;fill:none;stroke:var(--alert);stroke-width:2.4;stroke-linecap:round}.cb-btn.off svg{stroke:var(--sun)}
+.cb-btn b{display:block;font-size:1rem}.cb-btn small{display:block;margin-top:2px;font-size:.78rem;color:var(--muted)}
+.cb-btn:disabled{filter:saturate(.4) brightness(.8);cursor:default}.cb-btn:not(:disabled):active{transform:scale(.98)}
+.cb-well.open .cb-btn{box-shadow:0 0 0 3px color-mix(in srgb,var(--alert) 30%,transparent)}.cb-well.open .cb-btn.off{box-shadow:0 0 0 3px color-mix(in srgb,var(--sun) 30%,transparent)}
+.cb-glass{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none;
+  border-radius:15px;border:1px solid rgba(255,255,255,.28);color:rgba(255,255,255,.92);font-size:.86rem;font-weight:600;letter-spacing:.02em;
+  background:linear-gradient(112deg,rgba(255,255,255,.20),rgba(255,255,255,.06) 38%,rgba(255,255,255,.14) 52%,rgba(255,255,255,.04) 70%,rgba(255,255,255,.10));
+  -webkit-backdrop-filter:blur(2.5px) saturate(.7);backdrop-filter:blur(2.5px) saturate(.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -8px 20px rgba(0,0,0,.18);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.cb-glass:active{cursor:grabbing}.cb-glass svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;animation:cbNudge 1.8s ease-in-out infinite}
+.cb-glass .cb-hint{text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cb-screw{position:absolute;left:10px;top:9px;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ddd,#777);box-shadow:0 0 0 1px rgba(0,0,0,.4)}.cb-screw.b{top:auto;bottom:9px}
+.cb-timer{position:absolute;left:6px;bottom:2px;height:3px;width:0;border-radius:2px;background:var(--sun);max-width:calc(100% - 12px)}
+.cb-well.open .cb-glass{transform:translateX(calc(100% + 12px))}.cb-well.open .cb-timer{animation:cbTime 8s linear forwards}
+.cb-well.lock .cb-glass{cursor:not-allowed;color:var(--muted)}.cb-well.lock .cb-glass svg{display:none}
+.cb-msg{margin:6px 2px 0;font-size:.8rem;line-height:1.4;color:var(--muted)}.cb-msg.good{color:var(--good)}.cb-msg.bad{color:var(--alert)}
+@keyframes cbNudge{0%,60%,100%{transform:translateX(0)}30%{transform:translateX(5px)}}@keyframes cbTime{from{width:100%}to{width:0}}
+@media (prefers-reduced-motion:reduce){.cb-glass svg{animation:none}.cb-glass{transition:none}}
 .ql-rib{display:flex;flex-direction:column;gap:6px;padding:12px 12px 8px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .ql-day,.ql-ax{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px}
 .ql-dl{font-size:.76rem;color:var(--muted);text-transform:capitalize;white-space:nowrap}.ql-day:last-of-type .ql-dl{color:var(--ink);font-weight:600}
@@ -1287,7 +1318,7 @@ footer{border-top:0;padding-top:0}
       <section aria-labelledby="h-q" id="quadro-sec">
         <h2 id="h-q">Casa: batterie o Enel</h2>
         <div class="quadro" id="quadro"></div>
-        <p class="set-note">La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente. Quando ci sarà l'interruttore WiFi dopo l'inverter, qui tornerà la leva.</p>
+        <p class="set-note" id="q-note">La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente.</p>
         <div class="q-last" id="q-last"></div>
       </section>
       <section aria-labelledby="h-ql" id="ql-sec" hidden>
@@ -1533,7 +1564,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.87"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.88"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1564,6 +1595,8 @@ const MSG = {
   INV_NEAR:    () => ["Vicino allo stacco dell'inverter", `L'inverter stacca a ${S.inv} V: quando succede, l'ATS porta la casa su Enel da solo.`],
   INV_RISK:    ["L'inverter può staccare a momenti", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare le batterie puoi portarla prima su Enel."],
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
+  CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
+  CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
   PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
   PV_FAULT:    ["Guasto del regolatore", "Il regolatore segnala un guasto: guarda il suo display."],
@@ -2150,7 +2183,8 @@ function drawSw(){
   const box = $("quadro"); if (!box) return;
   if (!box.dataset.built) {
     box.dataset.built = 1;
-    box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div><div class="q-cal" id="q-cal"></div>`;
+    box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div><div class="ql-sum q-cb" id="q-cb" hidden></div>${CB_CTL}<div class="q-cal" id="q-cal"></div>`;
+    cbCtlInit();
     box.addEventListener("submit", e => { e.preventDefault(); const i = e.target.querySelector("input"), w = +String(i.value).replace(",", "."), h = data && data.house;
       const dc = h && fin(h.w) ? h.w + plantW() : null;                // la media al minuto della scheda, come il display dell'inverter
       if (!(w > 50) || !(dc > 100)) { toast(dc > 100 ? "Scrivi i watt che segna l'inverter" : "Serve la casa sulle batterie per tarare"); return; }
@@ -2172,11 +2206,92 @@ function drawSw(){
     : on ? "La casa prende corrente dall'inverter, cioè dalle batterie." : `Le batterie alimentano solo l'impianto (circa ${power(plantW())}).`;
   const last = $("q-last"); let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
   last.innerHTML = r ? `<span>Il ${alWhen(swT(r))} è passata ${r[1] & 1 ? "sulle batterie" : "su Enel"}${fin(r[3]) && Math.abs(r[3]) >= 50 ? ` · ${r[1] & 1 ? "+" : "−"}${power(Math.abs(r[3]))}` : ""}</span>` : SW.board ? "" : "<span>Senza la scheda la casa si considera sulle batterie.</span>";
+  drawCb();
   const chip = $("q-chip");
   chip.innerHTML = `<i></i><span>Casa <b>${on ? "sulle batterie" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && hdc !== null ? ` <small>· ~${power(hac !== null ? hac : hdc)}</small>` : ""}</span><small>Casa ›</small>`;
   chip.classList.toggle("off", !on);
   drawSwLog();
 }
+/* l'interruttore Shelly Pro 2CB tra l'uscita dell'inverter e l'ATS (firmware 0.43, sola lettura): chiuso o aperto, la tensione che dà
+   l'inverter, la temperatura interna e gli errori. Quando risponde è lui a dire alla scheda dove sta la casa. Si alimenta dall'inverter:
+   con l'inverter spento non risponde, ed è normale. */
+const CB_ERRS = { lever: "leva manuale", overtemp: "troppo caldo", overvoltage: "tensione troppo alta", undervoltage: "tensione troppo bassa", overcurrent: "corrente troppo alta", overpower: "potenza troppo alta" };
+const cbErrText = () => { const c = data && data.cb; return c && Array.isArray(c.err) ? c.err.map(e => CB_ERRS[e] ? `${CB_ERRS[e]} («${e}»)` : `«${e}»`).join(", ") : ""; };
+function drawCb(){
+  const box = $("q-cb"), note = $("q-note"), c = data && data.cb; if (!box) return;
+  const by = data && data.house ? data.house.by === "cb" : !(c && c.on);   // senza «house» è la demo
+  note.textContent = !c ? "La riconosce la scheda da quanto consuma la casa oltre l'impianto: non serve segnare niente."
+    : by ? (c.ok ? "L'interruttore Shelly è aperto: la casa è su Enel per certo." : "Lo Shelly è sparito mentre l'inverter non dava più corrente: la casa è su Enel.")
+    : c.ok && c.on ? "Interruttore chiuso: l'inverter arriva all'ATS, ma l'ATS può tenere la casa su Enel per conto suo. Per questo dove sta la casa lo dicono le misure, da quanto consuma oltre l'impianto."
+    : "Lo Shelly non risponde: la scheda riconosce la casa dalle misure, da quanto consuma oltre l'impianto.";
+  box.hidden = !c; if (!c) return;
+  const ok = !!c.ok, on = ok && c.on, vOk = ok && fin(c.v) && c.v >= 180;
+  const t1 = ok ? (c.on ? "Chiuso" : "Aperto") : "Non risponde", s1 = ok ? (c.on ? "interruttore · inverter all'ATS" : "interruttore · inverter staccato") : `interruttore${fin(c.at) ? " · dal " + alWhen(c.at) : ""}`;
+  const t2 = ok && fin(c.v) ? `${nf(c.v, 0)} V` : "—", s2 = ok ? (vOk ? "dall'inverter" : "l'inverter non dà corrente") : "inverter spento?";
+  const t3 = ok && fin(c.t) ? `${nf(c.t, 0)} °C` : "—", s3 = "dentro lo Shelly";
+  const err = ok ? cbErrText() : "";
+  const h = `<div class="cb-sw ${on ? "on" : ok ? "off" : "lost"}"><b><i></i>${t1}</b><span>${s1}</span></div><div><b>${t2}</b><span>${s2}</span></div><div class="${ok && c.t >= 70 ? "hot" : ""}"><b>${t3}</b><span>${s3}</span></div>`
+    + (err ? `<p class="cb-err">Segnala: ${err}</p>` : !ok ? `<p class="cb-err">Lo Shelly prende corrente dall'inverter: se l'inverter è spento o ha staccato, è normale che non risponda.</p>` : "");
+  if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
+  drawCbCtl();
+}
+/* il comando dell'interruttore: due gesti diversi, come il coperchio di un pulsante d'emergenza. Prima si fa scorrere di lato il vetro
+   (oltre metà larghezza, o un colpo veloce), poi si preme il tasto sotto; se non lo si preme entro 8 secondi il vetro si richiude da solo.
+   In casa POST /api/cb, da fuori casa il comando cifrato «cb» (firmware 0.43); la scheda ne accetta uno al minuto e rilegge lo stato. */
+const CB_CTL = `<div class="cb-ctl" id="cb-ctl" hidden><div class="cb-well" id="cb-well">
+  <button type="button" class="cb-btn" id="cb-btn" tabindex="-1" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg><span><b id="cb-btn-t"></b><small id="cb-btn-s"></small></span></button>
+  <div class="cb-glass" id="cb-glass" role="button" tabindex="0" aria-label="Fai scorrere il vetro di protezione"><i class="cb-screw"></i><i class="cb-screw b"></i><span class="cb-hint">Scorri il vetro</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/><path d="m4 6 6 6-6 6" opacity=".45"/></svg></div><i class="cb-timer"></i>
+</div><p class="cb-msg" id="cb-msg" aria-live="polite"></p></div>`;
+let cbOpenT = 0, cbSent = null;   // cbSent: {on, at, err} dell'ultimo comando partito da questo telefono
+function cbGlass(open){
+  const g = $("cb-glass"), b = $("cb-btn"), w = $("cb-well"); if (!g) return;
+  clearTimeout(cbOpenT); g.style.transform = ""; g.style.transition = "";
+  w.classList.toggle("open", open); b.disabled = !open; b.tabIndex = open ? 0 : -1; g.tabIndex = open ? -1 : 0;
+  if (open) { b.focus({ preventScroll: true }); cbOpenT = setTimeout(() => cbGlass(false), 8000); }
+}
+function cbCtlInit(){
+  const g = $("cb-glass"), b = $("cb-btn"); let x0 = null, t0 = 0, dx = 0;
+  g.addEventListener("pointerdown", e => { const w = $("cb-well"); if (w.classList.contains("open") || w.classList.contains("lock")) return; x0 = e.clientX; t0 = performance.now(); dx = 0; g.setPointerCapture(e.pointerId); g.style.transition = "none"; });
+  g.addEventListener("pointermove", e => { if (x0 === null) return; dx = Math.max(0, e.clientX - x0); g.style.transform = `translateX(${dx}px)`; });
+  const end = () => { if (x0 === null) return; const fast = dx > 40 && dx / (performance.now() - t0) > .6; x0 = null;
+    if (dx > g.offsetWidth * .5 || fast) cbGlass(true); else { g.style.transition = ""; g.style.transform = ""; } };
+  g.addEventListener("pointerup", end); g.addEventListener("pointercancel", end);
+  g.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && !$("cb-well").classList.contains("lock")) { e.preventDefault(); cbGlass(true); } });
+  b.addEventListener("click", async () => {
+    const c = data && data.cb; if (!c || b.disabled) return;
+    const want = !c.on; cbGlass(false); cbSent = { on: want, at: Date.now(), err: "" }; drawCbCtl();
+    try {
+      if (mode === "live") {
+        const r = await fetch("/api/cb", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ on: want }) });
+        const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.msg || "la scheda non risponde");
+      } else if (mode === "remote") await remCmd("cb", { on: want });
+      else if (!isReal()) { demoCb.cmd = { st: 1, on: want, at: Math.round(Date.now() / 1000), msg: "" };
+        setTimeout(() => { demoCb.on = want; demoCb.cmd = { ...demoCb.cmd, st: 2, msg: want ? "acceso" : "spento" }; }, 2500); }
+      else throw new Error("serve la scheda: col cavo USB non si comanda");
+    } catch (e) { cbSent.err = /non permesso/.test(e.message) ? "da fuori casa serve il firmware 0.43 sulla scheda" : e.message; }
+    drawCbCtl();
+  });
+}
+function drawCbCtl(){
+  const box = $("cb-ctl"), c = data && data.cb; if (!box) return;
+  const can = !!(c && c.ok && (mode === "live" || mode === "remote" || !isReal()));
+  box.hidden = !c; if (!c) return;
+  const on = !!c.on, k = c.cmd, mine = cbSent && Date.now() - cbSent.at < 180e3 ? cbSent : null;
+  $("cb-btn-t").textContent = on ? "Spegni l'uscita dell'inverter" : "Riaccendi l'uscita dell'inverter";
+  $("cb-btn-s").textContent = on ? "l'ATS porta la casa su Enel" : "la casa torna sulle batterie, se l'ATS la sceglie";
+  $("cb-btn").classList.toggle("off", !on);
+  $("cb-well").classList.toggle("lock", !can); if (!can) cbGlass(false);
+  const hint = box.querySelector(".cb-hint"); hint.textContent = can ? "Scorri il vetro" : c.ok ? "Comando non disponibile" : "Lo Shelly non risponde";
+  let m = "", cls = "";
+  if (mine && mine.err) { m = `Non inviato: ${mine.err}.`; cls = "bad"; }
+  else if (k && k.st === 1) m = `${k.on ? "Riaccensione" : "Spegnimento"} in corso…`;
+  else if (k && k.st === 2) { m = `Fatto: uscita ${k.on ? "riaccesa" : "spenta"} alle ${hm(k.at)}.`; cls = "good"; }
+  else if (k && k.st === 3) { m = `Non eseguito: ${k.msg || "lo Shelly ha rifiutato"}.${k.on ? " Se l'avevi spento con la leva o è scattato, si riaccende solo a mano." : ""}`; cls = "bad"; }
+  else if (mine) m = "Comando inviato, aspetto la scheda…";
+  else m = mode === "remote" ? "Da fuori casa: il comando arriva cifrato alla scheda. Uno al minuto." : "Uno al minuto. Riaccendere da qui funziona solo se l'avevi spento da qui.";
+  const p = $("cb-msg"); p.textContent = m; p.className = "cb-msg " + cls;
+}
+
 /* il registro dei passaggi tra banco ed Enel, dalle righe della scheda (/switch.bin): gli ultimi 7 giorni come nastri (giallo = casa sulle batterie),
    poi ogni passaggio con l'ora, il salto misurato, quanto è durato e, per le ore sulle batterie, l'energia data alla casa (dal registro dei quarti
    d'ora, nei watt dell'inverter se tarata). Un passaggio su Enel con uno stacco dell'inverter nel diario entro 10 minuti è lo stacco. */
@@ -4151,7 +4266,7 @@ function alSinceKeep(){
   const now = nowOf(data); Object.keys(alStart).forEach(x => { if (now - alStart[x][1] > 2 * DAY) delete alStart[x]; });
   if (isReal() && Date.now() - alStartSaved > 6e4) { alStartSaved = Date.now(); lsSet(AL_SINCE_KEY, alStart); }
 }
-const whoName = (who, bs) => who < 0 ? "Batterie" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
+const whoName = (who, bs) => who < 0 ? "Batterie" : who === 20 ? "Interruttore" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
 // senza scheda: le stesse regole della scheda (evTick, invTick, pvHiTick), con lo stesso formato di data.open
 function localOpen(bs, k){
   const o = [], add = (code, sev, who) => o.push([code, sev, who, alSince("o" + code + who)]);
@@ -4617,7 +4732,7 @@ function setEta(kind, label, value, hours){
 const PV_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg>';
 const PV_ST = { off: "Non carica", boost: "In carica", float: "Mantenimento", equalize: "Equalizzazione" };
 /* ---------- interruttori d'ingresso degli Epever: leve dichiarate come i deviatori, stato tenuto dalla scheda ---------- */
-let pvOffTap = null, demoPvOff = 0, pvOffSeen = null;
+let pvOffTap = null, demoPvOff = 0, pvOffSeen = null, demoCb = { on: true, cmd: null };
 function pvMask(){
   if (pvOffTap && Date.now() - pvOffTap.at < 25e3 && !(data && data.pv_off === pvOffTap.m)) return pvOffTap.m;
   return data && fin(data.pv_off) ? data.pv_off & 7 : 0;
@@ -5482,7 +5597,8 @@ function simulate(){
   });
   const offDemo = pv.map(g => { const c = demoPvOff >> (g.addr - 1) & 1, hi = g.addr === 3 ? 92 : 141, lim = 140.2, a = g.addr === 1 ? 2 : g.addr === 2 ? 1 : 0;
     return { ...g, ...(c ? { w: 0, out_w: 0, v: .4, a: 0, state: "off" } : {}), fc: { a, v: a === 2 ? 146 : hi, at: now + 14 * HOUR, n: a === 1 ? 149 : hi - 2, nt: now + 38 * HOUR, l: lim, b: a === 2 ? now + 16 * HOUR : now, c: g.addr !== 3 } }; });
-  return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo,
+  const cb = { ip: "192.168.0.29", ok: true, on: demoCb.on, ...(demoCb.cmd ? { cmd: demoCb.cmd } : {}), v: +(225.5 + Math.sin(now / 97) * 1.2).toFixed(1), t: +(41 + Math.sin(now / 900) * 2).toFixed(1), err: [], src: "SHC", at: Math.round(now), ver: "2.0.0" };
+  return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo, cb,
     limits: { bal_start: 3400, bal_diff: 30, cell_ov: 3650, cell_uv: 2500, low_soc: 10 },
     batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})),
     history: { step: hs.step, soc: [...hs.soc], p: [...hs.p] } };
