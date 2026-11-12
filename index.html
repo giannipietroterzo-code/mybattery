@@ -613,8 +613,50 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .cb-well.open .cb-glass{transform:translateX(calc(100% + 12px))}.cb-well.open .cb-timer{animation:cbTime 8s linear forwards}
 .cb-well.lock .cb-glass{cursor:not-allowed;color:var(--muted)}.cb-well.lock .cb-glass svg{display:none}
 .cb-msg{margin:6px 2px 0;font-size:.8rem;line-height:1.4;color:var(--muted)}.cb-msg.good{color:var(--good)}.cb-msg.bad{color:var(--alert)}
+.cb-screw.c,.cb-screw.d,.cb-haz,.cb-grip,.cb-tag{display:none}
+/* mecha: pannello di comando con i bordi smussati, vetro blindato ambra con viti agli angoli, maniglia zigrinata, banda di pericolo e testi condensati */
+[data-mecha] .ql-sum div{border-radius:0;clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%)}
+[data-mecha] .ql-sum b{font-family:"Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.02em}
+[data-mecha] .q-cb .cb-sw b{text-transform:uppercase;letter-spacing:.06em}[data-mecha] .q-cb .cb-sw i{border-radius:0;transform:rotate(45deg)}
+[data-mecha] .cb-tag{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:700 .72rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--lith)}
+[data-mecha] .cb-tag::before{content:"";width:26px;height:8px;background:repeating-linear-gradient(-45deg,var(--lith) 0 3px,transparent 3px 6px)}
+[data-mecha] .cb-tag::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 70%,transparent),transparent)}
+[data-mecha] .cb-well{--bd:color-mix(in srgb,var(--lith) 70%,#000);isolation:isolate;border:0;border-radius:0;padding:8px;background:var(--bd);
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px)}
+[data-mecha] .cb-well::before{content:"";position:absolute;inset:2px;z-index:-1;background:repeating-linear-gradient(-45deg,#151515 0 6px,#111 6px 12px);
+  clip-path:polygon(13px 0,100% 0,100% calc(100% - 13px),calc(100% - 13px) 100%,0 100%,0 13px)}
+[data-mecha] .cb-well.open{--bd:var(--alert)}[data-mecha] .cb-well.open:has(.cb-btn.off){--bd:var(--lith)}[data-mecha] .cb-well.lock{--bd:#3a3a3a}
+[data-mecha] .cb-btn{border-radius:0;border:0;padding:14px 16px 14px 12px;gap:14px;color:#fff;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--alert) 85%,#fff 0%),color-mix(in srgb,var(--alert) 70%,#000));
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35)}
+[data-mecha] .cb-btn.off{color:#111;background:linear-gradient(180deg,var(--lith),color-mix(in srgb,var(--lith) 72%,#000))}
+[data-mecha] .cb-btn svg{width:38px;height:38px;padding:6px;stroke:currentColor;stroke-width:2.6;background:rgba(0,0,0,.28);clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}
+[data-mecha] .cb-btn.off svg{stroke:#111;background:rgba(0,0,0,.14)}
+[data-mecha] .cb-btn b{font:700 1.08rem/1.1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+[data-mecha] .cb-btn small{color:inherit;opacity:.82;font-size:.76rem}
+[data-mecha] .cb-btn:disabled{filter:saturate(.35) brightness(.55)}
+[data-mecha] .cb-well.open .cb-btn{box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35);animation:cbArm 1s ease-in-out infinite alternate}
+[data-mecha] .cb-glass{inset:4px;border:0;border-radius:0;justify-content:center;gap:10px;color:var(--lith);
+  font:700 .92rem/1 "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.16em;text-transform:uppercase;
+  background:linear-gradient(120deg,rgba(255,255,255,.12),rgba(255,255,255,0) 30%,rgba(255,255,255,0) 58%,rgba(255,255,255,.07) 66%,rgba(255,255,255,0) 74%),
+    linear-gradient(180deg,rgba(22,24,27,.68),rgba(6,7,8,.78));
+  -webkit-backdrop-filter:blur(2.5px) saturate(.15) brightness(.6);backdrop-filter:blur(2.5px) saturate(.15) brightness(.6);
+  box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--lith) 75%,transparent),inset 0 0 0 4px rgba(0,0,0,.45),inset 0 10px 24px rgba(255,255,255,.06);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+[data-mecha] .cb-glass .cb-hint{text-shadow:0 0 10px color-mix(in srgb,var(--lith) 60%,transparent),0 1px 2px #000}
+[data-mecha] .cb-glass svg{stroke-width:2.8}
+[data-mecha] .cb-screw{display:block;width:8px;height:8px;top:9px;left:auto;right:10px;background:radial-gradient(circle at 40% 35%,#cfcfcf,#5a5a5a 70%);box-shadow:0 0 0 1px #000}
+[data-mecha] .cb-screw::after{content:"";position:absolute;left:1px;right:1px;top:3.5px;height:1px;background:#222;transform:rotate(35deg)}
+[data-mecha] .cb-screw.b{top:auto;bottom:9px}[data-mecha] .cb-screw.c{top:9px;right:auto;left:40px}[data-mecha] .cb-screw.d{top:auto;bottom:9px;right:auto;left:40px}
+[data-mecha] .cb-haz{display:block;position:absolute;left:0;top:0;bottom:0;width:30px;background:repeating-linear-gradient(-45deg,var(--lith) 0 6px,#111 6px 12px);opacity:.9;
+  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px)}
+[data-mecha] .cb-grip{display:block;position:absolute;left:30px;top:10px;bottom:10px;width:3px;background:#000;opacity:.6}
+[data-mecha] .cb-well.lock .cb-glass{color:#777}[data-mecha] .cb-well.lock .cb-haz{filter:grayscale(1);opacity:.4}
+[data-mecha] .cb-timer{left:8px;bottom:3px;height:4px;border-radius:0;max-width:calc(100% - 16px);background:repeating-linear-gradient(90deg,var(--lith) 0 10px,transparent 10px 13px)}
+[data-mecha] .cb-msg{font-family:"Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.03em}
+@keyframes cbArm{from{filter:brightness(1)}to{filter:brightness(1.18)}}
 @keyframes cbNudge{0%,60%,100%{transform:translateX(0)}30%{transform:translateX(5px)}}@keyframes cbTime{from{width:100%}to{width:0}}
-@media (prefers-reduced-motion:reduce){.cb-glass svg{animation:none}.cb-glass{transition:none}}
+@media (prefers-reduced-motion:reduce){.cb-glass svg,.cb-well.open .cb-btn{animation:none!important}.cb-glass{transition:none}}
 .ql-rib{display:flex;flex-direction:column;gap:6px;padding:12px 12px 8px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
 .ql-day,.ql-ax{display:grid;grid-template-columns:52px 1fr 52px;align-items:center;gap:8px}
 .ql-dl{font-size:.76rem;color:var(--muted);text-transform:capitalize;white-space:nowrap}.ql-day:last-of-type .ql-dl{color:var(--ink);font-weight:600}
@@ -1564,7 +1606,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.88"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.89"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2238,9 +2280,9 @@ function drawCb(){
 /* il comando dell'interruttore: due gesti diversi, come il coperchio di un pulsante d'emergenza. Prima si fa scorrere di lato il vetro
    (oltre metà larghezza, o un colpo veloce), poi si preme il tasto sotto; se non lo si preme entro 8 secondi il vetro si richiude da solo.
    In casa POST /api/cb, da fuori casa il comando cifrato «cb» (firmware 0.43); la scheda ne accetta uno al minuto e rilegge lo stato. */
-const CB_CTL = `<div class="cb-ctl" id="cb-ctl" hidden><div class="cb-well" id="cb-well">
+const CB_CTL = `<div class="cb-ctl" id="cb-ctl" hidden><p class="cb-tag">Uscita dell'inverter</p><div class="cb-well" id="cb-well">
   <button type="button" class="cb-btn" id="cb-btn" tabindex="-1" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.6 6.6a8 8 0 1 0 10.8 0"/></svg><span><b id="cb-btn-t"></b><small id="cb-btn-s"></small></span></button>
-  <div class="cb-glass" id="cb-glass" role="button" tabindex="0" aria-label="Fai scorrere il vetro di protezione"><i class="cb-screw"></i><i class="cb-screw b"></i><span class="cb-hint">Scorri il vetro</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/><path d="m4 6 6 6-6 6" opacity=".45"/></svg></div><i class="cb-timer"></i>
+  <div class="cb-glass" id="cb-glass" role="button" tabindex="0" aria-label="Fai scorrere il vetro di protezione"><i class="cb-screw"></i><i class="cb-screw b"></i><i class="cb-screw c"></i><i class="cb-screw d"></i><i class="cb-haz"></i><i class="cb-grip"></i><span class="cb-hint">Scorri il vetro</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/><path d="m4 6 6 6-6 6" opacity=".45"/></svg></div><i class="cb-timer"></i>
 </div><p class="cb-msg" id="cb-msg" aria-live="polite"></p></div>`;
 let cbOpenT = 0, cbSent = null;   // cbSent: {on, at, err} dell'ultimo comando partito da questo telefono
 function cbGlass(open){
