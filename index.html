@@ -1640,7 +1640,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.95"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.96"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2169,6 +2169,29 @@ const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il ban
 const SHARED = ["reserve", "inv", "marg", "aoOn", "aoMarg", "aoBack", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
+/* le impostazioni condivise si salvano a voci (firmware 0.48): cfgBase è come la scheda le ha l'ultima volta che le abbiamo viste o scritte, e si manda
+   solo quello che è cambiato da lì (cfgDiff), che la scheda unisce alle sue. Prima si mandavano tutte: un'app rimasta indietro su un altro telefono
+   o in un'altra scheda del browser, salvando (anche da sola, per la Voc imparata), rimetteva i valori vecchi sopra quelli appena cambiati. */
+let cfgBase = null;
+const isObj = v => !!v && typeof v === "object" && !Array.isArray(v), jclone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+function cfgDiff(a, b){
+  const o = {}; let n = 0;
+  new Set([...Object.keys(a || {}), ...Object.keys(b || {})]).forEach(k => {
+    const x = a ? a[k] : undefined, y = b ? b[k] : undefined;
+    if (JSON.stringify(x) === JSON.stringify(y)) return;
+    if (y === undefined || y === null) { if (x !== undefined && x !== null) { o[k] = null; n++; } return; }
+    if (isObj(x) && isObj(y)) { const d = cfgDiff(x, y); if (d) { o[k] = d; n++; } return; }
+    o[k] = jclone(y); n++;
+  });
+  return n ? o : null;
+}
+function cfgMerge(a, p){   // come la scheda: oggetti voce per voce, null toglie
+  const o = isObj(a) ? { ...a } : {};
+  Object.entries(p).forEach(([k, v]) => { if (v === null) delete o[k]; else if (isObj(v)) o[k] = cfgMerge(o[k], v); else o[k] = jclone(v); });
+  return o;
+}
+const verCmp = (a, b) => { const x = String(a).split(".").map(Number), y = String(b).split(".").map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+const cfgPatchOk = () => !!(data && data.fw && verCmp(data.fw, "0.48") >= 0);
 /* ---------- la casa: sulle batterie o su Enel. Lo decide la scheda dalle misure (firmware 0.38) ----------
    Un ATS porta la casa su Enel quando l'inverter non dà corrente. La scheda riconosce dove sta la casa da quanto consuma oltre lo «zero» delle
    misure (l'impianto e gli scarti del BMS, imparati da lei con la casa su Enel): lo scrive nel registro (r[8] di ogni quarto d'ora), nello
@@ -2832,8 +2855,12 @@ function pushShared(auto = false){
     const quiet = cfgAuto; cfgAuto = true;
     try {
       const rs = remSet;                                  // il canale cambia solo se l'ha chiesto questa app (firmware 0.23)
-      const j = await boardCfg({app: sharedOf(), ...(rs ? {rem_set: true} : {})});   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
-      if (j && j.ok) { if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); }
+      const now = jclone(sharedOf()); if (!rs) delete now.rem;
+      const base = cfgBase && !rs ? { ...cfgBase } : cfgBase; if (base && !rs) delete base.rem;
+      const patch = cfgBase && cfgPatchOk() ? cfgDiff(base, now) : undefined;   // senza base (scheda mai letta) o firmware vecchio: tutte
+      if (patch === null) { cfgPushT = 0; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); return; }   // niente di diverso da quello che ha già
+      const j = await boardCfg(patch ? { app_set: patch, ...(rs ? { rem_set: true } : {}) } : { app: sharedOf(), ...(rs ? { rem_set: true } : {}) });   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
+      if (j && j.ok) { cfgBase = patch ? cfgMerge(cfgBase, patch) : jclone(sharedOf()); if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); }
       cfgPushT = 0;
     } catch (e) {
       cfgPushT = 0;
@@ -2854,7 +2881,7 @@ async function pullShared(){
     if (!("rem" in j.app) && !remSet) raw.rem = null;       // il canale è quello della scheda, anche quando non ce l'ha
     cfgPulling = true;
     try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
-    S = loadSettings(); cfgAt = j.app_at;
+    S = loadSettings(); cfgAt = j.app_at; cfgBase = jclone(j.app);
     cfgPulling = false;
     if (JSON.stringify(sharedOf()) === before) return;
     fc = null; fcAt = 0; fillSettings(); fillLoc();
@@ -2967,7 +2994,7 @@ async function remApply(b, fresh){
     SHARED.forEach(k => { if (k !== "rem" && k in b.cfg) raw[k] = b.cfg[k]; });
     raw.rem = S.rem;
     try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
-    S = loadSettings();
+    S = loadSettings(); cfgBase = { ...jclone(b.cfg), rem: jclone(S.rem) };   // il pacchetto non porta il canale: quello è del telefono
     if (JSON.stringify(sharedOf()) !== before && $("settings").open) { fillSettings(); fillLoc(); }
     if (S.loc && !wx) loadWx();                         // su un telefono nuovo la località arriva col primo pacchetto
   }
