@@ -582,6 +582,12 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .n-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .n-t{font-weight:700;font-size:1rem;line-height:1.25}.n-t b{color:var(--c);font-family:var(--num);font-variant-numeric:tabular-nums}
 .n-d{margin:6px 0 0;font-size:.84rem;line-height:1.45;color:var(--ink)}.n-d small{color:var(--muted)}
+.sol-bar,.sol-line{display:block;width:100%;height:auto;margin-top:10px}.sol-bar{overflow:visible}
+.sol-fill{transform-origin:left center;animation:solgrow .9s cubic-bezier(.2,.8,.2,1)}@keyframes solgrow{from{transform:scaleX(0)}}
+.sol-run{stroke-dasharray:10 5;animation:solrun 1.8s linear infinite}@keyframes solrun{to{stroke-dashoffset:-15}}
+@media (prefers-reduced-motion:reduce){.sol-fill,.sol-run{animation:none}}
+.sol-g dd small{font:500 .7rem var(--sans,inherit);color:var(--muted)}.sol-g .w dd{color:var(--warn)}.sol-g .a dd{color:var(--alert)}.sol-g .s dd{color:var(--sun)}
+.sol .n-d+.n-d{margin-top:4px}
 .night .au-more{display:block;margin:8px 0 0;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--c)}.au-svg{display:block;width:100%;height:auto;margin-top:8px}.au-leg{margin:4px 0 0;font-size:.74rem;line-height:1.4;color:var(--muted)}
 .n-tip{margin:9px 0 0;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--lith) 12%,transparent);font-size:.84rem;line-height:1.45}
 .n-tip .set-btn{margin-top:8px;padding:7px 12px;font-size:.84rem;background:var(--lith);color:#111}
@@ -1327,8 +1333,7 @@ footer{border-top:0;padding-top:0}
       <div class="eta" id="eta"></div>
       </div>
       </section>
-    <section class="night" id="auto" aria-live="polite" hidden></section>
-    <section class="night" id="night" aria-live="polite" hidden></section>
+    <section class="night sol" id="solar" aria-live="polite" hidden></section>
     <section class="tmr" id="wxcard" aria-label="Il meteo di oggi e di domani" hidden></section>
     <div class="notice" id="notice" role="status" hidden></div>
     <button class="q-chip" id="q-chip" type="button"></button>
@@ -1550,6 +1555,14 @@ footer{border-top:0;padding-top:0}
       <label><input type="radio" name="aoBack" value="20"><span>+20%</span></label>
       <label><input type="radio" name="aoBack" value="30"><span>+30%</span></label>
     </fieldset>
+    <span class="set-lbl">Avvisami prima che spenga</span>
+    <fieldset class="seg" id="set-aowarn"><legend>Avviso prima dello spegnimento automatico</legend>
+      <label><input type="radio" name="aoWarn" value="0"><span>mai</span></label>
+      <label><input type="radio" name="aoWarn" value="15"><span>15 min</span></label>
+      <label><input type="radio" name="aoWarn" value="30"><span>30 min</span></label>
+      <label><input type="radio" name="aoWarn" value="60"><span>1 ora</span></label>
+      <label><input type="radio" name="aoWarn" value="120"><span>2 ore</span></label>
+    </fieldset>
     <p class="set-note" id="ao-note"></p>
 
     <h3>Allarmi</h3>
@@ -1640,7 +1653,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.96"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.97"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1673,6 +1686,8 @@ const MSG = {
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
   CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)) + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
+  AO_SOON:     () => { const a = data && data.ao, m = a && fin(a.eta) ? a.eta : null;
+    return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano al ${nf(a.soc, 0)}% tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
@@ -2097,8 +2112,8 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoMarg: [3,5,10,15], aoBack: [0,10,20,30] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoMarg: 5, aoBack: 20, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoMarg: [3,5,10,15], aoBack: [0,10,20,30], aoWarn: [0,15,30,60,120] };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2166,7 +2181,7 @@ function cutSoc(){
 const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
 const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
-const SHARED = ["reserve", "inv", "marg", "aoOn", "aoMarg", "aoBack", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
+const SHARED = ["reserve", "inv", "marg", "aoOn", "aoMarg", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* le impostazioni condivise si salvano a voci (firmware 0.48): cfgBase è come la scheda le ha l'ultima volta che le abbiamo viste o scritte, e si manda
@@ -2540,7 +2555,7 @@ function autonomy(k, f){
   if (!data || !k || !k.on || !fin(k.soc) || !fin(k.full)) return null;
   const M = model, now = nowOf(data), cut = cutSoc(), on = houseNow(), capB = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV);
   const hab = !!(M && M.prof && M.load.hours >= AUTO_MIN && pvBase(M, now, true) !== null);
-  const key = "a" + (hab ? "h" : "s") + Math.floor(now / 300) + ":" + Math.round(k.soc * 10) + ":" + on;
+  const aoL = aoLimit(), key = "a" + (hab ? "h" : "s") + Math.floor(now / 300) + ":" + Math.round(k.soc * 10) + ":" + on + ":" + aoL;
   if (nightMemo[key]) return nightMemo[key];
   let o;
   if (hab) {
@@ -2551,12 +2566,34 @@ function autonomy(k, f){
     const qt = p => { const v = ts[Math.min(ts.length - 1, Math.floor(ts.length * p))]; return fin(v) ? v : null; };
     const col = p => det.S.map((_, i) => Math.max(cut, quant(paths.map(a => a[i]), p)));       // dopo lo stacco la casa va su Enel: la curva si ferma lì
     const mid = col(.5), iMin = mid.reduce((b, v, i, a) => v < a[b] ? i : b, 0), day = a => a.slice(0, 24).reduce((x, y) => x + y, 0);
-    o = { hab: true, t: det.T, pv: det.P, load: det.L, night: det.night, mid, lo: col(.1), hi: col(.9), p: ts.filter(fin).length / ts.length, at: qt(.5), early: qt(.2),
+    const aoff = aoL ? aoCross(det, paths, aoL) : null;
+    o = { hab: true, aoff, t: det.T, pv: det.P, load: det.L, night: det.night, mid, lo: col(.1), hi: col(.9), p: ts.filter(fin).length / ts.length, at: qt(.5), early: qt(.2),
       min: mid[iMin], minAt: det.T[iMin], slope: (mid[N] - mid[0]) / (AUTO_H / 24), W: day(det.L) / 24, lKwh: day(det.L) / 1000, pKwh: day(det.P) / 1000, cap };
   } else { const W = nightW(k, 1); o = W ? { W, cap: capB } : { unknown: true, cap: capB }; }
   o.left = Math.max(0, k.soc - cut) / 100 * o.cap; if (o.W) o.dark = o.left / o.W;
+  if (aoL && !o.hab && o.W) o.aoDark = Math.max(0, k.soc - aoL) / 100 * o.cap / o.W;   // senza abitudini: al buio, al consumo della casa
+  o.aoL = aoL;
   if (Object.keys(nightMemo).length > 300) nightMemo = {};
   return nightMemo[key] = { ...o, cut };
+}
+/* ---------- quando la scheda staccherebbe il solare (lo spegnimento automatico dell'uscita, firmware 0.46) ----------
+   Stesse simulazioni dell'autonomia (casa sulle batterie, consumi soliti, sole previsto), con le due regole della scheda che si possono prevedere:
+   la carica scende alla soglia (ao.soc = stacco + margine) oppure, con le batterie già basse, un picco di consumo normale per quell'ora (il 90 % dei
+   picchi visti, da rkDist) porterebbe la tensione entro 1 V dallo stacco (la caduta e lo stacco imparati dalla scheda, RM). La regola della cella
+   sotto 3,00 V non si prevede: dipende dalla batteria più debole sul momento. Risposta: ora mediana, «prudente» (1 caso su 5 prima), probabilità
+   nelle 96 ore e perché (carica o tensione), e quanto prima dell'inverter. */
+const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(data && data.cb)) return null; const v = a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
+function aoCross(det, paths, lim){
+  const N = det.P.length, vT = RM && fin(RM.vc) && fin(RM.R) && RM.R > 0 ? RM.vc + 1 : null;
+  const pk = vT ? det.T.map(t => { const d = rkDist(new Date(t * 1000).getHours(), true, t); return d.length ? quant(d.map(x => x[0]), .9) : 0; }) : null;
+  const vHit = (s, i) => vT && pk[i] > Math.max(0, (rkV0(s) - vT) / RM.R * vT);
+  const hits = paths.map(a => { for (let i = 0; i < N; i++) {
+      if (a[i + 1] <= lim) return { t: det.T[i] + HOUR * clamp((a[i] - lim) / ((a[i] - a[i + 1]) || 1), 0, 1), w: "carica", s: lim };
+      if (a[i + 1] < a[i] && vHit(a[i + 1], i)) return { t: det.T[i] + HOUR / 2, w: "volt", s: a[i + 1] };
+    } return null; });
+  const ok = hits.filter(Boolean).sort((x, y) => x.t - y.t), R = paths.length, pick = p => ok.length > R * p ? ok[Math.floor(R * p)] : null;
+  const m = pick(.5), e = pick(.2);
+  return { lim, p: ok.length / R, at: m ? m.t : null, early: e ? e.t : null, why: m ? m.w : e ? e.w : null, s: m ? m.s : null };
 }
 // da che cosa vengono i consumi dell'autonomia: quanto ha visto, e quanto di oggi
 function autoSrc(){
@@ -2568,38 +2605,144 @@ function autoSrc(){
 }
 const AUTO_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4M9.5 15.5h5M9.5 11.5h5"/></svg>';
 let autoOpen = false;
-function drawAuto(k, f){
-  const box = $("auto"); if (!box) return;
-  const a = autonomy(k, f); if (!a) { box.hidden = true; return; }
-  const now = nowOf(data), enel = !houseNow();
-  const html0 = (cls, t, d, more = "") => { box.hidden = false; box.className = "night " + cls; const h = `<div class="n-h"><span class="n-ico">${AUTO_ICO}</span><span class="n-t">${t}</span></div><p class="n-d">${d}</p>${more}`; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
-  const stacco = `stacco dell'inverter (${ilP(a.cut)}, ${S.inv} V)`, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
-  const en = enel ? " <small>Adesso la casa è su Enel: è come andrebbe con la casa sulle batterie.</small>" : "";
-  if (a.unknown) return html0("wait", "Autonomia su solare: serve il consumo della casa", "La scheda lo misura la prima volta che la casa passa sulle batterie, o dopo una notte con la casa sulle batterie.");
-  if (!(a.left > 0)) return html0("warn", "Su solare le batterie sono già allo stacco", `La carica è già sotto lo ${stacco}: l'ATS terrebbe la casa su Enel.`);
-  if (!a.hab) return html0(a.dark < 12 ? "warn" : "ok", `Su solare le batterie durano <b>${dur(a.dark)}</b> al buio`,
-    `Al buio, al consumo della casa (~${power(a.W)}), arriverebbero allo ${stacco} in <b>${dur(a.dark)}</b>. <small>Sole e abitudini non sono ancora contati: servono ${AUTO_MIN} ore viste con la casa sulle batterie.</small>${en}`);
-  const n = a.t.length, kwh = v => nf(v, v < 10 ? 1 : 0), day = ` Nelle prossime 24 ore la casa chiederebbe circa <b>${kwh(a.lKwh)} kWh</b> e i pannelli ne darebbero <b>${kwh(a.pKwh)}</b>.`;
-  const src = ` <small>${autoSrc()}</small>`, pct = nf(a.p * 100, 0);
-  let cls, t, d, marks;
-  if (a.at) {
-    const h = (a.at - now) / HOUR; cls = h < 24 ? "warn" : "ok"; t = `Su solare le batterie durano <b>${dur(h)}</b>`;
-    d = `Coi consumi soliti e il sole previsto l'inverter staccherebbe ${ora(a.at)}` + (a.early && a.at - a.early > 1.5 * HOUR ? `; con una giornata pesante o meno sole già ${ora(a.early)}` : "") + `. Poi l'ATS porterebbe la casa su Enel.`;
-    const x = (a.at - now) / HOUR / (n - 1) * FW;
-    marks = `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE}" stroke="var(--alert)" stroke-width="1.4"/>` + socMark(n, (a.at - now) / HOUR, a.cut, "stacco " + hm(q15(a.at)), false, "var(--alert)");
-  } else {
-    // oltre i 4 giorni del meteo: se la carica scende da un giorno all'altro, a quel ritmo quanti giorni mancano allo stacco
-    const days = a.slope < -1 ? (a.mid[0] - a.cut) / -a.slope : Infinity, more4 = `oltre ${AUTO_H / 24} giorni`;
-    cls = a.p >= .3 ? "warn" : "ok"; t = `Su solare le batterie reggono <b>${days <= 30 ? "circa " + Math.max(AUTO_H / 24 + 1, Math.round(days)) + " giorni" : more4}</b>`;
-    d = `Coi consumi soliti e il sole previsto nei prossimi ${AUTO_H / 24} giorni non arrivano allo stacco: il punto più basso è il <b>${nf(a.min, 0)}%</b> ${ora(a.minAt)}.` +
-      (days <= 30 ? ` Però ogni giorno perdono circa ${nf(-a.slope, 0)} punti di carica: i pannelli danno meno di quanto la casa chiede.` : a.slope >= 0 ? " I pannelli ridanno quello che la casa consuma." : "") +
-      (a.p >= .05 ? ` In ${pct} casi su 100 l'inverter staccherebbe prima${a.early ? `, nei peggiori già ${ora(a.early)}` : ""}.` : "");
-    marks = socMark(n, (a.minAt - now) / HOUR, a.min, nf(a.min, 0) + "%", a.min > 70);
+/* ---------- «Batterie su solare»: una sola sezione per autonomia, notte e spegnimento automatico (prima tre riquadri, con due orari di stacco
+   diversi: le abitudini nell'autonomia, la stima semplice nella notte). Un solo orario per l'inverter: quello delle abitudini (autonomy) quando ci
+   sono, se no quello della notte (nightAdvice). Lo spegnimento automatico della scheda (aoCross) viene prima, se è acceso.
+   Disegno: la barra della carica (adesso, minimo previsto, soglia della scheda, stacco dell'inverter) e la linea del tempo
+   (adesso → la scheda → l'inverter, col sole che riprende); sotto tre riquadri con gli orari e il consiglio della notte. ---------- */
+const SOL_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4M9.5 15.5h5M9.5 11.5h5"/></svg>';
+const AOFF_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M7.05 6.05a8 8 0 1 0 9.9 0"/></svg>';
+// la barra della carica: 0–100 %, zona rossa sotto lo stacco, ambra fino alla soglia della scheda; pieno = adesso, chiaro = quanto si consumerà
+function solBar(soc, mn, lim, cut, minTxt){
+  const W = 340, x0 = 8, x1 = W - 8, X = s => x0 + (x1 - x0) * clamp(s, 0, 100) / 100, y = 22, h = 16, b = 6;
+  const shape = (a, c) => `M${(X(a) + (a <= 0 ? b : 0)).toFixed(1)} ${y}H${X(c).toFixed(1)}V${y + h}H${X(a).toFixed(1)}V${y + (a <= 0 ? b : 0)}Z`;
+  const anc = x => x < 44 ? "start" : x > W - 44 ? "end" : "middle";
+  // le due soglie sono spesso vicine (11 % e 21 %): l'etichetta dell'inverter parte dal bordo, quella della scheda le sta accanto
+  const cL = X(cut) < 84, cEnd = cL ? x0 + 70 : X(cut) + 36;
+  const tick = (s, col, t1, t2, lx, la) => { const x = X(s);
+    return `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${y - 3}" y2="${y + h + 9}" stroke="${col}" stroke-width="2"/>` +
+      `<text x="${lx.toFixed(1)}" y="${y + h + 21}" text-anchor="${la}" font-size="10" font-weight="700" fill="${col}">${t1}</text><text x="${lx.toFixed(1)}" y="${y + h + 32}" text-anchor="${la}" font-size="9" fill="var(--muted)">${t2}</text>`; };
+  const limNear = lim && X(lim) - 34 < cEnd, limX = limNear ? Math.max(X(lim) + 4, cEnd + 6) : lim ? X(lim) : 0;
+  const keep = Math.max(0, fin(mn) ? Math.min(mn, soc) : soc), xs = X(soc), xm = X(keep), showMin = fin(mn) && mn < soc - 2 && !(lim && Math.abs(mn - lim) < 2) && Math.abs(mn - cut) >= 2;
+  return `<svg class="sol-bar" viewBox="0 0 ${W} 72" role="img" aria-label="Carica adesso ${nf(soc, 0)}%${lim ? ", la scheda stacca al " + nf(lim, 0) + "%" : ""}, l'inverter al ${nf(cut, 0)}%">` +
+    `<defs><pattern id="sol-red" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--alert)" opacity=".2"/><rect width="2.6" height="6" fill="var(--alert)" opacity=".7"/></pattern>` +
+    `<pattern id="sol-used" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="5" height="5" fill="var(--lith)" opacity=".16"/><rect width="1.8" height="5" fill="var(--lith)" opacity=".6"/></pattern></defs>` +
+    `<path d="${shape(0, 100)}" fill="var(--bg)" stroke="var(--line)"/>` +
+    `<path class="sol-fill" d="${shape(0, keep)}" fill="var(--lith)"/>` + (keep < soc ? `<path d="${shape(keep, soc)}" fill="url(#sol-used)"/>` : "") +
+    // sotto la barra, le zone: rosso fino allo stacco dell'inverter, ambra fino alla soglia della scheda
+    `<rect x="${x0}" y="${y + h + 3}" width="${(X(cut) - x0).toFixed(1)}" height="4" fill="url(#sol-red)"/>` + (lim && lim > cut ? `<rect x="${X(cut).toFixed(1)}" y="${y + h + 3}" width="${(X(lim) - X(cut)).toFixed(1)}" height="4" fill="var(--warn)" opacity=".55"/>` : "") +
+    tick(cut, "var(--alert)", "inverter " + nf(cut, 0) + "%", S.inv + " V", cL ? x0 : X(cut), cL ? "start" : "middle") + (lim && lim > cut + 3 ? tick(lim, "var(--warn)", "scheda " + nf(lim, 0) + "%", "automatico", limX, limNear ? "start" : anc(limX)) : "") +
+    `<path d="M${xs.toFixed(1)} ${y - 2}l-4.5 -6h9z" fill="var(--ink)"/><text x="${xs.toFixed(1)}" y="${y - 11}" text-anchor="${anc(xs)}" font-size="10.5" font-weight="800" fill="var(--ink)">adesso ${nf(soc, 0)}%</text>` +
+    (showMin && xs - xm > 84 ? `<path d="M${xm.toFixed(1)} ${y - 2}l-4 -5.5h8z" fill="var(--lith)"/><text x="${xm.toFixed(1)}" y="${y - 11}" text-anchor="${anc(xm)}" font-size="9.5" font-weight="600" fill="var(--lith)">${minTxt} ${nf(mn, 0)}%</text>` : "") + `</svg>`;
+}
+// la linea del tempo: adesso → la scheda (ambra) → l'inverter (rosso); il tratto a strisce è il margine che l'automatico lascia; il sole quando riprende a caricare
+function solLine(now, aoAt, cutAt, sunAt, early){
+  const ev = [aoAt, cutAt, sunAt].filter(fin); if (!ev.length) return "";
+  const W = 340, x0 = 10, x1 = W - 12, near0 = Math.min(...ev), far = Math.min(Math.max(...ev), Math.max(near0 + 12 * HOUR, fin(sunAt) ? sunAt : 0, now + 6 * HOUR));   // conta la parte vicina: quello che è oltre sta sul bordo destro
+  const end = far + Math.max(HOUR / 2, (far - now) * .08), X = t => x0 + (x1 - x0) * clamp((t - now) / (end - now), 0, 1), y = 24;
+  const lab = (x, t1, t2, col, anc) => `<text x="${x.toFixed(1)}" y="${y + 21}" text-anchor="${anc}" font-size="10.5" font-weight="700" fill="${col}">${t1}</text>` + (t2 ? `<text x="${x.toFixed(1)}" y="${y + 33}" text-anchor="${anc}" font-size="9" fill="var(--muted)">${t2}</text>` : "");
+  const pts = [], add = (t, k) => fin(t) && pts.push({ t, k, x: X(t) }); add(aoAt, "ao"); add(cutAt, "cut"); add(sunAt, "sun"); pts.sort((a, b) => a.x - b.x);
+  const low = pts.filter(p => p.k !== "sun"), near = low.length === 2 && low[1].x - low[0].x < 96;   // sotto la linea scheda e inverter, sopra il sole: non si accavallano
+  low.forEach((p, i) => { p.anc = near ? (i ? "start" : "end") : p.x < 44 ? "start" : p.x > W - 44 ? "end" : "middle"; });
+  if (near && low[0].x < 100) { low[0].anc = "start"; low[1].two = true; }
+  const first = Math.min(...[aoAt, cutAt].filter(fin).map(X).concat([X(end)]));
+  let g = `<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="4" stroke-linecap="round"/>` +
+    `<line class="sol-run" x1="${x0}" x2="${first.toFixed(1)}" y1="${y}" y2="${y}" stroke="${fin(aoAt) ? "var(--warn)" : "var(--lith)"}" stroke-width="4" stroke-linecap="round"/>`;
+  if (fin(aoAt) && fin(cutAt) && cutAt > aoAt) g += `<rect x="${X(aoAt).toFixed(1)}" y="${y - 3}" width="${(X(cutAt) - X(aoAt)).toFixed(1)}" height="6" fill="url(#sol-red)"/>`;
+  if (fin(early) && early < Math.min(...[aoAt, cutAt].filter(fin)) - 900) g += `<line x1="${X(early).toFixed(1)}" x2="${X(early).toFixed(1)}" y1="${y - 7}" y2="${y + 7}" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="2 2"/>`;
+  g += `<circle cx="${x0}" cy="${y}" r="5" fill="var(--lith)"/>` + (fin(sunAt) && X(sunAt) < 78 ? "" : `<text x="${x0 - 2}" y="${y - 13}" font-size="9.5" fill="var(--muted)">adesso</text>`);
+  pts.forEach(p => {
+    if (p.k === "ao") g += `<rect x="${(p.x - 6).toFixed(1)}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${p.x.toFixed(1)} ${y})" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.4"/>` + lab(p.x, "scheda " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--warn)", p.anc);
+    if (p.k === "cut") g += `<path d="M${p.x.toFixed(1)} ${y - 8}l7 13h-14z" fill="var(--alert)"/>` + lab(p.x + (p.two ? 60 : 0), "inverter " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--alert)", p.anc);
+    if (p.k === "sun") g += `<g transform="translate(${p.x.toFixed(1)} ${y})" stroke="var(--sun)" stroke-width="1.8" stroke-linecap="round"><circle r="4.2" fill="var(--sun)"/><path d="M0-8.5v2M0 6.5v2M-8.5 0h2M6.5 0h2M-6 -6l1.4 1.4M4.6 4.6 6 6M-6 6l1.4-1.4M4.6-4.6 6-6"/></g>` + `<text x="${p.x.toFixed(1)}" y="${y - 13}" text-anchor="${p.x > W - 50 ? "end" : "middle"}" font-size="10.5" font-weight="700" fill="var(--sun)">sole ${hm(q15(p.t))}</text>`;
+  });
+  return `<svg class="sol-line" viewBox="0 0 ${W} 60" role="img" aria-label="Linea del tempo delle batterie su solare">${g}</svg>`;
+}
+function drawSolar(k, f){
+  const box = $("solar"); if (!box) return;
+  const a = autonomy(k, f), na = nightAdvice(k, f), ao = data && data.ao, cb = data && data.cb, lim = aoLimit();
+  if (!a && !na) { box.hidden = true; return; }
+  const now = nowOf(data), on = houseNow(), cut = cutSoc(), ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
+  const show = (cls, ico, t, body, more = "") => { const h = `<div class="n-h"><span class="n-ico">${ico}</span><span class="n-t">${t}</span></div>${body}${more}`; box.hidden = false; box.className = "night sol " + cls; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
+  const p = s => `<p class="n-d">${s}</p>`, tiles = l => `<dl class="tmr-g sol-g">${l.map(([t, v, c]) => `<div${c ? ` class="${c}"` : ""}><dt>${t}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
+  const enelNote = on ? "" : " <small>Adesso la casa è su Enel: è come andrebbe con la casa sulle batterie.</small>";
+  // l'automatico ha già spento, è in pausa, o non può agire: la sezione dice quello, con la barra
+  if (lim && ao && ao.st === 3) {
+    const why = { cella: "una cella era sotto 3,00 V", volt: "la tensione era vicina allo stacco", carica: "la carica era arrivata al " + nf(lim, 0) + "%" }[ao.why] || "le batterie erano vicine allo stacco";
+    let back = "Non la riaccende da sola: lo fai tu dal pulsante quando vuoi.", bt = "a mano";
+    if (ao.back > 0) { const tgt = lim + ao.back; let at = null;
+      if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgt && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
+      bt = at ? hm(q15(at)) : "oltre 48 h";
+      back = `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>` + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
+    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? ora(ao.at) : ""}`, solBar(k.soc, null, lim, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
+      tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.soc) ? nf(ao.soc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
-  const more = `<button class="link-btn au-more" id="au-more" type="button" aria-expanded="${autoOpen}">${autoOpen ? "▴ Nascondi la curva" : "▾ Vedi la curva ora per ora"}</button>` +
+  const aoLive = lim && ao && ao.st !== 4 && cb && cb.ok !== false && cb.on !== false;   // l'automatico può davvero agire
+  const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
+    : cb && cb.ok === false ? " <small>Lo Shelly non risponde: la scheda non può staccare, decide l'inverter.</small>" : cb && cb.on === false ? " <small>L'uscita dell'inverter è già spenta.</small>" : "";
+  if (aoLive && ao.st === 2) return show("bad", AOFF_ICO, "La scheda sta per staccare il solare", solBar(k.soc, null, lim, cut) + p("Una soglia è superata: se resta così per un minuto (20 secondi per una cella) spegne l'uscita e l'ATS porta la casa su Enel."));
+  if (a && a.unknown && !na) return show("wait", SOL_ICO, "Batterie su solare: serve il consumo della casa", p("La scheda lo misura la prima volta che la casa passa sulle batterie, o dopo una notte con la casa sulle batterie."));
+  // gli orari: l'inverter dalle abitudini se ci sono, se no dalla notte; la scheda dalle stesse simulazioni; il sole dalla curva o dalla notte
+  const ev = na && !na.wait ? na.ev : null, hab = a && a.hab;
+  const cutAt = hab ? a.at : a && fin(a.dark) && (!ev || !fin(ev.at)) ? (a.dark < 30 ? now + a.dark * HOUR : null) : ev && fin(ev.at) ? ev.at : null;
+  let aoAt = !aoLive ? null : hab ? a.aoff && a.aoff.at : fin(a && a.aoDark) ? now + a.aoDark * HOUR : null;
+  // la scheda misura il ritmo degli ultimi 15 minuti (firmware 0.50): se dice prima delle abitudini, vale lei (è anche quella che manda l'avviso)
+  const aoHab = aoAt, aoRate = aoLive && fin(ao.eta) && ao.eta < 24 * 60 && (!fin(aoAt) || now + ao.eta * 60 < aoAt);
+  if (aoRate) aoAt = now + ao.eta * 60;
+  let sunAt = null, mn = null, mnAt = null;
+  if (hab) { let dark = a.night[0]; for (let i = 0; i + 1 < a.mid.length; i++) { if (a.night[i]) dark = true; if (dark && !a.night[i] && a.mid[i + 1] > a.mid[i] + .05) { sunAt = a.t[i]; break; } }
+    const lim2 = sunAt ? a.t.indexOf(sunAt) + 1 : a.mid.length; let j = 0; for (let i = 0; i < lim2; i++) if (a.mid[i] < a.mid[j]) j = i; mn = a.mid[j]; mnAt = a.t[j]; }
+  else if (ev) { sunAt = ev.resume; mn = Math.max(0, ev.min); }
+  if (fin(cutAt) && fin(mn)) mn = Math.max(mn, cut);
+  if (fin(aoAt) && (!fin(cutAt) || aoAt <= cutAt)) mn = Math.max(fin(mn) ? mn : 0, Math.min(lim, k.soc));   // dopo lo spegnimento della scheda la casa è su Enel: le batterie si fermano lì
+  const first = [aoAt, cutAt].filter(fin).sort((x, y) => x - y)[0], h = fin(first) ? (first - now) / HOUR : null;
+  // titolo: la prima cosa che succede
+  let cls, ico = SOL_ICO, title;
+  if (fin(aoAt) && (!fin(cutAt) || aoAt <= cutAt)) { ico = AOFF_ICO; title = `La scheda stacca il solare tra <b>${dur(h)}</b>`; }
+  else if (fin(cutAt)) title = `${on ? "" : "Su solare "}l'inverter staccherebbe tra <b>${dur(h)}</b>`.replace(/^l/, "L");
+  else if (hab && a.slope < -1) { const days = (a.mid[0] - cut) / -a.slope; title = `Su solare le batterie reggono <b>${days <= 30 ? "circa " + Math.max(AUTO_H / 24 + 1, Math.round(days)) + " giorni" : "oltre " + AUTO_H / 24 + " giorni"}</b>`; }
+  else title = fin(sunAt) ? `Su solare ce la fai fino al sole` : `Su solare le batterie reggono`;
+  cls = h === null ? (ev && ev.pMar >= .3 ? "warn" : "ok") : h < 24 ? "warn" : "ok";   // mai rosso per una previsione: con l'ATS nessuno resta al buio
+  // le frasi: poche, gli orari stanno nei riquadri
+  let d = "";
+  if (fin(aoAt) && (!fin(cutAt) || aoAt <= cutAt)) {
+    const o = a.aoff || {};
+    d = (aoRate ? `Al consumo degli ultimi 15 minuti${fin(ao.i15) && fin(k.v) ? ` (${power(-ao.i15 * k.v)})` : ""} la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, quando le batterie arrivano al <b>${nf(lim, 0)}%</b>.` +
+        (fin(aoHab) ? ` Coi consumi soliti sarebbe ${ora(aoHab)}.` : "")
+      : `Coi consumi soliti ${hab ? "e il sole previsto " : "al buio "}la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, ` + (o.why === "volt" ? `per un picco di consumo con le batterie già basse.` : `quando le batterie arrivano al <b>${nf(lim, 0)}%</b>.`)) +
+      (fin(cutAt) && cutAt - aoAt > 900 ? ` L'inverter da solo staccherebbe ${ora(cutAt)}: la casa va su Enel <b>${dur((cutAt - aoAt) / HOUR)} prima</b>, con le batterie meno tirate.` : "") +
+      (!aoRate && o.early && aoAt - o.early > 1.5 * HOUR ? ` Con una giornata pesante o meno sole già ${ora(o.early)}.` : "");
+  } else if (fin(cutAt)) {
+    d = `Coi consumi soliti ${hab ? "e il sole previsto " : ""}l'inverter staccherebbe <b>${ora(cutAt)}</b>, poi l'ATS porta la casa su Enel` + (fin(sunAt) ? ` fino a quando i pannelli ricaricano.` : ".") +
+      (hab && a.early && cutAt - a.early > 1.5 * HOUR ? ` Con una giornata pesante o meno sole già ${ora(a.early)}.` : "") + (lim && !aoLive ? "" : !lim ? " <small>Con lo spegnimento automatico (Impostazioni) la scheda la porterebbe su Enel prima.</small>" : "");
+  } else {
+    d = `Coi consumi soliti e il sole previsto non arrivano allo stacco: il punto più basso è il <b>${nf(mn, 0)}%</b>${mnAt ? " " + ora(mnAt) : ""}.` +
+      (hab && a.slope < -1 ? ` Però ogni giorno perdono circa ${nf(-a.slope, 0)} punti: i pannelli danno meno di quanto la casa chiede.` : "") +
+      (hab && a.p >= .05 ? ` In ${nf(a.p * 100, 0)} casi su 100 l'inverter staccherebbe comunque.` : "");
+  }
+  // la stima della scheda, al ritmo degli ultimi 15 minuti (firmware 0.50): è quella che fa partire l'avviso
+  if (!aoRate && aoLive && fin(ao.eta) && ao.eta < 24 * 60) d += ` <small>Al consumo degli ultimi 15 minuti${fin(ao.i15) && fin(k.v) ? ` (${power(-ao.i15 * k.v)})` : ""} la scheda staccherebbe tra ${dur(ao.eta / 60)}.</small>`;
+  const rk = na && na.rk, rkTxt = rk && rk.p >= .2 && !fin(aoAt) ? ` Rischio di stacco ${nf(rk.p * 100, 0)}%: adesso le batterie reggono circa ${nf(rk.kw, 1)} kW.` : "";
+  // il consiglio della notte: con l'automatico acceso «porta la casa su Enel verso…» lo fa già la scheda
+  const tip = aoLive && ao.soon ? `<div class="n-tip">Avviso mandato. Se vuoi restare sulle batterie, spegni qualche carico: a ogni lettura la scheda rifà il conto.</div>`
+    : na && na.tip && !(aoLive && on && !na.cutNow) ? `<div class="n-tip">${esc(na.tip.txt)}</div>` : "";
+  const T = [];
+  if (lim) T.push(["Scheda stacca", fin(aoAt) ? hm(q15(aoAt)) + (dayWord(aoAt) === "oggi" ? "" : `<small> ${dayWord(aoAt).slice(0, 3)}</small>`) : aoLive ? "no" : "ferma", fin(aoAt) ? "w" : ""]);
+  T.push(["Inverter", fin(cutAt) ? hm(q15(cutAt)) + (dayWord(cutAt) === "oggi" ? "" : `<small> ${dayWord(cutAt).slice(0, 3)}</small>`) : "non stacca", fin(cutAt) ? "a" : ""]);
+  T.push(fin(sunAt) ? ["Sole ricarica", hm(q15(sunAt)) + (dayWord(sunAt) === "oggi" ? "" : `<small> ${dayWord(sunAt).slice(0, 3)}</small>`), "s"] : ["Minimo", fin(mn) ? nf(mn, 0) + "%" : "–"]);
+  if (T.length < 3) T.push(["Minimo", fin(mn) ? nf(mn, 0) + "%" : "–"]);
+  const kwh = v => nf(v, v < 10 ? 1 : 0), day = hab ? ` Nelle prossime 24 ore la casa chiederebbe circa <b>${kwh(a.lKwh)} kWh</b> e i pannelli ne darebbero <b>${kwh(a.pKwh)}</b>.` : "";
+  const src = hab ? ` <small>${autoSrc()}</small>` : ev && ev.simple ? " <small>Stima semplice col consumo delle notti passate: le abitudini arrivano con qualche ora vista con la casa sulle batterie.</small>" : a && fin(a.dark) ? " <small>Al buio, al consumo della casa: sole e abitudini non sono ancora contati.</small>" : "";
+  let marks = "";
+  if (hab) { const n = a.t.length;
+    if (fin(cutAt)) { const x = (cutAt - now) / HOUR / (n - 1) * FW; marks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE}" stroke="var(--alert)" stroke-width="1.4"/>` + socMark(n, (cutAt - now) / HOUR, cut, "inverter " + hm(q15(cutAt)), false, "var(--alert)"); }
+    if (fin(aoAt)) marks += `<line x1="0" x2="${FW}" y1="${fy(lim).toFixed(1)}" y2="${fy(lim).toFixed(1)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` + socMark(n, (aoAt - now) / HOUR, lim, "scheda " + hm(q15(aoAt)), true, "var(--warn)");
+    if (!fin(cutAt) && !fin(aoAt) && fin(mnAt)) marks += socMark(n, (mnAt - now) / HOUR, mn, nf(mn, 0) + "%", mn > 70); }
+  const more = hab ? `<button class="link-btn au-more" id="au-more" type="button" aria-expanded="${autoOpen}">${autoOpen ? "▴ Nascondi la curva" : "▾ Vedi la curva ora per ora"}</button>` +
     (autoOpen ? `<svg class="fc au-svg" viewBox="0 0 340 152" role="img" aria-label="Carica prevista con la casa sulle batterie nei prossimi ${AUTO_H / 24} giorni">${socSvg(a, marks)}</svg>` +
-      `<p class="au-leg">Linea: il caso normale. Fascia: 8 casi su 10. Barre: sopra il sole previsto, sotto i consumi soliti della casa.</p>` : "");
-  html0(cls, t, d + day + src + en, more);
+      `<p class="au-leg">Linea: il caso normale. Fascia: 8 casi su 10. Barre: sopra il sole previsto, sotto i consumi soliti della casa.</p>` : "") : "";
+  show(cls, ico, title, solBar(k.soc, mn, lim, cut, fin(sunAt) ? "minimo" : "più basso") + solLine(now, aoAt, cutAt, sunAt, aoAt ? a.aoff && a.aoff.early : hab ? a.early : null) + tiles(T) +
+    p(d + rkTxt + aoNote + enelNote) + tip + (day || src ? p(day.trim() + src) : ""), more);
 }
 document.addEventListener("click", e => { if (e.target.closest("#au-more")) { autoOpen = !autoOpen; if (data) render(mode); } });
 /* ---------- il banco e gli stacchi. Il registro dice quanta energia c'è, ma l'inverter stacca per la tensione al picco di consumo:
@@ -2699,7 +2842,6 @@ function drawBankMem(){
 const kOfBank = () => { const b = (data && data.batteries || []).filter(x => x.online !== false && fin(x.soc) && fin(x.full_ah)); const f = b.reduce((a, x) => a + x.full_ah, 0); return f ? b.reduce((a, x) => a + x.soc * x.full_ah, 0) / f : NaN; };
 const MOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
 const WARN_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.01"/></svg>';
-let nightK = null, nightF = null;
 /* ---------- meteo di oggi e di domani: a colpo d'occhio, e quanto ne viene ai pannelli. Si scorre di lato nello stesso riquadro ---------- */
 const WX_G = { sole: '<circle cx="24" cy="24" r="9"/><path d="M24 5v5M24 38v5M5 24h5M38 24h5M10.6 10.6l3.5 3.5M33.9 33.9l3.5 3.5M37.4 10.6l-3.5 3.5M14.1 33.9l-3.5 3.5"/>',
   poco: '<circle cx="17" cy="17" r="6.5"/><path d="M17 4v3.5M4 17h3.5M7.8 7.8l2.5 2.5M26.2 7.8l-2.5 2.5"/><path d="M16 39h19a7 7 0 0 0 1-13.9 10 10 0 0 0-19.2-2A8.5 8.5 0 0 0 16 39z"/>',
@@ -2778,33 +2920,6 @@ function nightAdvice(k, f){
   const rk = riskFor(k, f, 1);
   return { cur, sol, ev, st, off: !on, cutNow: cut, tip, rk, mar, cut: cur.cut };
 }
-function drawNight(k, f){
-  const box = $("night"); if (!box) return;
-  if (k !== undefined) { nightK = k; nightF = f; } else { k = nightK; f = nightF; }
-  const a = nightAdvice(k, f);
-  if (!a) { box.hidden = true; return; }
-  if (a.wait) {
-    box.hidden = false; box.className = "night wait";
-    const w = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Stanotte: lo dico verso sera</span></div>` +
-      `<p class="n-d">Con meno di 7 giorni di registro la notte si calcola dal pomeriggio, col consumo medio delle notti passate.</p>`;
-    if (box.dataset.h !== w) { box.dataset.h = w; box.innerHTML = w; }
-    return;
-  }
-  const { cur, sol, ev, st, tip, rk, mar, cut, off } = a, m0 = Math.max(0, ev.min), alt = off && sol;   // alt: risponde per la casa sulle batterie
-  const after = ev.resume === null ? "e nelle prossime 48 ore i pannelli non bastano a ricaricare" : `poi i pannelli tornano a caricare verso le <b>${hm(q15(ev.resume))}</b>`;
-  const title = alt ? (st === "bad" ? "Con la casa sulle batterie l'inverter staccherebbe" : st === "warn" ? "Con la casa sulle batterie ce la fai, ma di poco" : "Con la casa sulle batterie stanotte ce la fai")
-    : off ? "Stanotte la casa è su Enel" : st === "bad" ? "Stanotte l'inverter stacca" : st === "warn" ? "Stanotte ce la fai, ma di poco" : "Stanotte ce la fai";
-  box.hidden = false; box.className = "night " + (st === "ok" || (off && !alt) ? "ok" : "warn");   // con l'ATS uno stacco non lascia la casa al buio: mai rosso
-  const stacco = `Stacco dell'inverter ${alP(cut)} (${S.inv} V), margine fino ${alP(mar)}.`, cutAt = fin(ev.at) ? ev.at : rk && rk.p >= .2 ? rk.at : null;
-  const rkTxt = rk && (alt || !off) ? ` <b>Rischio di stacco ${nf(Math.max(rk.p, ev.pCut) * 100, 0)}%</b>${cutAt ? ` (dalle ${hm(q15(cutAt))} circa)` : ""}: adesso le batterie reggono circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in queste condizioni ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}.` : "";
-  const body = st === "bad" && cutAt && (alt || !off) ? `${alt ? "Con la casa sulle batterie l'inverter staccherebbe" : "L'inverter stacca"} verso le <b>${hm(q15(cutAt))}</b>, poi l'ATS porta la casa su Enel fino a quando i pannelli ricaricano. ${stacco}`
-    : `${alt ? "Con la casa sulle batterie minimo" : off ? "Le batterie alimentano solo l'impianto: minimo" : "Minimo"} verso <b>${nf(m0, 0)}%</b>, ${after}. ${stacco}`;
-  const tipH = tip ? `<div class="n-tip">${esc(tip.txt)}</div>` : "";
-  const html = `<div class="n-h"><span class="n-ico">${st === "ok" ? MOON : WARN_ICO}</span><span class="n-t">${title}</span></div>` +
-    `<p class="n-d">${body}${rkTxt}${alt ? ` Con la casa su Enel arrivi verso <b>${nf(Math.max(0, cur.min), 0)}%</b>.` : ""}` +
-    `${ev.simple ? ` <small>Stima semplice col consumo delle notti passate: la previsione completa arriva con 7 giorni di registro.</small>` : ""}</p>` + tipH;
-  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
-}
 // energia adesso: i regolatori portano al nodo la potenza "lato batteria" (out_w); da lì va alle batterie o alla casa
 function drawFlow(k){
   const svg = $("flow"); if (!svg) return;
@@ -2859,7 +2974,7 @@ function pushShared(auto = false){
       const base = cfgBase && !rs ? { ...cfgBase } : cfgBase; if (base && !rs) delete base.rem;
       const patch = cfgBase && cfgPatchOk() ? cfgDiff(base, now) : undefined;   // senza base (scheda mai letta) o firmware vecchio: tutte
       if (patch === null) { cfgPushT = 0; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); return; }   // niente di diverso da quello che ha già
-      const j = await boardCfg(patch ? { app_set: patch, ...(rs ? { rem_set: true } : {}) } : { app: sharedOf(), ...(rs ? { rem_set: true } : {}) });   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
+      const j = await boardCfg({ ...(patch ? { app_set: patch } : { app: sharedOf() }), ...(rs ? { rem_set: true } : {}), ver: APP_VERSION });   // ver: la scheda annota chi ha scritto (0.49)   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
       if (j && j.ok) { cfgBase = patch ? cfgMerge(cfgBase, patch) : jclone(sharedOf()); if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); }
       cfgPushT = 0;
     } catch (e) {
@@ -2978,6 +3093,23 @@ async function remDecrypt(buf){
   return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(4, 16) }, remKeyC.key, buf.slice(16)));
 }
 const r1 = v => Math.round(v * 10) / 10;
+/* le impostazioni condivise da fuori casa: arrivano col pacchetto da 10 minuti e, per 5 minuti dopo ogni salvataggio, anche con la diretta
+   (firmware 0.49). Vince la copia più nuova (cfg_at della scheda): il pacchetto delle 17:30 portava ancora quelle delle 17:29 quando la
+   diretta aveva già quelle delle 17:30, e la app mostrava l'automatico spento anche se sulla scheda era acceso. */
+let cfgSeen = 0;
+function remCfgTake(b){
+  const at = b && b.s && fin(b.s.cfg_at) ? b.s.cfg_at : 0;
+  if (!b || !isObj(b.cfg) || cfgPushT || (at && at < cfgSeen) || (at && cfgAt > 0 && at < cfgAt) || (fin(b.t) && b.t < remCmdAt)) return;  // il canale resta quello di questo telefono
+  if (at) cfgSeen = at;
+  let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
+  const before = JSON.stringify(sharedOf());
+  SHARED.forEach(k => { if (k !== "rem" && k in b.cfg) raw[k] = b.cfg[k]; });
+  raw.rem = S.rem;
+  try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
+  S = loadSettings(); cfgBase = { ...jclone(b.cfg), rem: jclone(S.rem) };   // il pacchetto non porta il canale: quello è del telefono
+  if (JSON.stringify(sharedOf()) !== before && $("settings").open) { fillSettings(); fillLoc(); }
+  if (S.loc && !wx) loadWx();                         // su un telefono nuovo la località arriva col primo pacchetto
+}
 async function remApply(b, fresh){
   if (b && b.s) await epochCheck(b.s);
   if (!b || !b.s || !Array.isArray(b.s.batteries)) throw new Error("pacchetto vuoto");
@@ -2988,16 +3120,7 @@ async function remApply(b, fresh){
   if (b.ip) lsSet(HOME_KEY, { ip: b.ip, pub: b.pub || (lsGet(HOME_KEY) || {}).pub || "" });
   if (Array.isArray(b.sw) && fin(b.s.sw)) { const ch = JSON.stringify(b.sw) !== JSON.stringify(SW.rows); SW.board = true; SW.rows = b.sw; swTake(b.s.sw); if (ch) { swHabC = null; nightMemo = {}; } }
   if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
-  if (b.cfg && typeof b.cfg === "object" && !cfgPushT && !(fin(b.s.cfg_at) && cfgAt && b.s.cfg_at < cfgAt) && !(fin(b.t) && b.t < remCmdAt)) { // le impostazioni condivise: comanda la scheda, il canale resta quello di questo telefono
-    let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
-    const before = JSON.stringify(sharedOf());
-    SHARED.forEach(k => { if (k !== "rem" && k in b.cfg) raw[k] = b.cfg[k]; });
-    raw.rem = S.rem;
-    try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
-    S = loadSettings(); cfgBase = { ...jclone(b.cfg), rem: jclone(S.rem) };   // il pacchetto non porta il canale: quello è del telefono
-    if (JSON.stringify(sharedOf()) !== before && $("settings").open) { fillSettings(); fillLoc(); }
-    if (S.loc && !wx) loadWx();                         // su un telefono nuovo la località arriva col primo pacchetto
-  }
+  remCfgTake(b);
   if (b.voc && !(fin(b.t) && b.t < remCmdAt)) vocTake(b.voc);
   fcCap = fin(b.s.fc_last);
   if (fresh && Array.isArray(b.log)) { const rows = b.log.filter(validRow); if (rows.length) await db.put(rows); logSrc = ""; await realLog(); relearn(); }
@@ -3158,6 +3281,7 @@ async function mqMsg(u8){
     const hist = data && data.history;
     data = b.s; if (!data.history && hist) data.history = hist;       // il grafico delle 24 ore arriva col pacchetto da 10 minuti
     if (fin(b.s.sw)) swTake(b.s.sw);
+    if (b.cfg) remCfgTake(b);                                          // dopo un salvataggio la diretta porta anche le impostazioni
     if (fin(b.s.mute_until) && Date.now() / 1000 - remCmdAt > 25) muteUntil = b.s.mute_until;
     mqLive = Date.now(); remErr = "";
     render("remote");
@@ -3434,8 +3558,7 @@ function render(m){
   drawPv(data.pv, k);
   drawSw();
   drawFlow(k);
-  drawAuto(k, f);
-  drawNight(k, f);
+  drawSolar(k, f);
   drawWeather(k);
   drawFw();
 
@@ -5820,7 +5943,10 @@ function fillAoNote(){
   n.innerHTML = !S.aoOn ? "Spento: lo stacco lo fa l'inverter da solo, e l'ATS porta la casa su Enel dopo."
     : `La scheda spegne l'uscita quando le batterie scendono al <b>${off}%</b> (stacco ~${nf(cutSoc(), 0)}% + ${S.aoMarg}), o restano entro 1 V dallo stacco per un minuto, o una cella va sotto 3,00 V per 20 secondi. ` +
       (S.aoBack ? `La riaccende solo se l'ha spenta lei, quando col sole arrivano al <b>${off + S.aoBack}%</b> e caricano da 10 minuti.` : "Non la riaccende: lo fai tu dal pulsante.") +
-      " Se la riaccendi tu prima, aspetta 3 ore prima di rispegnerla. A ogni manovra ti arriva una notifica." + st + (data && data.cb ? "" : " <b>Serve lo Shelly collegato alla scheda (firmware 0.46).</b>");
+      " Se la riaccendi tu prima, aspetta 3 ore prima di rispegnerla. A ogni manovra ti arriva una notifica" + (S.aoWarn ? `, e una ${S.aoWarn < 60 ? S.aoWarn + " minuti" : S.aoWarn / 60 + (S.aoWarn === 60 ? " ora" : " ore")} prima, stimata al consumo degli ultimi 15 minuti (la tensione e le celle possono farla spegnere senza preavviso).` : ".") + st + (data && data.cb ? "" : " <b>Serve lo Shelly collegato alla scheda (firmware 0.46).</b>");
+  // chi ha scritto per ultimo le impostazioni (firmware 0.49: cfg_w = [[t, 0 casa | 1 fuori casa, 1 intere | 0 a voci, versione della app, automatico dopo]])
+  const w = data && Array.isArray(data.cfg_w) && data.cfg_w[0];
+  if (w && fin(w[0])) n.innerHTML += `<br><small class="ao-who">Ultimo salvataggio sulla scheda: ${alWhen(w[0])}, ${w[1] ? "da fuori casa" : "da casa"}, ${w[3] ? "app " + esc(w[3]) : "app vecchia (fino alla 1.96)"}${w[2] ? ", tutte le voci" : ""} · automatico ${w[4] ? "acceso" : "spento"}</small>`;
 }
 function fillInvNote(){
   fillAoNote();
@@ -5970,7 +6096,7 @@ $("settings").addEventListener("change", e => {
   saveSettings();
   if (["theme", "palette", "style"].includes(t.name)) { applyTheme(); if (data) render(mode); }
   if (t.name === "poll") { schedule(); poll(); }
-  if (t.name === "aoMarg" || t.name === "aoBack") fillAoNote();
+  if (t.name === "aoMarg" || t.name === "aoBack" || t.name === "aoWarn") fillAoNote();
   if (t.name === "inv" || t.name === "marg") { fillInvNote(); fc = null; fcAt = 0; if (data) render(mode); }
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (data) render(mode);
