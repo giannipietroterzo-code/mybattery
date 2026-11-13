@@ -1640,7 +1640,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.94"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.95"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1669,7 +1669,7 @@ const MSG = {
   BAT_COLD:    ["Troppo freddo per caricare", "Sotto 0 °C le LiFePO4 non si caricano: il BMS ferma la carica."],
   BANK_LOW:    () => ["Carica bassa", `Sotto la soglia del ${S.alLow}% che hai scelto. Riduci i consumi.`],
   INV_NEAR:    () => ["Vicino allo stacco dell'inverter", `L'inverter stacca a ${S.inv} V: quando succede, l'ATS porta la casa su Enel da solo.`],
-  INV_RISK:    ["L'inverter può staccare a momenti", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare le batterie puoi portarla prima su Enel."],
+  INV_RISK:    ["L'inverter potrebbe staccare", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare le batterie puoi portarla prima su Enel."],
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
   CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)) + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
@@ -2147,8 +2147,11 @@ const LFP_OCV = [[0, 2.50], [9, 3.00], [14, 3.10], [17, 3.15], [20, 3.20], [30, 
 // gli stacchi veri visti dalla scheda (firmware 0.17: data.inv.cuts = [[t, V, carica]]), con la stessa soglia di adesso.
 // La tensione è quella letta dal BMS: con carichi forti l'inverter stacca anche 2 V sopra la sua soglia (come la finestra di invTick nella scheda)
 function invLearned(){
-  const mem = IEV.filter(e => e[1] === 1 && e[2] !== 3).reverse().map(e => [e[0], e[3], e[6]]);   // la memoria degli eventi; gli stacchi stimati a mano non contano qui
-  const c = mem.length ? mem.filter(r => fin(r[1]) && fin(r[2]) && r[1] - (S.inv || 48) >= -1 && r[1] - (S.inv || 48) <= 2.5) : data && data.inv && Array.isArray(data.inv.cuts) ? data.inv.cuts.filter(r => Array.isArray(r) && fin(r[1]) && fin(r[2]) && r[1] - (S.inv || 48) >= -1 && r[1] - (S.inv || 48) <= 2.5) : [];
+  // solo gli stacchi veri (src 0 notte, 1 giorno): la scatola nera (2) è la scheda spenta per qualunque motivo, lo stimato (3) è a mano; e mai sopra la
+  // tensione che le batterie hanno già tenuto sotto carico senza staccare (inv.vh, dalla scheda)
+  const inv = (data && data.inv) || {}, vh = fin(inv.vh) ? inv.vh : Infinity, ok = r => fin(r[1]) && fin(r[2]) && r[1] - (S.inv || 48) >= -1 && r[1] < vh;
+  const mem = IEV.filter(e => e[1] === 1 && e[2] <= 1).reverse().map(e => [e[0], e[3], e[6]]);
+  const c = mem.length ? mem.filter(ok) : Array.isArray(inv.cuts) ? inv.cuts.filter(r => Array.isArray(r) && (r.length < 4 || r[3] <= 1) && ok(r)) : [];
   if (!c.length) return null;
   const last = c.slice(0, 3);
   return { soc: Math.round(last.reduce((a, r) => a + r[2], 0) / last.length), n: c.length, t: c[0][0], v: c[0][1] };
@@ -2614,20 +2617,24 @@ function riskLearn(){
     const s = p.reduce((a, q) => a + (q[0] - mx) * (q[1] - my), 0) / p.reduce((a, q) => a + (q[0] - mx) ** 2, 0); if (s < 0) slopes.push(-s); });
   const Rn = slopes.length, Rv = Rn ? clamp(quant(slopes, .5), .008, .05) : .02;
   byBin.forEach((p, b) => { if (p.length >= 4) v0b.set(b, quant(p.map(q => q[1] + Rv * q[0]), .5)); });
-  const cuts = IEV.filter(e => e[1] === 1 && e[2] !== 3 && fin(e[3]) && e[3] > 44), vc = cuts.length ? quant(cuts.map(e => e[3]), .5) : inv + .8;
+  // tensione di stacco: la impara la scheda (stacchi veri e tenute, inv.vc); senza (cavo, firmware vecchio) gli stacchi veri, mai sopra le tenute del registro
+  const bi = (data && data.inv) || {}, cuts = IEV.filter(e => e[1] === 1 && e[2] <= 1 && fin(e[3]) && e[3] > 44);
+  const held = STRESS.filter((r, j) => r[8] && r[3] >= 200 && !(r[10] & 4) && !(STRESS[j + 1] && STRESS[j + 1][10] & 4) && r[0] >= now - 30 * DAY).map(r => r[1] / 100);
+  const vc = fin(bi.vc) ? bi.vc : Math.min(cuts.length ? quant(cuts.map(e => e[3]), .5) : inv + .8, held.length ? Math.min(...held) - .15 : Infinity);
+  const Rb = fin(bi.r) && bi.rn >= 10 ? bi.r : null;
   // esposizione ed eventi per carica della batteria più debole e consumo: quante volte è successo, su quanti quarti d'ora passati in quelle condizioni
   const expo = RK_S.map(() => RK_L.map(() => 0)), evs = RK_S.map(() => RK_L.map(() => 0)), cnt = RK_S.map(() => RK_L.map(() => 0)), dist = new Map();
   STRESS.forEach(r => { const a = bandOf(RK_S, r[7]), b = bandOf(RK_L, r[4] / 1000); if (a >= 0 && b >= 0) expo[a][b]++;
     const d = new Date(r[0] * 1000), age = (now - r[0]) / DAY, w = Math.exp(-age / 65) + (age > 300 && d.getMonth() === new Date(now * 1000).getMonth() ? .5 : 0);   // conta di più il recente, e lo stesso mese degli anni passati
     const k = d.getHours() + (r[8] ? 100 : 0); if (!dist.has(k)) dist.set(k, []); dist.get(k).push([r[4], w]); const g = r[8] ? -1 : -2; if (!dist.has(g)) dist.set(g, []); dist.get(g).push([r[4], w]); });
   IEV.forEach(e => { const a = bandOf(RK_S, fin(e[7]) ? e[7] : e[6]), b = bandOf(RK_L, e[5] / 1000); if (a < 0 || b < 0) return; evs[a][b] += e[1] === 1 ? 1 : e[1] === 3 ? .5 : .25; if (e[1] === 1) cnt[a][b]++; });
-  RM = { R: Rv, Rn, v0b, vc, vcN: cuts.length, expo, evs, cnt, dist, slots: STRESS.length, first: STRESS.length ? STRESS[0][0] : 0, last: STRESS.length ? STRESS[STRESS.length - 1][0] : 0 };
+  RM = { R: Rb || Rv, Rn: Rb ? bi.rn : Rn, v0b, vc, vcN: fin(bi.vcn) ? bi.vcn : cuts.length, vh: fin(bi.vh) ? bi.vh : held.length ? Math.min(...held) : null, expo, evs, cnt, dist, slots: STRESS.length, first: STRESS.length ? STRESS[0][0] : 0, last: STRESS.length ? STRESS[STRESS.length - 1][0] : 0 };
   rkC = {}; irPush(); drawBankMem();
 }
 function irPush(){   // alla scheda, per avvisare anche ad app chiusa
-  if ((mode !== "live" && mode !== "remote") || !RM || (!RM.Rn && !RM.vcN)) return;
-  const n = { r: +RM.R.toFixed(4), ...(RM.vcN ? { vc: +RM.vc.toFixed(2) } : {}) }, o = S.ir;
-  if (o && Math.abs(o.r / n.r - 1) < .05 && (o.vc || 0) === (n.vc || 0)) return;
+  if ((mode !== "live" && mode !== "remote") || !RM || !RM.Rn || (data && data.inv && data.inv.rn >= 10)) return;   // la tensione di stacco la impara la scheda; la caduta, finché non l'ha misurata lei
+  const n = { r: +RM.R.toFixed(4) }, o = S.ir;
+  if (o && Math.abs(o.r / n.r - 1) < .05 && !o.vc) return;
   S.ir = n; saveSettings(true);
 }
 const rkV0 = s => { let b = Math.floor(s * 100 / 500), v = RM.v0b.get(b); if (!fin(v)) v = RM.v0b.get(b - 1) ?? RM.v0b.get(b + 1); return fin(v) ? v : ocv(s); };
@@ -2662,7 +2669,7 @@ function drawBankMem(){
   const KIND = { 1: "Stacco", 2: "Rischio", 3: "Vicino allo stacco" }, nameB = w => { const i = w >> 5; return ((data && data.batteries && data.batteries[i] && data.batteries[i].name) || "Batteria " + (i + 1)) + ", cella " + ((w & 31) + 1); };
   const html = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Memoria delle batterie</span></div>` +
     `<p class="n-d">Quello che ho imparato dai picchi veri, non dalle medie. ${d < 7 ? `<small>Solo ${d < 1 ? Math.round(RM.slots / 4) + " ore" : nf(d, 0) + " giorni"} di dati: le stime migliorano col tempo.</small>` : ""}</p>` +
-    `<dl class="mem-g"><div><dt>Adesso regge circa</dt><dd>${fin(soc) ? nf(rkMaxW(soc) / 1000, 1) + " kW" : "–"}</dd></div><div><dt>Stacco misurato</dt><dd>${RM.vcN ? nf(RM.vc, 1) + " V" : "non ancora"}</dd></div><div><dt>Caduta delle batterie</dt><dd>${RM.Rn ? nf(RM.R * 1000, 0) + " mΩ" : "da imparare"}</dd></div><div><dt>Stacchi visti</dt><dd>${cut}</dd></div></dl>` +
+    `<dl class="mem-g"><div><dt>Adesso regge circa</dt><dd>${fin(soc) ? nf(rkMaxW(soc) / 1000, 1) + " kW" : "–"}</dd></div><div><dt>${RM.vcN ? "Stacco misurato" : "Stacco stimato"}</dt><dd>${nf(RM.vc, 1) + " V"}</dd></div><div><dt>Già tenuti sotto carico</dt><dd>${fin(RM.vh) ? nf(RM.vh, 1) + " V" : "–"}</dd></div><div><dt>Caduta delle batterie</dt><dd>${RM.Rn ? nf(RM.R * 1000, 0) + " mΩ" : "da imparare"}</dd></div><div><dt>Stacchi visti</dt><dd>${cut}</dd></div></dl>` +
     (ev.length ? `<ul class="mem-ev">${ev.map(e => `<li><b>${new Date(e[0] * 1000).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</b><i class="${e[1] === 1 ? "c" : ""}">${KIND[e[1]] || "?"}${e[2] === 3 ? " · stimato" : ""}</i><small>${nf(e[3], 1)} V · ${nf(e[5] / 1000, 1)} kW · carica ${nf(e[6], 0)}% (la più debole ${nf(e[7], 0)}%)${e[8] ? " · " + esc(nameB(e[10])) + " a " + nf(e[8] / 1000, 2) + " V" : ""}</small></li>`).join("")}</ul>` : "");
   box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
@@ -4449,12 +4456,19 @@ function localOpen(bs, k){
     else if (!pvIsOff(g) && fin(g.v)) { if (g.v >= pvDangerAt(m)) add("PV_DANGER", "prot", w); else if (g.v >= pvWarnAt(m)) add("PV_HIGH", "alarm", w); } });
   return o;
 }
+// perché la scheda dice che l'inverter può staccare (inv.rw dalla 0.47: 0 cella, 1 tensione, 2 il prossimo picco)
+function riskWhy(inv, k){
+  const vc = fin(inv.vc) ? ` (${nf(inv.vc, 1)} V${inv.vcn ? "" : ", stimato"})` : "";
+  if (inv.rw === 0 || (inv.rw === undefined && inv.rmv && inv.rmv <= 3000)) return `Una cella è scesa a ${nf(inv.rmv / 1000, 2)} V con le batterie che scaricano. `;
+  if (inv.rw === 2 && fin(inv.rp)) return `Batterie a ${nf(inv.rv, 1)} V: con un picco come quello appena visto${fin(inv.rk) ? ` (${nf(inv.rk, 1)} kW)` : ""} scenderebbero a ${nf(inv.rp, 1)} V, vicino allo stacco${vc}. `;
+  return `Batterie a ${nf(fin(inv.rv) ? inv.rv : k.v, 1)} V con molta corrente, vicino allo stacco${vc}. `;
+}
 // una riga di stato diventa un avviso: il testo del codice, con i valori di adesso quando aiutano
 function openAlert([code, sev, who, at], bs, k){
   if (sev === "info" || (code === "PV_OFFLINE" && !S.alOff)) return null;
   const b = who >= 0 && who < 10 ? bs[who] : null, g = who >= 10 && Array.isArray(data.pv) ? data.pv.find(x => x.addr === who - 10) : null, inv = data.inv || {};
   let [t, d] = msg(code);
-  if (code === "INV_RISK") d = (inv.rmv && inv.rmv <= 3000 ? `Una cella è scesa a ${nf(inv.rmv / 1000, 2)} V con le batterie che scaricano. ` : `Batterie a ${nf(k.v, 1)} V con molta corrente. `) + d;
+  if (code === "INV_RISK") d = riskWhy(inv, k) + d;
   else if (code === "INV_NEAR" && fin(k.v)) t = `Batterie a ${nf(k.v, 1)} V: vicino allo stacco`;
   else if (code === "BANK_LOW" && fin(k.soc)) t = `Carica bassa: ${nf(k.soc, 0)}%`;
   else if (code === "CELL_SPREAD" && b && b.cells && b.cells.length) t = `Celle sbilanciate di ${nf(Math.max(...b.cells) - Math.min(...b.cells), 0)} mV`;
