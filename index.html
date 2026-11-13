@@ -582,6 +582,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .n-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .n-t{font-weight:700;font-size:1rem;line-height:1.25}.n-t b{color:var(--c);font-family:var(--num);font-variant-numeric:tabular-nums}
 .n-d{margin:6px 0 0;font-size:.84rem;line-height:1.45;color:var(--ink)}.n-d small{color:var(--muted)}
+.night .au-more{display:block;margin:8px 0 0;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--c)}.au-svg{display:block;width:100%;height:auto;margin-top:8px}.au-leg{margin:4px 0 0;font-size:.74rem;line-height:1.4;color:var(--muted)}
 .n-tip{margin:9px 0 0;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--lith) 12%,transparent);font-size:.84rem;line-height:1.45}
 .n-tip .set-btn{margin-top:8px;padding:7px 12px;font-size:.84rem;background:var(--lith);color:#111}
 .n-tip .set-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -1639,7 +1640,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.93"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.94"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2502,38 +2503,79 @@ function nightRun(k, f, mask){
   return nightMemo[key] = { ...nightOf(inp, simPaths(inp, NIGHT_R)), simple: !!inp.simple, W: inp.W };
 }
 /* ---------- autonomia su solare: quanto dura il banco con la casa sulle batterie, ovunque sia adesso ----------
-   Due risposte dallo stesso motore della notte: al buio (l'energia fino allo stacco divisa per il consumo della casa) e, col modello, col sole
-   previsto (simulazioni a 48 ore con la casa sulle batterie per tutto il tempo: quando l'inverter staccherebbe, e con che probabilità). */
+   Stesso motore della previsione e della notte (runDet, fullDraw, simPaths), con la casa sulle batterie per 4 giorni: i consumi sono quelli delle
+   abitudini (loadBase: ora, tipo di giorno, giorno della settimana, stagione, freddo), il sole quello previsto. Non aspetta i 7 giorni di registro
+   della previsione: bastano 6 ore viste con la casa sulle batterie (il riquadro dice da quanto ha imparato e quante ore del giorno non ha mai visto), e le
+   simulazioni sono più larghe finché le giornate viste sono poche.
+   Risposta: quando l'inverter staccherebbe (mediana, e «prudente» = 1 caso su 5 va peggio), con che probabilità, la curva ora per ora con la
+   forchetta 10–90 %, e quanta energia chiede la casa e danno i pannelli nelle prossime 24 ore. Con meno dati: energia ÷ consumo delle notti viste. */
+const AUTO_H = 96, AUTO_MIN = 6;
 function autonomy(k, f){
   if (!data || !k || !k.on || !fin(k.soc) || !fin(k.full)) return null;
-  const full = !!(f && model && model.prof), cut = cutSoc(), key = "a" + (full ? f.t[0] : Math.round(k.soc * 10) + ":" + Math.floor(nowOf(data) / 300));
+  const M = model, now = nowOf(data), cut = cutSoc(), on = houseNow(), capB = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV);
+  const hab = !!(M && M.prof && M.load.hours >= AUTO_MIN && pvBase(M, now, true) !== null);
+  const key = "a" + (hab ? "h" : "s") + Math.floor(now / 300) + ":" + Math.round(k.soc * 10) + ":" + on;
   if (nightMemo[key]) return nightMemo[key];
-  const cap = full ? f.cap : k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV), soc = full ? f.mid[0] : k.soc, left = Math.max(0, soc - cut) / 100 * cap;
   let o;
-  if (full) {
-    const inp = fullInputs(f, 1, f.t[0] + 48 * HOUR), paths = simPaths(inp, NIGHT_R), N = inp.P.length, W = inp.L.slice(0, 24).reduce((a, x) => a + x, 0) / Math.min(24, N);
-    const ts = paths.map(a => { for (let i = 0; i < N; i++) if (a[i + 1] <= cut) return inp.T[i] + HOUR * clamp((a[i] - cut) / ((a[i] - a[i + 1]) || 1), 0, 1); return Infinity; }).sort((x, y) => x - y);
-    const med = ts[Math.floor(ts.length / 2)];
-    o = { W, dark: left / W, p: ts.filter(fin).length / ts.length, at: fin(med) ? med : null, full: true };
-  } else { const W = nightW(k, 1); o = W ? { W, dark: left / W } : { unknown: true }; }
+  if (hab) {
+    const cal = M.cal || { pvB: [1, 1], lB: 1, pvDay: [[], []] }, arch = f && f.arch, cap = capOf(M, capB), batW = on ? k.p : NaN;   // su Enel le batterie adesso non dicono niente della casa
+    const det = withMask(1, now + AUTO_H * HOUR, () => runDet(M, now, k.soc, cap, { N: AUTO_H, asFc: true, pvB: cal.pvB, lB: cal.lB, nc: nowcast(M, now), batW }));
+    const paths = simPaths({ ...det, M, t0: now, soc0: k.soc, cap, batW, draw: fullDraw(M, now, arch ? arch.pvDay : cal.pvDay, !arch && logSrc !== "demo") }, NIGHT_R), N = det.P.length;
+    const ts = paths.map(a => { for (let i = 0; i < N; i++) if (a[i + 1] <= cut) return det.T[i] + HOUR * clamp((a[i] - cut) / ((a[i] - a[i + 1]) || 1), 0, 1); return Infinity; }).sort((x, y) => x - y);
+    const qt = p => { const v = ts[Math.min(ts.length - 1, Math.floor(ts.length * p))]; return fin(v) ? v : null; };
+    const col = p => det.S.map((_, i) => Math.max(cut, quant(paths.map(a => a[i]), p)));       // dopo lo stacco la casa va su Enel: la curva si ferma lì
+    const mid = col(.5), iMin = mid.reduce((b, v, i, a) => v < a[b] ? i : b, 0), day = a => a.slice(0, 24).reduce((x, y) => x + y, 0);
+    o = { hab: true, t: det.T, pv: det.P, load: det.L, night: det.night, mid, lo: col(.1), hi: col(.9), p: ts.filter(fin).length / ts.length, at: qt(.5), early: qt(.2),
+      min: mid[iMin], minAt: det.T[iMin], slope: (mid[N] - mid[0]) / (AUTO_H / 24), W: day(det.L) / 24, lKwh: day(det.L) / 1000, pKwh: day(det.P) / 1000, cap };
+  } else { const W = nightW(k, 1); o = W ? { W, cap: capB } : { unknown: true, cap: capB }; }
+  o.left = Math.max(0, k.soc - cut) / 100 * o.cap; if (o.W) o.dark = o.left / o.W;
   if (Object.keys(nightMemo).length > 300) nightMemo = {};
-  return nightMemo[key] = { ...o, cut, left };
+  return nightMemo[key] = { ...o, cut };
+}
+// da che cosa vengono i consumi dell'autonomia: quanto ha visto, e quanto di oggi
+function autoSrc(){
+  const M = model, L = M.load, wd = dayType(new Date(nowOf(data) * 1000)), n = L.byWd[wd];
+  return `Consumi dalle abitudini di ${L.days} ${L.days === 1 ? "giorno" : "giorni"} con la casa sulle batterie` +
+    (n ? ` (${WD[wd]}: ${n === 1 ? "visto una volta" : "visto " + n + " volte"})` : ` (${WD[wd]} mai visto: vale come ${dayClass(wd) ? "un feriale" : "un festivo"} qualunque)`) +
+    (L.old ? ", più lo stesso periodo degli anni passati" : "") + (M.beta || M.gamma ? ", corretti con la temperatura prevista" : "") +
+    (L.hod < 24 ? `; ${24 - L.hod} ore del giorno mai viste, stimate dalle altre` : "") + ".";
 }
 const AUTO_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4M9.5 15.5h5M9.5 11.5h5"/></svg>';
+let autoOpen = false;
 function drawAuto(k, f){
   const box = $("auto"); if (!box) return;
   const a = autonomy(k, f); if (!a) { box.hidden = true; return; }
-  const now = nowOf(data), enel = !houseNow(), html0 = (cls, t, d) => { box.hidden = false; box.className = "night " + cls; const h = `<div class="n-h"><span class="n-ico">${AUTO_ICO}</span><span class="n-t">${t}</span></div><p class="n-d">${d}</p>`; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
+  const now = nowOf(data), enel = !houseNow();
+  const html0 = (cls, t, d, more = "") => { box.hidden = false; box.className = "night " + cls; const h = `<div class="n-h"><span class="n-ico">${AUTO_ICO}</span><span class="n-t">${t}</span></div><p class="n-d">${d}</p>${more}`; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
   const stacco = `stacco dell'inverter (${ilP(a.cut)}, ${S.inv} V)`, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
+  const en = enel ? " <small>Adesso la casa è su Enel: è come andrebbe con la casa sulle batterie.</small>" : "";
   if (a.unknown) return html0("wait", "Autonomia su solare: serve il consumo della casa", "La scheda lo misura la prima volta che la casa passa sulle batterie, o dopo una notte con la casa sulle batterie.");
   if (!(a.left > 0)) return html0("warn", "Su solare le batterie sono già allo stacco", `La carica è già sotto lo ${stacco}: l'ATS terrebbe la casa su Enel.`);
-  const darkTxt = `Al buio, al consumo della casa (~${power(a.W)}), arriverebbe allo ${stacco} in <b>${dur(a.dark)}</b>.`;
-  const en = enel ? " <small>Adesso la casa è su Enel: è come andrebbe con la casa sulle batterie.</small>" : "";
-  if (!a.full) return html0(a.dark < 12 ? "warn" : "ok", `Su solare le batterie durano <b>${dur(a.dark)}</b> al buio`, `${darkTxt} <small>Il sole non è ancora contato: la previsione completa arriva con 7 giorni di registro.</small>${en}`);
-  if (a.at) return html0("warn", `Su solare l'inverter staccherebbe tra <b>${dur((a.at - now) / HOUR)}</b>`,
-    `Col sole previsto ${ora(a.at)}, probabilità ${nf(a.p * 100, 0)}% nelle prossime 48 ore; poi l'ATS porterebbe la casa su Enel. ${darkTxt}${en}`);
-  return html0("ok", "Su solare le batterie reggono oltre 48 ore", `Col sole previsto i pannelli ricaricano prima dello stacco${a.p >= .01 ? ` (probabilità di stacco ${nf(a.p * 100, 0)}% nelle 48 ore)` : ""}. ${darkTxt}${en}`);
+  if (!a.hab) return html0(a.dark < 12 ? "warn" : "ok", `Su solare le batterie durano <b>${dur(a.dark)}</b> al buio`,
+    `Al buio, al consumo della casa (~${power(a.W)}), arriverebbero allo ${stacco} in <b>${dur(a.dark)}</b>. <small>Sole e abitudini non sono ancora contati: servono ${AUTO_MIN} ore viste con la casa sulle batterie.</small>${en}`);
+  const n = a.t.length, kwh = v => nf(v, v < 10 ? 1 : 0), day = ` Nelle prossime 24 ore la casa chiederebbe circa <b>${kwh(a.lKwh)} kWh</b> e i pannelli ne darebbero <b>${kwh(a.pKwh)}</b>.`;
+  const src = ` <small>${autoSrc()}</small>`, pct = nf(a.p * 100, 0);
+  let cls, t, d, marks;
+  if (a.at) {
+    const h = (a.at - now) / HOUR; cls = h < 24 ? "warn" : "ok"; t = `Su solare le batterie durano <b>${dur(h)}</b>`;
+    d = `Coi consumi soliti e il sole previsto l'inverter staccherebbe ${ora(a.at)}` + (a.early && a.at - a.early > 1.5 * HOUR ? `; con una giornata pesante o meno sole già ${ora(a.early)}` : "") + `. Poi l'ATS porterebbe la casa su Enel.`;
+    const x = (a.at - now) / HOUR / (n - 1) * FW;
+    marks = `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE}" stroke="var(--alert)" stroke-width="1.4"/>` + socMark(n, (a.at - now) / HOUR, a.cut, "stacco " + hm(q15(a.at)), false, "var(--alert)");
+  } else {
+    // oltre i 4 giorni del meteo: se la carica scende da un giorno all'altro, a quel ritmo quanti giorni mancano allo stacco
+    const days = a.slope < -1 ? (a.mid[0] - a.cut) / -a.slope : Infinity, more4 = `oltre ${AUTO_H / 24} giorni`;
+    cls = a.p >= .3 ? "warn" : "ok"; t = `Su solare le batterie reggono <b>${days <= 30 ? "circa " + Math.max(AUTO_H / 24 + 1, Math.round(days)) + " giorni" : more4}</b>`;
+    d = `Coi consumi soliti e il sole previsto nei prossimi ${AUTO_H / 24} giorni non arrivano allo stacco: il punto più basso è il <b>${nf(a.min, 0)}%</b> ${ora(a.minAt)}.` +
+      (days <= 30 ? ` Però ogni giorno perdono circa ${nf(-a.slope, 0)} punti di carica: i pannelli danno meno di quanto la casa chiede.` : a.slope >= 0 ? " I pannelli ridanno quello che la casa consuma." : "") +
+      (a.p >= .05 ? ` In ${pct} casi su 100 l'inverter staccherebbe prima${a.early ? `, nei peggiori già ${ora(a.early)}` : ""}.` : "");
+    marks = socMark(n, (a.minAt - now) / HOUR, a.min, nf(a.min, 0) + "%", a.min > 70);
+  }
+  const more = `<button class="link-btn au-more" id="au-more" type="button" aria-expanded="${autoOpen}">${autoOpen ? "▴ Nascondi la curva" : "▾ Vedi la curva ora per ora"}</button>` +
+    (autoOpen ? `<svg class="fc au-svg" viewBox="0 0 340 152" role="img" aria-label="Carica prevista con la casa sulle batterie nei prossimi ${AUTO_H / 24} giorni">${socSvg(a, marks)}</svg>` +
+      `<p class="au-leg">Linea: il caso normale. Fascia: 8 casi su 10. Barre: sopra il sole previsto, sotto i consumi soliti della casa.</p>` : "");
+  html0(cls, t, d + day + src + en, more);
 }
+document.addEventListener("click", e => { if (e.target.closest("#au-more")) { autoOpen = !autoOpen; if (data) render(mode); } });
 /* ---------- il banco e gli stacchi. Il registro dice quanta energia c'è, ma l'inverter stacca per la tensione al picco di consumo:
    qui si impara da /stress.bin (i valori peggiori di ogni quarto d'ora) e da /invev.bin (stacchi e quasi-stacchi).
    Righe: [t, vMin cV, vPk cV, iPk dA, loadPk W, cellMin mV, soc×100, socMin %, casa sulle batterie, batteria<<5|cella, bit, Wh entrati, Wh usciti, Wh pannelli].
@@ -3747,11 +3789,6 @@ async function loadWx(force){
    4. batteria misurata: capacità utile e rallentamento della carica vicino al pieno
    5. autoverifica: le previsioni rifatte sui giorni passati dicono quanto e come sbaglia, e la correggono */
 const quant = (a, p) => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y), i = (s.length - 1) * p, lo = Math.floor(i); return s[lo] + (s[Math.min(lo + 1, s.length - 1)] - s[lo]) * (i - lo); };
-function wq(v, w, p){ // quantile pesato
-  const idx = v.map((_, i) => i).sort((a, b) => v[a] - v[b]), tot = w.reduce((a, b) => a + b, 0);
-  let acc = 0; for (const i of idx) { acc += w[i]; if (acc >= p * tot) return v[i]; }
-  return v[idx[idx.length - 1]];
-}
 const WD = ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
 const dayKey = d => d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate();
 const heatX = T => fin(T) ? Math.max(0, 16 - T) : 0, coolX = T => fin(T) ? Math.max(0, T - 25) : 0;
@@ -3789,7 +3826,7 @@ function learn(rows){
   const days = new Map();
   H.forEach(o => {
     const d = new Date(o.t * 1000), k = dayKey(d);
-    let D = days.get(k); if (!D) days.set(k, D = { k, wd: dayType(d), dm: d.getDate(), hol: isHoliday(d), t: o.t, W: Array(24).fill(null), T: Array(24).fill(null) });
+    let D = days.get(k); if (!D) days.set(k, D = { k, wd: dayType(d), dm: d.getDate(), hol: isHoliday(d), t: o.t, d0: midnight(o.t), W: Array(24).fill(null), T: Array(24).fill(null) });
     if (o.load !== null) D.W[d.getHours()] = o.load;
     const ir = irrAt(o.t, false); if (ir && fin(ir.temp)) D.T[d.getHours()] = ir.temp;
   });
@@ -3809,20 +3846,13 @@ function learn(rows){
     const k = D.W.filter(w => w !== null);
     D.away = k.length >= 18 && k.reduce((a, b) => a + b, 0) / k.length <= base * 1.3 && k.every(w => w - base < 250);
   });
-  const use = DL.filter(D => !D.away && D.t >= last - 84 * DAY);
-  const wOf = D => Math.exp(-(last - D.t) / (21 * DAY)); // le settimane recenti contano di più (metà peso ogni ~15 giorni)
+  const use = DL.filter(D => !D.away), recent = use.filter(D => D.t >= last - 120 * DAY);
 
-  // profilo per tipo di giorno e ora (mediana e quartili pesati); prima grezzo, poi al netto del freddo e del caldo
-  const profile = adj => Array.from({length: 7}, (_, wd) => Array.from({length: 24}, (_, h) => {
-    const pick = ds => { const v = [], w = []; ds.forEach(D => { if (D.W[h] !== null) { v.push(D.W[h] - adj(D, h)); w.push(wOf(D)); } }); return [v, w]; };
-    let [v, w] = pick(use.filter(D => D.wd === wd));
-    if (v.length < 2) [v, w] = pick(use);
-    return v.length ? { med: wq(v, w, .5), lo: wq(v, w, .25), hi: wq(v, w, .75), n: v.length } : { med: base, lo: base, hi: base * 1.3, n: 0 };
-  }));
-  let prof = profile(() => 0), beta = 0, gamma = 0;
+  // i consumi ora per ora (loadFit): prima grezzi, poi al netto del freddo e del caldo
+  let lf = loadFit(use, last, base, () => 0), beta = 0, gamma = 0;
   const fitT = fx => { // pendenza W/°C: scarti dalla media della stessa casella (tipo di giorno × ora) contro scarti di temperatura
     const cell = new Map();
-    use.forEach(D => { for (let h = 0; h < 24; h++) if (D.W[h] !== null && D.T[h] !== null) {
+    recent.forEach(D => { for (let h = 0; h < 24; h++) if (D.W[h] !== null && D.T[h] !== null) {
       const k = D.wd * 24 + h; let c = cell.get(k); if (!c) cell.set(k, c = []); c.push([D.W[h], fx(D.T[h])]); } });
     let sxy = 0, sxx = 0, n = 0;
     cell.forEach(c => { if (c.length < 3) return; const my = c.reduce((a, v) => a + v[0], 0) / c.length, mx = c.reduce((a, v) => a + v[1], 0) / c.length;
@@ -3831,15 +3861,26 @@ function learn(rows){
   };
   beta = fitT(heatX); gamma = fitT(coolX);
   if (beta < 15) beta = 0; if (gamma < 15) gamma = 0;     // sotto i 15 W per grado è rumore
-  if (beta || gamma) prof = profile((D, h) => D.T[h] === null ? 0 : beta * heatX(D.T[h]) + gamma * coolX(D.T[h])); // profilo a temperatura di riferimento
-  M.prof = prof; M.beta = beta; M.gamma = gamma;
-  const recentDays = use.filter(D => D.t >= last - 28 * DAY && D.W.filter(w => w !== null).length >= 20);
-  M.dailyKwh = recentDays.length ? recentDays.reduce((a, D) => a + D.W.reduce((s, w) => s + (w || 0), 0), 0) / recentDays.length / 1000 : NaN;
-  if (span >= 7) M.patterns = findPatterns(use, base);
+  if (beta || gamma) lf = loadFit(use, last, base, (D, h) => D.T[h] === null ? 0 : beta * heatX(D.T[h]) + gamma * coolX(D.T[h])); // a temperatura di riferimento
+  M.prof = lf.prof; M.load = lf.info; M.beta = beta; M.gamma = gamma; M.lvl = 1;
+  if (span >= 7) M.patterns = findPatterns(recent, base);
+  // il livello degli ultimi giorni: se da qualche giorno la casa consuma più del solito (ospiti, un apparecchio nuovo) o meno, la previsione lo segue;
+  // vale quanto le ore viste (un giorno intero sposta di metà) e pesa di più ieri che una settimana fa
+  let la = 0, lp = 0, ln = 0;
+  use.forEach(D => { if (D.t >= last - 8 * DAY) D.W.forEach((w, h) => { if (w === null) return; const k = Math.exp(-(last - D.d0 - h * HOUR) / (3 * DAY)); la += k * w; lp += k * loadBase(M, D.d0 + h * HOUR, D.T[h]); ln += k; }); });
+  if (lp > 0) M.lvl = clamp(1 + (la / lp - 1) * ln / (ln + 24), .75, 1.4);
   M.insight.away = DL.filter(D => D.away).length; M.insight.hol = DL.filter(D => D.hol).length;
+  // una giornata tipica con la casa sempre sulle batterie, alle temperature dell'ultima settimana (serve che quasi tutte le ore del giorno si siano viste)
+  let wk = 0; for (let t = midnight(last) - 7 * DAY; t < midnight(last); t += HOUR) { const ir = irrAt(t, false); wk += loadBase(M, t, ir && fin(ir.temp) ? ir.temp : null); }
+  M.dailyKwh = lf.info.hod >= 18 ? wk / 7000 : NaN;
 
-  // blocchi di consumo giorno per giorno rispetto alla previsione: servono a simulare giornate realistiche
-  M.lblocks = recentDays.map(D => D.W.map((w, h) => w === null ? 1 : clamp(w / Math.max(50, loadBase(M, D.t + h * HOUR, D.T[h])), .3, 3)));
+  // come le giornate vere si scostano dal previsto, ora per ora: servono a simulare giornate realistiche. Basta una giornata vista per 6 ore:
+  // le ore non viste prendono lo scarto di tutta la giornata (una giornata «pesante» lo è anche nelle ore che non si sono viste)
+  M.lblocks = use.filter(D => D.t >= last - 42 * DAY).map(D => {
+    let a = 0, p = 0, n = 0;
+    const pr = D.W.map((w, h) => { const x = Math.max(50, loadBase(M, D.d0 + h * HOUR, D.T[h])); if (w !== null) { a += w; p += x; n++; } return x; });
+    return n >= 6 ? D.W.map((w, h) => clamp(w === null ? a / p : w / pr[h], .3, 3)) : null;
+  }).filter(Boolean);
 
   learnSun(M);
   learnBattery(M);
@@ -3847,14 +3888,44 @@ function learn(rows){
   return M;
 }
 
-// consumo previsto all'ora che inizia a t (senza correzioni): profilo + freddo/caldo + abitudini mensili
+/* ---------- i consumi della casa: un solo modello a strati ----------
+   Ogni ora vista con la casa sulle batterie è un campione col suo peso (dayW): le settimane recenti contano di più (metà ogni ~15 giorni) e, passato
+   un anno, torna a contare lo stesso periodo degli anni prima (dicembre somiglia a dicembre più che a ottobre). Il consumo di «giovedì alle 19» scende
+   a strati: quell'ora in qualunque giorno (un'ora mai vista: le ore vicine, e lontano da ogni ora vista una via di mezzo tra media e fondo) → quell'ora nei feriali (o nei festivi) → quell'ora di giovedì. Ogni strato si scosta dal
+   precedente quanto i suoi dati lo permettono (peso / (peso + K)): con un giovedì solo vale quasi l'ora dei feriali, con molti vale il giovedì. Il valore è la media, non la mediana: per sapere quanto durano le batterie conta l'energia, e la mediana
+   ignorerebbe lo scaldabagno che parte un giorno su due. prof[tipo di giorno][ora] = { w, n: volte viste in quel giorno, lv: strato più fine coi dati }. */
+const LOAD_K = [1.5, 2.5, 3], dayClass = wd => wd >= 1 && wd <= 5 ? 1 : 0;
+function dayW(D, last){
+  const age = (last - D.t) / DAY, rec = Math.exp(-age / 21); if (age < 300) return rec;
+  const yrs = Math.floor((age + 182.6) / 365.25), off = Math.abs((age + 182.6) % 365.25 - 182.6);     // anni fa, e giorni di distanza dallo stesso giorno dell'anno
+  return Math.max(rec, .35 * Math.pow(.6, yrs - 1) * Math.exp(-((off / 30) ** 2)));
+}
+function loadFit(days, last, base, adj){
+  const acc = () => ({ s: 0, w: 0, n: 0 }), row = () => Array.from({length: 24}, acc), add = (a, v, w) => { a.s += v * w; a.w += w; a.n++; };
+  const G = acc(), H = row(), C = [row(), row()], W = Array.from({length: 7}, row), byWd = Array(7).fill(0);
+  let nd = 0, old = 0;
+  days.forEach(D => {
+    const w = dayW(D, last); let seen = 0;
+    for (let h = 0; h < 24; h++) if (D.W[h] !== null) { const v = Math.max(0, D.W[h] - adj(D, h)); add(G, v, w); add(H[h], v, w); add(C[dayClass(D.wd)][h], v, w); add(W[D.wd][h], v, w); seen++; }
+    if (seen) { nd++; if (last - D.t > 300 * DAY) old++; } if (seen >= 6) byWd[D.wd]++;
+  });
+  const g = G.w ? G.s / G.w : base, mix = (a, parent, K) => a.w ? (a.s + K * parent) / (a.w + K) : parent;
+  const far = (g + Math.min(g, base)) / 2, near = h => { let s = .5 * far, w = .5; for (let j = 0; j < 24; j++) if (H[j].w) { const d = Math.min(Math.abs(j - h), 24 - Math.abs(j - h)), k = Math.exp(-d / 2) * Math.min(1, H[j].w); s += k * H[j].s / H[j].w; w += k; } return s / w; };
+  const hour = H.map((a, h) => mix(a, near(h), LOAD_K[0]));
+  const prof = Array.from({length: 7}, (_, wd) => Array.from({length: 24}, (_, h) => {
+    const c = C[dayClass(wd)][h], d = W[wd][h];
+    return { w: mix(d, mix(c, hour[h], LOAD_K[1]), LOAD_K[2]), n: d.n, lv: d.n ? 3 : c.n ? 2 : H[h].n ? 1 : 0 };
+  }));
+  return { prof, info: { days: nd, hours: G.n, hod: H.filter(a => a.n).length, cells: W.flat().filter(a => a.n).length, byWd, old, mean: g } };
+}
+// consumo previsto all'ora che inizia a t (senza correzioni): abitudini + freddo/caldo + ricorrenze del giorno del mese
 function loadBase(M, t, T){
   const d = new Date((t + HOUR / 2) * 1000), h = d.getHours(), p = M.prof[dayType(d)][h];
-  let w = p ? p.med : M.base;
+  let w = p ? p.w : M.base;
   if (T === undefined) { const ir = irrAt(t, true); T = ir ? ir.temp : null; }
   w += M.beta * heatX(T) + M.gamma * coolX(T);
   M.patterns.forEach(x => { if (x.key === "dm:" + d.getDate() && h >= x.from && h < x.to) w += x.w * x.seen / x.tot; });
-  return Math.max(0, w);
+  return Math.max(0, w) * M.lvl;
 }
 
 // mappa del sole: W prodotti per ogni W/m² sul piano dei pannelli, per posizione del sole (5° di altezza × 15° di azimut)
@@ -3866,7 +3937,7 @@ function learnSun(M){
     const r = effIrr(ir, o.t); if (!(r > 25) || pvOffDuring(o.t)) return;
     const pos = sunPos(o.t + HOUR / 2, L.lat, L.lon); if (pos.el < 2) return;
     let pv = o.pv;
-    if (pv === null) { const d = new Date(o.t * 1000), p = M.prof[dayType(d)][d.getHours()]; pv = p ? o.net + p.med : null; } // senza regolatori: netto + consumi tipici
+    if (pv === null) { const d = new Date(o.t * 1000), p = M.prof[dayType(d)][d.getHours()]; pv = p ? o.net + p.w : null; } // senza regolatori: netto + consumi tipici
     if (!fin(pv) || pv < 0) return;
     const y = pv / (1 - .0035 * ((fin(ir.temp) ? ir.temp : 20) + .03 * r - 25)), w = Math.exp(-(M.last - o.t) / (45 * DAY));
     sxy += w * y * r; sxx += w * r * r; n++;
@@ -3933,7 +4004,7 @@ function socAt(M, t){
 
 /* ---------- previsione deterministica: ora per ora, con tutte le correzioni ---------- */
 function runDet(M, t0, soc0, cap, o){
-  const N = 48, T = [], P = [], L = [], night = [], loc = here();
+  const N = o.N || 48, T = [], P = [], L = [], night = [], loc = here();
   const pvB = o.pvB || [1, 1], lB = o.lB || 1, nc = o.nc || { fL: 1, fP: 1 }, today = new Date(t0 * 1000); today.setHours(24, 0, 0, 0);
   for (let i = 0; i <= N; i++) {
     const t = t0 + i * HOUR; T.push(t); night.push(sinElev(t, loc.lat, loc.lon) < 0);
@@ -3964,15 +4035,16 @@ function simPaths(inp, R){
   for (let r = 0; r < R; r++) out.push(integrate(inp, inp.draw(rnd, gauss)));
   return out;
 }
-// gli errori veri del modello: la forma dei consumi di una giornata a caso (lblocks) e la resa del sole dai confronti passati (pvDay);
-// senza archivio delle previsioni manca l'errore del meteo, e si aggiunge
+// gli errori veri del modello, fino a 4 giorni avanti: la forma dei consumi di una giornata vista a caso (lblocks; con meno di 6 giornate viste anche
+// un giorno più o meno pesante del solito) e la resa del sole dai confronti passati (pvDay: oggi, e i giorni dopo ognuno per conto suo, sempre meno
+// certi); senza archivio delle previsioni manca l'errore del meteo, e si aggiunge
 function fullDraw(M, t0, pvDay, extra){
-  const lb = M.lblocks.length ? M.lblocks : [Array(24).fill(1)], d0 = midnight(t0);
+  const lb = M.lblocks, d0 = midnight(t0), thin = lb.length < 6, one = Array(24).fill(1);
   return (rnd, gauss) => {
-    const blocks = [0, 1, 2].map(() => lb[Math.floor(rnd() * lb.length)]);
-    const pf = [0, 1].map(l => { const s = pvDay[l]; let f = s.length >= 4 ? s[Math.floor(rnd() * s.length)] : Math.exp(gauss() * (l ? .3 : .2) - (l ? .045 : .02));
-      if (extra) f *= Math.exp(gauss() * (l ? .22 : .12)); return f; });
-    return { p: i => pf[i < 24 ? 0 : 1], l: i => { const t = t0 + i * HOUR; return blocks[clamp(Math.floor((t - d0) / DAY), 0, 2)][new Date((t + HOUR / 2) * 1000).getHours()]; } };
+    const days = [0, 1, 2, 3, 4].map(() => [lb.length ? lb[Math.floor(rnd() * lb.length)] : one, thin ? Math.exp(gauss() * .25 - .03) : 1]);
+    const pf = [0, 1, 2, 3].map(j => { const l = j ? 1 : 0, s = pvDay[l]; let f = s.length >= 4 ? s[Math.floor(rnd() * s.length)] : Math.exp(gauss() * (l ? .3 : .2) - (l ? .045 : .02));
+      if (extra) f *= Math.exp(gauss() * (l ? .22 : .12)); if (j > 1) f *= Math.exp(gauss() * .12 * (j - 1)); return f; });
+    return { p: i => pf[Math.min(3, Math.floor(i / 24))], l: i => { const t = t0 + i * HOUR, [b, f] = days[clamp(Math.floor((t - d0) / DAY), 0, 4)]; return b[new Date((t + HOUR / 2) * 1000).getHours()] * f; } };
   };
 }
 
@@ -4089,10 +4161,11 @@ function nowcast(M, tNow){
 }
 
 /* ---------- previsione in probabilità: 300 giornate possibili con gli errori veri ---------- */
+const capOf = (M, capBms) => M.capWh && Math.abs(M.capWh / capBms - 1) < .3 ? M.capWh : capBms;   // la capacità misurata, se è credibile
 function forecast(t0, soc0, capBms, batW){
   const M = model; if (!M || !M.prof) return null;
   if (pvBase(M, t0, true) === null) return null;
-  const cap = M.capWh && Math.abs(M.capWh / capBms - 1) < .3 ? M.capWh : capBms;
+  const cap = capOf(M, capBms);
   const cal = M.cal || { pvB: [1, 1], lB: 1, pvDay: [[], []] }, arch = archiveCal(M);
   const nc = nowcast(M, t0);
   const det = runDet(M, t0, soc0, cap, { asFc: true, pvB: cal.pvB, lB: cal.lB, nc, batW });
@@ -4224,7 +4297,7 @@ function pvAvail(t){
   return 1 - out / tot;
 }
 function relearn(){
-  model = learn(LOG); fc = null; fcAt = 0; fcNull = false;
+  model = learn(LOG); fc = null; fcAt = 0; fcNull = false; nightMemo = {};
   if (!stTried) { stTried = true; stLoad(); }
   drawHabits(); drawReliab();
   if (data) render(mode);
@@ -4249,6 +4322,46 @@ function dayKind(day0){
 
 const FW = 340, FTOP = 10, FSOCH = 80, FBASE = 124, FAMP = 20;
 const fy = s => FTOP + (1 - Math.max(0, Math.min(100, s)) / 100) * FSOCH;
+// il disegno di una carica prevista (previsione a 48 ore, autonomia): notti in grigio, mezzanotte col nome del giorno, forchetta tra scenario
+// pessimista e ottimista, linea dello scenario normale, sole previsto sopra la base e consumi sotto
+// un segnaposto sulla curva: all'ora i (anche frazionaria) di n punti, alla carica s
+function socMark(n, i, s, txt, below, col = "var(--lith)"){
+  const x = i / (n - 1) * FW, y = fy(s), anchor = x < 30 ? "start" : x > FW - 40 ? "end" : "middle";
+  return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="var(--surface)" stroke="${col}" stroke-width="2"/>` +
+    `<text x="${x.toFixed(1)}" y="${(below ? y + 14 : y - 7).toFixed(1)}" text-anchor="${anchor}" font-size="9.5" font-weight="600" fill="var(--ink)">${txt}</text>`;
+}
+function socSvg(o, marks){
+  const n = o.t.length, X = i => i / (n - 1) * FW, step = n > 60 ? 12 : 6;
+  let bg = "", i0 = -1;
+  o.night.forEach((nt, i) => {
+    if (nt && i0 < 0) i0 = i;
+    if ((!nt || i === n - 1) && i0 >= 0) { const x1 = X(i0), x2 = X(i); bg += `<rect x="${x1.toFixed(1)}" y="${FTOP}" width="${Math.max(0, x2 - x1).toFixed(1)}" height="${FBASE + FAMP - FTOP}" fill="var(--line)" opacity=".38"/>`; i0 = -1; }
+  });
+  let ticks = "";
+  o.t.forEach((t, i) => {
+    const d = new Date(t * 1000), hr = d.getHours(); if (hr % step || i === 0) return;
+    const x = X(i - d.getMinutes() / 60);
+    if (x < 14 || x > FW - 14) return;
+    ticks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE + FAMP}" stroke="var(--line)" stroke-dasharray="${hr ? "2 3" : "none"}"/>` +
+      `<text x="${x.toFixed(1)}" y="150" text-anchor="middle" font-size="9.5" fill="${hr ? "var(--muted)" : "var(--ink)"}" font-weight="${hr ? 400 : 600}">${hr ? String(hr).padStart(2, "0") : WD[d.getDay()].slice(0, 3)}</text>`;
+  });
+  const grid = [0, 50, 100].map(v => `<line x1="0" x2="${FW}" y1="${fy(v)}" y2="${fy(v)}" stroke="var(--line)"/><text x="2" y="${fy(v) - 3}" font-size="9" fill="var(--muted)">${v}%</text>`).join("");
+  const cs = cutSoc(), res = (S.reserve > cs ? `<line x1="0" x2="${FW}" y1="${fy(S.reserve)}" y2="${fy(S.reserve)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` : "") +
+    `<line x1="0" x2="${FW}" y1="${fy(cs)}" y2="${fy(cs)}" stroke="var(--alert)" stroke-dasharray="4 3"/>` +
+    `<text x="${FW - 2}" y="${(fy(cs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--alert)">stacco ${S.inv} V</text>`;
+  const pts = a => a.map((s, i) => `${X(i).toFixed(1)},${fy(s).toFixed(1)}`);
+  const band = `<path d="M${pts(o.hi).join(" L")} L${pts(o.lo).reverse().join(" L")} Z" fill="var(--lith-tint)"/>`;
+  const line = `<polyline points="${pts(o.mid).join(" ")}" fill="none" stroke="var(--lith)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const pmax = Math.max(500, ...o.pv, ...o.load), bw = Math.max(1, FW / (n - 1) - (n > 60 ? .8 : 1.4));
+  let bars = "";
+  for (let i = 0; i < n - 1; i++) {
+    const up = o.pv[i] / pmax * FAMP, dn = o.load[i] / pmax * FAMP, x = (X(i) + (n > 60 ? .4 : .7)).toFixed(1);
+    if (up > .4) bars += `<rect x="${x}" y="${(FBASE - up).toFixed(1)}" width="${bw.toFixed(1)}" height="${up.toFixed(1)}" rx="1" fill="var(--sun)"/>`;
+    if (dn > .4) bars += `<rect x="${x}" y="${FBASE}" width="${bw.toFixed(1)}" height="${dn.toFixed(1)}" rx="1" fill="var(--out)"/>`;
+  }
+  return bg + ticks + grid + res + band + line + `<line x1="0" x2="${FW}" y1="${FBASE}" y2="${FBASE}" stroke="var(--line)"/>` + bars + marks +
+    `<circle cx="${X(0) + 3.5}" cy="${fy(o.mid[0]).toFixed(1)}" r="3.5" fill="var(--lith)"/>`;
+}
 function drawForecast(){
   const svg = $("fc"), read = $("fc-read"), note = $("fc-note"), chips = $("wx");
   if (!fc) {
@@ -4269,51 +4382,14 @@ function drawForecast(){
       `<span class="wx-t"><small>${name}</small><b>${fin(kwh) ? nf(kwh, kwh < 10 ? 1 : 0) + "<small> kWh</small>" : "–"}</b><em>${kind ? WX_WORD[kind] : "dal sole"}</em></span></div>`;
   }).join("");
 
-  // notti in grigio, mezzanotte con il nome del giorno, ore 6/12/18
-  let bg = "", i0 = -1;
-  fc.night.forEach((nt, i) => {
-    if (nt && i0 < 0) i0 = i;
-    if ((!nt || i === n - 1) && i0 >= 0) { const x1 = X(i0), x2 = X(nt ? i : i); bg += `<rect x="${x1.toFixed(1)}" y="${FTOP}" width="${Math.max(0, x2 - x1).toFixed(1)}" height="${FBASE + FAMP - FTOP}" fill="var(--line)" opacity=".38"/>`; i0 = -1; }
-  });
-  let ticks = "";
-  fc.t.forEach((t, i) => {
-    const d = new Date(t * 1000), hr = d.getHours(); if (hr % 6 || i === 0) return;
-    const x = X(i - d.getMinutes() / 60);
-    if (x < 14 || x > FW - 14) return;
-    ticks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE + FAMP}" stroke="var(--line)" stroke-dasharray="${hr ? "2 3" : "none"}"/>` +
-      `<text x="${x.toFixed(1)}" y="150" text-anchor="middle" font-size="9.5" fill="${hr ? "var(--muted)" : "var(--ink)"}" font-weight="${hr ? 400 : 600}">${hr ? String(hr).padStart(2, "0") : WD[d.getDay()].slice(0, 3)}</text>`;
-  });
-  const grid = [0, 50, 100].map(v => `<line x1="0" x2="${FW}" y1="${fy(v)}" y2="${fy(v)}" stroke="var(--line)"/><text x="2" y="${fy(v) - 3}" font-size="9" fill="var(--muted)">${v}%</text>`).join("");
-  const cs = cutSoc(), res = (S.reserve > cs ? `<line x1="0" x2="${FW}" y1="${fy(S.reserve)}" y2="${fy(S.reserve)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` : "") +
-    `<line x1="0" x2="${FW}" y1="${fy(cs)}" y2="${fy(cs)}" stroke="var(--alert)" stroke-dasharray="4 3"/>` +
-    `<text x="${FW - 2}" y="${(fy(cs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--alert)">stacco ${S.inv} V</text>`;
-
-  // forchetta tra scenario pessimista e ottimista, linea dello scenario normale
-  const pts = a => a.map((s, i) => `${X(i).toFixed(1)},${fy(s).toFixed(1)}`);
-  const band = `<path d="M${pts(fc.hi).join(" L")} L${pts(fc.lo).reverse().join(" L")} Z" fill="var(--lith-tint)"/>`;
-  const line = `<polyline points="${pts(fc.mid).join(" ")}" fill="none" stroke="var(--lith)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
-
-  // sole previsto sopra la base, consumi previsti sotto
-  const pmax = Math.max(500, ...fc.pv, ...fc.load), bw = FW / (n - 1) - 1.4;
-  let bars = "";
-  for (let i = 0; i < n - 1; i++) {
-    const up = fc.pv[i] / pmax * FAMP, dn = fc.load[i] / pmax * FAMP, x = (X(i) + .7).toFixed(1);
-    if (up > .4) bars += `<rect x="${x}" y="${(FBASE - up).toFixed(1)}" width="${bw.toFixed(1)}" height="${up.toFixed(1)}" rx="1" fill="var(--sun)"/>`;
-    if (dn > .4) bars += `<rect x="${x}" y="${FBASE}" width="${bw.toFixed(1)}" height="${dn.toFixed(1)}" rx="1" fill="var(--out)"/>`;
-  }
-
   // segnaposti: prossimo minimo e prossimo pieno
   const iMin = fc.mid.slice(0, 37).reduce((b, s, i, a) => s < a[b] ? i : b, 0), full = crossAt(fc.mid, s => s >= 99.5, 99.5);
-  const mark = (i, s, txt, below) => { const x = X(i), y = fy(s), anchor = x < 30 ? "start" : x > FW - 40 ? "end" : "middle";
-    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="var(--surface)" stroke="var(--lith)" stroke-width="2"/>` +
-      `<text x="${x.toFixed(1)}" y="${(below ? y + 14 : y - 7).toFixed(1)}" text-anchor="${anchor}" font-size="9.5" font-weight="600" fill="var(--ink)">${txt}</text>`; };
+  const mark = (i, s, txt, below) => socMark(n, i, s, txt, below);
   let marks = "";
   if (iMin > 0 && fc.mid[iMin] < fc.mid[0] - 1) marks += mark(iMin, fc.mid[iMin], nf(fc.mid[iMin], 0) + "%", fc.mid[iMin] > 70);
   if (full !== null) marks += mark(full, 100, "pieno " + hm(q15(now + full * HOUR)), true);
 
-  svg.innerHTML = bg + ticks + grid + res + band + line +
-    `<line x1="0" x2="${FW}" y1="${FBASE}" y2="${FBASE}" stroke="var(--line)"/>` + bars + marks +
-    `<circle cx="${X(0) + 3.5}" cy="${fy(fc.mid[0]).toFixed(1)}" r="3.5" fill="var(--lith)"/>`;
+  svg.innerHTML = socSvg({ t: fc.t, mid: fc.mid, lo: fc.lo, hi: fc.hi, pv: fc.pv, load: fc.load, night: fc.night }, marks);
 
   // in due righe: il prossimo minimo e come va domani
   const at = i => hm(q15(now + i * HOUR)), hrMin = new Date((now + iMin * HOUR) * 1000).getHours();
@@ -4766,16 +4842,16 @@ function drawHabits(){
 
   // mappa: righe da lunedì a domenica, colonne le 24 ore, più intensa dove si consuma di più
   const order = [1, 2, 3, 4, 5, 6, 0], L = 20, cw = (340 - L) / 24, ch = 13, gap = 2;
-  const vals = model.prof.flat().filter(Boolean).map(p => p.med), top = Math.max(model.base + 300, quant(vals, .98));
+  const vals = model.prof.flat().filter(Boolean).map(p => p.w), top = Math.max(model.base + 300, quant(vals, .98));
   let cells = "";
   order.forEach((wd, r) => {
     const y = r * (ch + gap);
     cells += `<text x="0" y="${y + 9.8}" font-size="9" fill="var(--muted)">${WD[wd][0].toUpperCase()}</text>`;
     for (let h = 0; h < 24; h++) {
-      const p = model.prof[wd][h], v = p ? Math.max(0, Math.min(1, (p.med - model.base) / (top - model.base))) : null;
+      const p = model.prof[wd][h], v = p ? Math.max(0, Math.min(1, (p.w - model.base) / (top - model.base))) : null;
       cells += `<rect x="${(L + h * cw + .5).toFixed(1)}" y="${y}" width="${(cw - 1.5).toFixed(1)}" height="${ch}" rx="2.5" ` +
         (v === null ? `fill="var(--line)" opacity=".35"` : `fill="var(--lith)" fill-opacity="${(.07 + .93 * Math.pow(v, .85)).toFixed(2)}"`) +
-        `><title>${WD[wd]} ${h}:00 · ${p ? power(p.med) : "nessun dato"}</title></rect>`;
+        `><title>${WD[wd]} ${h}:00 · ${p ? power(p.w) + (p.n ? ` · visto ${p.n} ${p.n === 1 ? "volta" : "volte"}` : " · stimato dagli altri giorni") : "nessun dato"}</title></rect>`;
     }
   });
   const yb = 7 * (ch + gap) + 10;
@@ -4791,6 +4867,7 @@ function drawHabits(){
   }).join("") : `<li class="hab"><span class="al-ico">${ico(HAB_ICON.learn)}</span><span class="al-txt"><b>Nessuna abitudine ancora chiara</b><span class="al-d">I consumi non si ripetono abbastanza da prevederli: continuo a osservare.</span></span></li>`;
   const weeks = model.span / 7;
   note.textContent = `Imparato da ${weeks >= 2 ? nf(Math.floor(weeks)) + " settimane" : nf(Math.floor(model.span)) + " giorni"} di dati, una riga ogni ${model.step} minuti` +
+    `, ${model.load.days} ${model.load.days === 1 ? "giorno" : "giorni"} con la casa sulle batterie` + (model.load.old ? " (contano anche gli stessi mesi degli anni passati)" : "") +
     (model.pvKnown ? "." : ". Senza i dati dei regolatori vedo i consumi solo quando non c'è sole.");
 }
 
