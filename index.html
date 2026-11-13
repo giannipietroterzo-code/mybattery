@@ -500,6 +500,32 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .names input::placeholder{color:var(--muted);opacity:.6}
 .names input:focus{outline:2px solid var(--lith);outline-offset:-1px;border-color:transparent}
 .set-lbl{display:block;margin:10px 0 0;font-size:.8rem;color:var(--muted)}
+/* il cursore della soglia in volt dello spegnimento automatico (1.99): rosso fino allo stacco, giallo fino alla soglia, verde = le batterie adesso a riposo.
+   Le posizioni sono calc(13px + (100% - 26px) × f): il centro del cursore nativo non arriva ai bordi */
+.aov{margin:6px 0 0;padding:12px 14px 6px;border-radius:11px;background:var(--bg)}
+.aov-head{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
+.aov-val{font-size:2rem;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--ink)}
+.aov-val small{margin-left:3px;font-size:.95rem;font-weight:600;color:var(--muted)}
+.aov-eq{font-size:.82rem;color:var(--muted)}.aov-eq b{color:var(--ink);font-weight:600}
+.aov-tr{position:relative;height:36px;margin-top:6px;--c:0%;--p:50%;--n:80%}
+.aov-tr::before{content:"";position:absolute;left:0;right:0;top:15px;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--alert) 0 var(--c),var(--lith) var(--c) var(--p),var(--line) var(--p))}
+.aov-tr input{position:absolute;inset:0;z-index:1;width:100%;height:36px;margin:0;background:transparent;-webkit-appearance:none;appearance:none;cursor:pointer;touch-action:pan-y}
+.aov-tr input::-webkit-slider-runnable-track{height:36px;background:transparent}
+.aov-tr input::-moz-range-track{height:36px;background:transparent}
+.aov-tr input::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:5px;border-radius:50%;background:var(--surface);border:3px solid var(--lith);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.aov-tr input::-moz-range-thumb{box-sizing:border-box;width:26px;height:26px;border-radius:50%;background:var(--surface);border:3px solid var(--lith);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.aov-tr input:focus-visible::-webkit-slider-thumb{outline:2px solid var(--ink);outline-offset:2px}
+.aov-now{position:absolute;top:7px;bottom:7px;left:var(--n);width:3px;margin-left:-1.5px;border-radius:2px;background:var(--good)}
+.aov-sc{position:relative;height:32px;margin-top:2px;font-size:.72rem;line-height:1.25;color:var(--muted)}
+.aov-sc span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;text-align:center}
+.aov-sc span.l{transform:translateX(-13px);text-align:left}.aov-sc span.r{transform:translateX(calc(-100% + 13px));text-align:right}
+.aov-sc b{display:block;font-weight:600}.aov-sc .c b{color:var(--alert)}.aov-sc .n b{color:var(--good)}
+[data-style="mecha"] .aov{border-radius:0;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))}
+[data-style="mecha"] .aov-tr::before{border-radius:0;background:repeating-linear-gradient(90deg,transparent 0 3px,var(--bg) 3px 4px),linear-gradient(90deg,var(--alert) 0 var(--c),var(--lith) var(--c) var(--p),var(--line) var(--p))}
+[data-style="mecha"] .aov-tr input::-webkit-slider-thumb{width:18px;border-radius:0;clip-path:polygon(50% 0,100% 30%,100% 100%,0 100%,0 30%)}
+[data-style="mecha"] .aov-tr input::-moz-range-thumb{width:18px;border-radius:0}
+[data-style="mecha"] .aov-now{border-radius:0}
+[data-style="mecha"] .aov-sc{text-transform:uppercase;letter-spacing:.04em}
 .chk{display:grid;gap:2px;margin-top:10px}
 .chk label{display:flex;gap:10px;align-items:flex-start;padding:7px 2px;cursor:pointer}
 .chk input{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:var(--lith)}
@@ -1541,13 +1567,12 @@ footer{border-top:0;padding-top:0}
 
     <h3>Uscita dell'inverter in automatico</h3>
     <div class="chk" id="set-aochk"><label><input type="checkbox" name="aoOn"><span><b>Spegni prima dello stacco</b><small>La scheda spegne lo Shelly e l'ATS porta la casa su Enel prima che l'inverter stacchi da solo</small></span></label></div>
-    <span class="set-lbl">Spegni sopra lo stacco di</span>
-    <fieldset class="seg" id="set-aomarg"><legend>Margine dello spegnimento automatico</legend>
-      <label><input type="radio" name="aoMarg" value="3"><span>3%</span></label>
-      <label><input type="radio" name="aoMarg" value="5"><span>5%</span></label>
-      <label><input type="radio" name="aoMarg" value="10"><span>10%</span></label>
-      <label><input type="radio" name="aoMarg" value="15"><span>15%</span></label>
-    </fieldset>
+    <span class="set-lbl">Spegni quando le batterie, a riposo, scendono a</span>
+    <div class="aov" id="set-aov">
+      <div class="aov-head"><output class="aov-val" id="aov-val" for="aov-in"></output><span class="aov-eq" id="aov-eq"></span></div>
+      <div class="aov-tr" id="aov-tr"><input type="range" id="aov-in" name="aoV" min="48" max="52.4" step="0.1" aria-label="Tensione a riposo sotto cui la scheda spegne l'uscita dell'inverter"><i class="aov-now" id="aov-now" hidden></i></div>
+      <div class="aov-sc" id="aov-sc"></div>
+    </div>
     <span class="set-lbl">Riaccendi col sole quando risale di</span>
     <fieldset class="seg" id="set-aoback"><legend>Riaccensione automatica</legend>
       <label><input type="radio" name="aoBack" value="0"><span>mai</span></label>
@@ -1653,7 +1678,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.97"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.99"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1685,9 +1710,9 @@ const MSG = {
   INV_RISK:    ["L'inverter potrebbe staccare", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare le batterie puoi portarla prima su Enel."],
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
-  CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)) + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
+  CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${aoBase() + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
   AO_SOON:     () => { const a = data && data.ao, m = a && fin(a.eta) ? a.eta : null;
-    return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano al ${nf(a.soc, 0)}% tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
+    return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano ${fin(a.vs) ? `a ${nf(a.vs, 1)} V (circa ${ilP(a.soc)})` : alP(a.soc)} tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
@@ -2112,8 +2137,8 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoMarg: [3,5,10,15], aoBack: [0,10,20,30], aoWarn: [0,15,30,60,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30], aoWarn: [0,15,30,60,120] };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2125,6 +2150,8 @@ function loadSettings(){
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
   if (fin(s.aoSoc) && s.aoSoc >= 5 && s.aoSoc <= 60) o.aoSoc = Math.round(s.aoSoc);
+  if (fin(s.aoV) && s.aoV >= 46 && s.aoV <= 54) o.aoV = Math.round(s.aoV * 10) / 10;   // la soglia in volt dello spegnimento automatico (1.99)
+  if ([3, 5, 10, 15].includes(s.aoMarg)) o.aoMarg = s.aoMarg;                         // il margine in % di prima: serve solo a tradurlo in volt la prima volta
   if (s.rem && /^[A-Za-z0-9_-]{12,64}$/.test(s.rem.t) && /^[A-Za-z0-9_-]{43}$/.test(s.rem.k)) o.rem = { t: s.rem.t, k: s.rem.k };
   if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
     if (!/^\d{1,3}$/.test(a) || !c || typeof c !== "object") return;
@@ -2151,7 +2178,7 @@ function loadSettings(){
   return o;
 }
 // auto = salvataggio fatto dalla app da sola (Voc imparata, resistenza del banco…): niente pop-up, e se non riesce si riprova più tardi
-function saveSettings(auto = false){ try { S.aoSoc = Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)); } catch (e) {}   // la carica a cui la scheda spegne l'uscita: stacco + margine scelto
+function saveSettings(auto = false){ try { if (!fin(S.aoV)) S.aoV = aoVolt(); S.aoSoc = Math.round(clamp(socAtV(S.aoV), 5, 60)); } catch (e) {}   // la soglia in volt e la carica che le corrisponde (per l'avviso e la riaccensione)
   try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(auto); } catch (e) {} } // try: può servire prima che "mode" esista
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
@@ -2181,14 +2208,18 @@ function cutSoc(){
 const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
 const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
-const SHARED = ["reserve", "inv", "marg", "aoOn", "aoMarg", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
+const SHARED = ["reserve", "inv", "marg", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* le impostazioni condivise si salvano a voci (firmware 0.48): cfgBase è come la scheda le ha l'ultima volta che le abbiamo viste o scritte, e si manda
    solo quello che è cambiato da lì (cfgDiff), che la scheda unisce alle sue. Prima si mandavano tutte: un'app rimasta indietro su un altro telefono
    o in un'altra scheda del browser, salvando (anche da sola, per la Voc imparata), rimetteva i valori vecchi sopra quelli appena cambiati. */
-let cfgBase = null;
+/* La base parte dalla copia di questo telefono (non da null): così un salvataggio fatto prima di aver letto la scheda manda solo le voci cambiate qui,
+   mai tutte. Il 13/11 alle 18:43 la app in casa, appena aperta, salvava da sola l'intervallo del registro; quel salvataggio faceva saltare la lettura
+   delle impostazioni, e senza base partivano tutte, coi valori vecchi del telefono (automatico spento, margine 5%). Intere solo a una scheda che non
+   ne ha (cfgFull) o con firmware < 0.48. */
 const isObj = v => !!v && typeof v === "object" && !Array.isArray(v), jclone = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+let cfgBase = jclone(sharedOf()), cfgFull = false;
 function cfgDiff(a, b){
   const o = {}; let n = 0;
   new Set([...Object.keys(a || {}), ...Object.keys(b || {})]).forEach(k => {
@@ -2631,7 +2662,7 @@ function solBar(soc, mn, lim, cut, minTxt){
     `<path class="sol-fill" d="${shape(0, keep)}" fill="var(--lith)"/>` + (keep < soc ? `<path d="${shape(keep, soc)}" fill="url(#sol-used)"/>` : "") +
     // sotto la barra, le zone: rosso fino allo stacco dell'inverter, ambra fino alla soglia della scheda
     `<rect x="${x0}" y="${y + h + 3}" width="${(X(cut) - x0).toFixed(1)}" height="4" fill="url(#sol-red)"/>` + (lim && lim > cut ? `<rect x="${X(cut).toFixed(1)}" y="${y + h + 3}" width="${(X(lim) - X(cut)).toFixed(1)}" height="4" fill="var(--warn)" opacity=".55"/>` : "") +
-    tick(cut, "var(--alert)", "inverter " + nf(cut, 0) + "%", S.inv + " V", cL ? x0 : X(cut), cL ? "start" : "middle") + (lim && lim > cut + 3 ? tick(lim, "var(--warn)", "scheda " + nf(lim, 0) + "%", "automatico", limX, limNear ? "start" : anc(limX)) : "") +
+    tick(cut, "var(--alert)", "inverter " + nf(cut, 0) + "%", S.inv + " V", cL ? x0 : X(cut), cL ? "start" : "middle") + (lim && lim > cut + 3 ? tick(lim, "var(--warn)", "scheda " + nf(lim, 0) + "%", fin(aoVs()) ? nf(aoVs(), 1) + " V" : "automatico", limX, limNear ? "start" : anc(limX)) : "") +
     `<path d="M${xs.toFixed(1)} ${y - 2}l-4.5 -6h9z" fill="var(--ink)"/><text x="${xs.toFixed(1)}" y="${y - 11}" text-anchor="${anc(xs)}" font-size="10.5" font-weight="800" fill="var(--ink)">adesso ${nf(soc, 0)}%</text>` +
     (showMin && xs - xm > 84 ? `<path d="M${xm.toFixed(1)} ${y - 2}l-4 -5.5h8z" fill="var(--lith)"/><text x="${xm.toFixed(1)}" y="${y - 11}" text-anchor="${anc(xm)}" font-size="9.5" font-weight="600" fill="var(--lith)">${minTxt} ${nf(mn, 0)}%</text>` : "") + `</svg>`;
 }
@@ -2774,6 +2805,14 @@ async function stSync(at){
   } catch (e) {} finally { stBusy = false; }
 }
 const ocv = s => { for (let i = 1; i < LFP_OCV.length; i++) { const [s0, v0] = LFP_OCV[i - 1], [s1, v1] = LFP_OCV[i]; if (s <= s1) return 16 * (v0 + (v1 - v0) * Math.max(0, (s - s0) / (s1 - s0))); } return 16 * 3.4; };
+/* tensione a riposo ↔ carica: quella imparata dal registro per fasce del 5 % (rkV0, la stessa del rischio), se no la curva tipica. socAtV prende
+   l'inviluppo crescente, perché le fasce imparate possono non essere in ordine. Servono al cursore in volt dello spegnimento automatico (1.99) */
+const round1 = x => Math.round(x * 10) / 10;
+const vAtSoc = s => RM && RM.v0b && RM.v0b.size ? rkV0(s) : ocv(s);
+function socAtV(v){ let m = -Infinity; for (let s = 0; s <= 100; s += .5) { m = Math.max(m, vAtSoc(s)); if (m >= v) return s; } return 100; }
+const aoVolt = () => fin(S.aoV) ? S.aoV : round1(vAtSoc(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)));   // senza soglia ancora scelta: il margine di prima tradotto
+const aoBase = () => fin(S.aoSoc) ? S.aoSoc : Math.round(socAtV(aoVolt()));
+const aoVs = () => data && data.ao && fin(data.ao.vs) ? data.ao.vs : fin(S.aoV) ? S.aoV : NaN;
 const RK_S = [15, 25, 35, 50, 101], RK_L = [1, 2.5, 4, 99], bandOf = (a, x) => a.findIndex(b => x < b);
 function riskLearn(){
   const inv = S.inv || 48, now = nowS(), v0b = new Map(), byBin = new Map();
@@ -2972,10 +3011,10 @@ function pushShared(auto = false){
       const rs = remSet;                                  // il canale cambia solo se l'ha chiesto questa app (firmware 0.23)
       const now = jclone(sharedOf()); if (!rs) delete now.rem;
       const base = cfgBase && !rs ? { ...cfgBase } : cfgBase; if (base && !rs) delete base.rem;
-      const patch = cfgBase && cfgPatchOk() ? cfgDiff(base, now) : undefined;   // senza base (scheda mai letta) o firmware vecchio: tutte
+      const patch = !cfgFull && cfgPatchOk() ? cfgDiff(base, now) : undefined;   // tutte solo a una scheda senza impostazioni o con firmware < 0.48
       if (patch === null) { cfgPushT = 0; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); return; }   // niente di diverso da quello che ha già
       const j = await boardCfg({ ...(patch ? { app_set: patch } : { app: sharedOf() }), ...(rs ? { rem_set: true } : {}), ver: APP_VERSION });   // ver: la scheda annota chi ha scritto (0.49)   // i gruppi di pannelli sono in app (S.pv, S.names): la scheda li ricava da lì
-      if (j && j.ok) { cfgBase = patch ? cfgMerge(cfgBase, patch) : jclone(sharedOf()); if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); }
+      if (j && j.ok) { cfgBase = patch ? cfgMerge(cfgBase, patch) : jclone(sharedOf()); cfgFull = false; if (rs) remSet = false; cfgAt = j.app_at; if (mode === "remote" && !quiet) toast("Impostazioni salvate sulla scheda"); }
       cfgPushT = 0;
     } catch (e) {
       cfgPushT = 0;
@@ -2985,18 +3024,19 @@ function pushShared(auto = false){
   }, 1500);
 }
 async function pullShared(){
-  if (cfgPushT) return; // una modifica fatta qui sta per partire: vince quella
+  if (cfgPushT && !cfgAuto) return; // una modifica fatta qui dall'utente sta per partire: vince quella (una automatica no: si legge prima la scheda)
   try {
     const j = await (await fetch("/api/config", {cache: "no-store"})).json();
-    if (!j || cfgPushT) return;
-    if (!j.app) { remSet = !!S.rem; pushShared(); return; } // scheda nuova: prende le impostazioni di questo telefono
+    if (!j || (cfgPushT && !cfgAuto)) return;
+    if (!j.app) { remSet = !!S.rem; cfgFull = true; pushShared(); return; } // scheda nuova: prende tutte le impostazioni di questo telefono
     let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
     const before = JSON.stringify(sharedOf()), loc0 = JSON.stringify(S.loc);
     SHARED.forEach(k => { if (k in j.app) raw[k] = j.app[k]; });
+    if (!("aoV" in j.app) && "aoMarg" in j.app) raw.aoMarg = j.app.aoMarg;   // scheda senza soglia in volt: si traduce il suo margine, non quello del telefono
     if (!("rem" in j.app) && !remSet) raw.rem = null;       // il canale è quello della scheda, anche quando non ce l'ha
     cfgPulling = true;
     try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
-    S = loadSettings(); cfgAt = j.app_at; cfgBase = jclone(j.app);
+    S = loadSettings(); cfgAt = j.app_at; cfgBase = jclone(sharedOf());   // la base è quello che si è letto, già controllato da loadSettings: niente rimandato per la sola forma
     cfgPulling = false;
     if (JSON.stringify(sharedOf()) === before) return;
     fc = null; fcAt = 0; fillSettings(); fillLoc();
@@ -3104,9 +3144,10 @@ function remCfgTake(b){
   let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
   const before = JSON.stringify(sharedOf());
   SHARED.forEach(k => { if (k !== "rem" && k in b.cfg) raw[k] = b.cfg[k]; });
+  if (!("aoV" in b.cfg) && "aoMarg" in b.cfg) raw.aoMarg = b.cfg.aoMarg;
   raw.rem = S.rem;
   try { localStorage.setItem(SKEY, JSON.stringify(raw)); } catch (e) {}
-  S = loadSettings(); cfgBase = { ...jclone(b.cfg), rem: jclone(S.rem) };   // il pacchetto non porta il canale: quello è del telefono
+  S = loadSettings(); cfgBase = jclone(sharedOf());   // il pacchetto non porta il canale: quello è del telefono
   if (JSON.stringify(sharedOf()) !== before && $("settings").open) { fillSettings(); fillLoc(); }
   if (S.loc && !wx) loadWx();                         // su un telefono nuovo la località arriva col primo pacchetto
 }
@@ -3369,9 +3410,9 @@ async function poll(){
     const j = await r.json();
     if (!j || !Array.isArray(j.batteries)) throw new Error("formato");
     data = j; lastOk = Date.now(); everLive = true; mqStop();
-    if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; saveSettings(true); } // comanda la scheda
+    if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();               // prima le impostazioni della scheda, poi ogni salvataggio automatico
+    if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} } // comanda la scheda: non serve rimandarglielo
     render("live");
-    if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();
     if (fin(j.voc_at) && j.voc_at !== vocSeen) vocPull(j.voc_at);
     fcCap = fin(j.fc_last);
     if (fcCap && j.fc_last !== fcSeen) fcSync(j.fc_last);
@@ -5936,12 +5977,37 @@ function simulate(){
 }
 
 /* ---------- pannello impostazioni ---------- */
+// il cursore della soglia in volt: da 0,2 V sopra lo stacco (quello imparato dalla scheda) a 52,4 V (circa metà carica a riposo)
+function aoVRange(){ const iv = data && data.inv, vc = iv && fin(iv.vc) ? iv.vc : RM && fin(RM.vc) ? RM.vc : (S.inv || 48) + .8; return [round1(Math.max(46, vc + .2)), 52.4, vc]; }
+function fillAoV(){
+  const inp = $("aov-in"); if (!inp || inp.dataset.drag) return;
+  const [lo, hi] = aoVRange(); inp.min = lo; inp.max = hi; inp.value = clamp(aoVolt(), lo, hi); aoVPaint(+inp.value);
+}
+function aoVPaint(v){
+  const inp = $("aov-in"), lo = +inp.min, hi = +inp.max, vc = aoVRange()[2], f = x => clamp((x - lo) / (hi - lo), 0, 1), at = x => `calc(13px + (100% - 26px) * ${f(x).toFixed(4)})`;
+  const tr = $("aov-tr").style; tr.setProperty("--c", at(vc)); tr.setProperty("--p", at(v));
+  const b = data && Array.isArray(data.batteries) ? bank(data.batteries) : null, full = b && b.full > 0 && b.v > 40 ? b.full * b.v / 1000 : 51.2;
+  const s = socAtV(v), keep = Math.max(0, s - cutSoc()) / 100 * full;
+  $("aov-val").innerHTML = `${nf(v, 1)}<small>V</small>`;
+  $("aov-eq").innerHTML = `${nf(v / 16, 2)} V per cella · circa <b>${Math.round(s)}%</b> · <b>${nf(keep, 1)} kWh</b> lasciati sopra lo stacco`;
+  // le batterie adesso, a riposo (dalla scheda 0.52, se no dalla lettura più la caduta)
+  const a = data && data.ao, R = RM && fin(RM.R) ? RM.R : .02, vr = a && fin(a.vr) ? a.vr : b && b.on ? b.v + R * Math.max(0, -b.i) : NaN;
+  const now = $("aov-now"); now.hidden = !fin(vr); if (fin(vr)) tr.setProperty("--n", at(vr));
+  const lab = (x, cls, t, val) => { const q = f(x); return `<span class="${cls}${q < .1 ? " l" : q > .9 ? " r" : ""}" style="left:${at(x)}">${t}<b>${val}</b></span>`; };
+  const nearNow = fin(vr) && Math.abs(f(vr) - f(vc)) < .25;
+  $("aov-sc").innerHTML = (nearNow ? "" : lab(vc, "c", "stacco", nf(vc, 1) + " V")) + (fin(vr) ? lab(vr, "n", vr > hi ? "adesso ›" : "adesso", nf(vr, 1) + " V") : lab(hi, "", "", nf(hi, 1) + " V"));
+}
+$("aov-in").addEventListener("pointerdown", e => { e.target.dataset.drag = 1; });
+$("aov-in").addEventListener("input", e => { e.target.dataset.drag = 1; aoVPaint(+e.target.value); });
+$("aov-in").addEventListener("change", e => { delete e.target.dataset.drag; S.aoV = round1(+e.target.value); saveSettings(); fillAoNote(); if (data) render(mode); });
 function fillAoNote(){
   const n = $("ao-note"); if (!n) return;
-  const off = Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)), a = data && data.ao;
+  fillAoV();
+  const v = aoVolt(), off = aoBase(), a = data && data.ao, old = a && a.on && !("vs" in a);
   const st = a && a.st === 3 && fin(a.at) ? ` <b>Adesso è spenta dalla scheda</b> (dal ${alWhen(a.at)}).` : "";
   n.innerHTML = !S.aoOn ? "Spento: lo stacco lo fa l'inverter da solo, e l'ATS porta la casa su Enel dopo."
-    : `La scheda spegne l'uscita quando le batterie scendono al <b>${off}%</b> (stacco ~${nf(cutSoc(), 0)}% + ${S.aoMarg}), o restano entro 1 V dallo stacco per un minuto, o una cella va sotto 3,00 V per 20 secondi. ` +
+    : `La scheda spegne l'uscita quando le batterie, a riposo, scendono sotto <b>${nf(v, 1)} V</b> per un minuto (circa ${ilP(off)}): mentre scaricano conta la tensione letta più la caduta dovuta alla corrente, così un bollitore che le fa scendere di un volt non basta. Spegne anche se restano entro 1 V dallo stacco per un minuto, o se una cella va sotto 3,00 V per 20 secondi. ` +
+      (old ? `<b>La scheda ha un firmware senza la soglia in volt: finché non lo aggiorni usa la carica (${off}%).</b> ` : "") +
       (S.aoBack ? `La riaccende solo se l'ha spenta lei, quando col sole arrivano al <b>${off + S.aoBack}%</b> e caricano da 10 minuti.` : "Non la riaccende: lo fai tu dal pulsante.") +
       " Se la riaccendi tu prima, aspetta 3 ore prima di rispegnerla. A ogni manovra ti arriva una notifica" + (S.aoWarn ? `, e una ${S.aoWarn < 60 ? S.aoWarn + " minuti" : S.aoWarn / 60 + (S.aoWarn === 60 ? " ora" : " ore")} prima, stimata al consumo degli ultimi 15 minuti (la tensione e le celle possono farla spegnere senza preavviso).` : ".") + st + (data && data.cb ? "" : " <b>Serve lo Shelly collegato alla scheda (firmware 0.46).</b>");
   // chi ha scritto per ultimo le impostazioni (firmware 0.49: cfg_w = [[t, 0 casa | 1 fuori casa, 1 intere | 0 a voci, versione della app, automatico dopo]])
@@ -6096,7 +6162,7 @@ $("settings").addEventListener("change", e => {
   saveSettings();
   if (["theme", "palette", "style"].includes(t.name)) { applyTheme(); if (data) render(mode); }
   if (t.name === "poll") { schedule(); poll(); }
-  if (t.name === "aoMarg" || t.name === "aoBack" || t.name === "aoWarn") fillAoNote();
+  if (t.name === "aoBack" || t.name === "aoWarn") fillAoNote();
   if (t.name === "inv" || t.name === "marg") { fillInvNote(); fc = null; fcAt = 0; if (data) render(mode); }
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (data) render(mode);
