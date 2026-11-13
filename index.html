@@ -1533,6 +1533,24 @@ footer{border-top:0;padding-top:0}
     </fieldset>
     <p class="set-note">Quanta carica vuoi avere ancora sopra lo stacco quando i pannelli ricominciano a caricare. Sotto questo margine la app ti avvisa la sera, anche con la app chiusa se hai le notifiche.</p>
 
+    <h3>Uscita dell'inverter in automatico</h3>
+    <div class="chk" id="set-aochk"><label><input type="checkbox" name="aoOn"><span><b>Spegni prima dello stacco</b><small>La scheda spegne lo Shelly e l'ATS porta la casa su Enel prima che l'inverter stacchi da solo</small></span></label></div>
+    <span class="set-lbl">Spegni sopra lo stacco di</span>
+    <fieldset class="seg" id="set-aomarg"><legend>Margine dello spegnimento automatico</legend>
+      <label><input type="radio" name="aoMarg" value="3"><span>3%</span></label>
+      <label><input type="radio" name="aoMarg" value="5"><span>5%</span></label>
+      <label><input type="radio" name="aoMarg" value="10"><span>10%</span></label>
+      <label><input type="radio" name="aoMarg" value="15"><span>15%</span></label>
+    </fieldset>
+    <span class="set-lbl">Riaccendi col sole quando risale di</span>
+    <fieldset class="seg" id="set-aoback"><legend>Riaccensione automatica</legend>
+      <label><input type="radio" name="aoBack" value="0"><span>mai</span></label>
+      <label><input type="radio" name="aoBack" value="10"><span>+10%</span></label>
+      <label><input type="radio" name="aoBack" value="20"><span>+20%</span></label>
+      <label><input type="radio" name="aoBack" value="30"><span>+30%</span></label>
+    </fieldset>
+    <p class="set-note" id="ao-note"></p>
+
     <h3>Allarmi</h3>
     <span class="set-lbl">Carica sotto il</span>
     <fieldset class="seg" id="set-allow"><legend>Allarme carica bassa</legend>
@@ -1621,7 +1639,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "1.91"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "1.93"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1653,6 +1671,8 @@ const MSG = {
   INV_RISK:    ["L'inverter può staccare a momenti", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare le batterie puoi portarla prima su Enel."],
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
+  CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)) + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
+  CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
   PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
@@ -2074,10 +2094,10 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 
 /* ---------- impostazioni: restano solo su questo dispositivo ---------- */
 const SKEY = "mybattery.settings";
-const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv"]; // allarmi che si accendono e spengono
+const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoMarg: [3,5,10,15], aoBack: [0,10,20,30] };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoMarg: 5, aoBack: 20, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2088,6 +2108,7 @@ function loadSettings(){
   if (l && typeof l.name === "string" && fin(l.lat) && fin(l.lon)) o.loc = { name: l.name.slice(0, 60), lat: +l.lat.toFixed(2), lon: +l.lon.toFixed(2) };
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
+  if (fin(s.aoSoc) && s.aoSoc >= 5 && s.aoSoc <= 60) o.aoSoc = Math.round(s.aoSoc);
   if (s.rem && /^[A-Za-z0-9_-]{12,64}$/.test(s.rem.t) && /^[A-Za-z0-9_-]{43}$/.test(s.rem.k)) o.rem = { t: s.rem.t, k: s.rem.k };
   if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
     if (!/^\d{1,3}$/.test(a) || !c || typeof c !== "object") return;
@@ -2114,7 +2135,8 @@ function loadSettings(){
   return o;
 }
 // auto = salvataggio fatto dalla app da sola (Voc imparata, resistenza del banco…): niente pop-up, e se non riesce si riprova più tardi
-function saveSettings(auto = false){ try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(auto); } catch (e) {} } // try: può servire prima che "mode" esista
+function saveSettings(auto = false){ try { S.aoSoc = Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)); } catch (e) {}   // la carica a cui la scheda spegne l'uscita: stacco + margine scelto
+  try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(auto); } catch (e) {} } // try: può servire prima che "mode" esista
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
 // restano del telefono solo aspetto (tema, colori, stile) e frequenza di aggiornamento
@@ -2140,7 +2162,7 @@ function cutSoc(){
 const ilP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "l'" : "il ") + n + "%"; }; // l'11%, il 12%
 const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0] === "8" ? "all'" : "al ") + n + "%"; };  // all'11%, al 12%
 const floorSoc = () => Math.max(S.reserve || 0, cutSoc());   // sotto qui il banco per la casa è vuoto
-const SHARED = ["reserve", "inv", "marg", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
+const SHARED = ["reserve", "inv", "marg", "aoOn", "aoMarg", "aoBack", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* ---------- la casa: sulle batterie o su Enel. Lo decide la scheda dalle misure (firmware 0.38) ----------
@@ -2334,6 +2356,9 @@ function cbPhase(c){       // la fase da mostrare: [classe, etichetta, testo] o 
     if (r.st === 2) return Date.now() - me.t < 60e3 + 5e3 ? ["good", "Fatto", `Interruttore ${S(r.on)} alle ${hm(r.at)}.`] : null;
     return ["bad", "Non eseguito", `${r.msg || "lo Shelly ha rifiutato"}.${r.on ? " Se l'avevi spento con la leva o è scattato, si riaccende solo a mano." : ""}`];
   }
+  const a = data && data.ao;
+  if (a && a.st === 3 && !c.on && fin(a.at)) return ["arm", "Automatico", `Spenta dalla scheda il ${alWhen(a.at)}: ${a.why === "cella" ? `una cella a ${nf(a.mv / 1000, 2)} V` : a.why === "volt" ? `batterie a ${nf(a.v, 1)} V, vicine allo stacco` : `batterie al ${nf(a.sc, 0)}%`}.${a.back ? ` Si riaccende col sole al ${Math.round(a.soc + a.back)}%.` : ""}`];
+  if (k && k.src === 2 && k.st === 2 && k.on && now - k.at < 3600) return ["good", "Automatico", `Riaccesa dalla scheda alle ${hm(k.at)}: batterie ricaricate.`];
   if (k && now - k.at < 60) return k.st === 1 ? ["ok", "In corso", `Comando da un altro telefono: interruttore a ${S(k.on)}…`]
     : k.st === 2 ? ["good", "Fatto", `Interruttore ${S(k.on)} alle ${hm(k.at)} (da un altro telefono).`] : ["bad", "Non eseguito", `${k.msg || "lo Shelly ha rifiutato"}.`];
   return null;
@@ -3273,11 +3298,11 @@ function render(m){
     else setEta("chg", "Quasi pieno", "il BMS completa la carica");
   } else if (k.i < -0.5) {
     st.className = "state dsg"; st.textContent = `In scarica, ${power(k.p)} in uscita`;
-    // in scarica risponde il motore della notte (lo stesso del riquadro «Stanotte» e degli avvisi); di giorno, prima che si possa dire, il consumo di adesso
+    // in scarica risponde il motore della notte (lo stesso del riquadro «Stanotte» e degli avvisi): qui solo lo stacco; di giorno, prima che si possa dire, il consumo di adesso
     const fl = floorSoc(), byInv = fl > (S.reserve || 0), avail = k.rem - k.full * fl / 100, nt = nightRun(k, f, houseNow()), now = nowOf(data);
     if (avail <= 0) setEta("warn", byInv ? `Vicino allo stacco dell'inverter (${S.inv} V)` : `Sotto la riserva del ${fl}%`, "riduci i consumi");
     else if (nt && fin(nt.at) && nt.at > now) setEta("dsg", `Stacco dell'inverter (${S.inv} V) tra`, dur((nt.at - now) / HOUR), (q15(nt.at) - now) / HOUR);
-    else if (nt && nt.resume !== null && nt.resume > now) setEta("dsg", "Prima del sole scendi a", nf(Math.max(0, nt.min), 0) + "%", (q15(nt.resume) - now) / HOUR);
+    else if (nt && nt.resume !== null && nt.resume > now) setEta();   // arriva al sole senza stacco: lo dice già il riquadro «Stanotte»
     else setEta("dsg", byInv ? `Al consumo di adesso, stacco (${S.inv} V) tra` : `Al consumo di adesso, al ${fl}% tra`, dur(avail / -k.i), avail / -k.i);
   } else {
     st.className = "state idle"; st.textContent = "A riposo"; setEta();
@@ -5670,7 +5695,17 @@ function simulate(){
 }
 
 /* ---------- pannello impostazioni ---------- */
+function fillAoNote(){
+  const n = $("ao-note"); if (!n) return;
+  const off = Math.round(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)), a = data && data.ao;
+  const st = a && a.st === 3 && fin(a.at) ? ` <b>Adesso è spenta dalla scheda</b> (dal ${alWhen(a.at)}).` : "";
+  n.innerHTML = !S.aoOn ? "Spento: lo stacco lo fa l'inverter da solo, e l'ATS porta la casa su Enel dopo."
+    : `La scheda spegne l'uscita quando le batterie scendono al <b>${off}%</b> (stacco ~${nf(cutSoc(), 0)}% + ${S.aoMarg}), o restano entro 1 V dallo stacco per un minuto, o una cella va sotto 3,00 V per 20 secondi. ` +
+      (S.aoBack ? `La riaccende solo se l'ha spenta lei, quando col sole arrivano al <b>${off + S.aoBack}%</b> e caricano da 10 minuti.` : "Non la riaccende: lo fai tu dal pulsante.") +
+      " Se la riaccendi tu prima, aspetta 3 ore prima di rispegnerla. A ogni manovra ti arriva una notifica." + st + (data && data.cb ? "" : " <b>Serve lo Shelly collegato alla scheda (firmware 0.46).</b>");
+}
 function fillInvNote(){
+  fillAoNote();
   const n = $("inv-note"); if (!n) return;
   const L = invLearned();
   n.textContent = L ? `Misurato sulle tue batterie: l'inverter ha staccato ${L.n > 1 ? L.n + " volte, l'ultima" : ""} il ${new Date(L.t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "short" })} a ${nf(L.v, 1)} V, con il BMS ${L.n > 1 ? "in media " : ""}${L.soc === 1 || L.soc === 11 || String(L.soc)[0] === "8" ? "all'" : "al "}${L.soc}%. Autonomia e previsioni si fermano lì.`
@@ -5811,12 +5846,13 @@ $("set-ntfy").addEventListener("click", e => {
 document.addEventListener("visibilitychange", () => { if (document.hidden) scheduleOnClose(); else cancelScheduled(); });
 $("settings").addEventListener("change", e => {
   const t = e.target;
-  if (t.type === "checkbox" && AL_BOOL.includes(t.name)) { S[t.name] = t.checked; saveSettings(); fc = null; fcAt = 0; if (data) render(mode); return; }
+  if (t.type === "checkbox" && AL_BOOL.includes(t.name)) { S[t.name] = t.checked; saveSettings(); fillAoNote(); fc = null; fcAt = 0; if (data) render(mode); return; }
   if (t.type !== "radio") return;
   S[t.name] = ["theme", "palette", "style"].includes(t.name) ? t.value : +t.value;
   saveSettings();
   if (["theme", "palette", "style"].includes(t.name)) { applyTheme(); if (data) render(mode); }
   if (t.name === "poll") { schedule(); poll(); }
+  if (t.name === "aoMarg" || t.name === "aoBack") fillAoNote();
   if (t.name === "inv" || t.name === "marg") { fillInvNote(); fc = null; fcAt = 0; if (data) render(mode); }
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (data) render(mode);
