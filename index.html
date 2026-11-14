@@ -307,6 +307,19 @@ section{margin-top:26px}
 .fc-p b{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.95rem;color:var(--lith)}
 .fc-p.warn{background:var(--warn-tint)} .fc-p.warn b{color:var(--warn)}
 .rel{display:block;width:100%;height:auto;margin-top:4px}
+.lrn-rib{display:block;width:100%;height:auto;margin:4px 0 2px}
+.lrn-leg{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 0;font-size:.74rem;color:var(--muted)}.lrn-leg i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px;border-radius:2px}
+.lrn{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:14px}
+.lrn li{display:grid;grid-template-columns:28px 1fr auto;gap:3px 10px;align-items:center}
+.lrn .ri{grid-row:1/4;align-self:start;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--lith-tint);color:var(--lith)}.lrn .ri svg{width:16px;height:16px}
+.lrn li.ok .ri{background:var(--good-tint);color:var(--good)}.lrn li.wait .ri{background:var(--surface);color:var(--muted)}
+.lrn b{font-weight:600;font-size:.88rem}.lrn em{font-style:normal;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.84rem;font-weight:700;color:var(--lith);text-align:right;white-space:nowrap}
+.lrn li.ok em{color:var(--good)}.lrn li.wait em{color:var(--muted)}
+.lrn-bar{grid-column:2/4;display:grid;grid-template-columns:repeat(12,1fr);gap:3px;height:7px}.lrn-bar i{border-radius:2px;background:var(--line)}.lrn-bar i.on{background:var(--lith)}.lrn li.ok .lrn-bar i.on{background:var(--good)}
+.lrn small{grid-column:2/4;color:var(--muted);font-size:.76rem;line-height:1.35}
+[data-mecha] .lrn .ri{border-radius:0;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+[data-mecha] .lrn-bar{transform:skewX(-20deg);margin-left:3px}[data-mecha] .lrn-bar i{border-radius:0}
+[data-mecha] .lrn b{font-family:"Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:.82rem}
 .rel-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
 .rel-list li{display:flex;gap:10px;align-items:flex-start;font-size:.86rem;line-height:1.35}
 .rel-list .ri{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--lith-tint);color:var(--lith)}
@@ -1456,6 +1469,11 @@ footer{border-top:0;padding-top:0}
       <ul class="alerts habits" id="habits"></ul>
       <p class="fc-note" id="hab-note"></p>
     </section>
+    <section class="panel plain" aria-labelledby="h-lrn">
+      <h2 id="h-lrn">Cosa sto imparando</h2>
+      <p class="hist-read" id="lrn-read"></p>
+      <div id="lrn"></div>
+    </section>
     </div>
   </div>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Pagine">
@@ -1678,7 +1696,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.01"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.02"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3663,6 +3681,7 @@ function render(m){
 
   drawPv(data.pv, k);
   drawSw();
+  drawLearn();
   drawFlow(k);
   drawSolar(k, f);
   drawWeather(k);
@@ -5029,6 +5048,60 @@ function drawAlHist(){
 }
 
 /* ---------- pannello "Quanto è affidabile": errori misurati, correzioni imparate, mappa del sole ---------- */
+/* ---------- «Cosa sto imparando» (pagina Abitudini): quanto hanno visto la app e la scheda, e che cosa si sblocca. Un nastro delle 24 ore (i quarti
+   d'ora con la casa sulle batterie per ogni ora del giorno: le abitudini li usano tutti, i picchi ne vogliono 8 per ora, rkKnown) e una barra per
+   ogni cosa che si impara, con le stesse soglie che usano i calcoli ---------- */
+const LRN_ICON = {
+  hab: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  hod: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  pk: '<path d="M3 18h3l3-10 4 13 3-8h5"/>',
+  r: '<path d="M4 12h3l2-5 3 10 2-5h6"/><path d="M4 19h16"/>',
+  fc: '<path d="M3.5 19.5h17"/><path d="M4.5 15l4.5-5 3.5 3 6.5-7.5"/>',
+  vc: '<path d="M12 3v8"/><path d="M7.05 6.05a8 8 0 1 0 9.9 0"/>',
+  ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>' };
+let lrnC = null;
+function lrnHours(){   // quarti d'ora con la casa sulle batterie per ora del giorno, ultimi 60 giorni (registro della scheda; senza, le ore del modello × 4)
+  const key = STRESS.length + ":" + (model ? model.rows : 0); if (lrnC && lrnC.key === key) return lrnC.v;
+  const v = Array(24).fill(0), t0 = nowS() - 60 * DAY;
+  if (STRESS.length) STRESS.forEach(r => { if (r[8] && r[0] >= t0) v[new Date(r[0] * 1000).getHours()]++; });
+  else if (model && model.H) model.H.forEach(o => { if (o.load !== null && o.t >= t0 && bankAt(o.t + 1800)) v[new Date(o.t * 1000).getHours()] += 4; });
+  return (lrnC = { key, v }).v;
+}
+function drawLearn(){
+  const box = $("lrn"), read = $("lrn-read"); if (!box) return;
+  if (!data) { box.innerHTML = ""; read.innerHTML = ""; return; }
+  const M = model, L = M && M.load, inv = data.inv || {}, hrs = lrnHours(), h0 = new Date(nowOf(data) * 1000).getHours(), on = houseNow();
+  // il nastro
+  const W = 340, bw = W / 24, top = 40, y0 = 46, nMax = 8;
+  let g = "";
+  hrs.forEach((n, h) => { const x = h * bw + 1.5, w = bw - 3, f = Math.min(n, nMax) / nMax, hh = Math.max(n ? 3 : 0, f * top);
+    g += `<rect x="${x.toFixed(1)}" y="${y0 - top}" width="${w.toFixed(1)}" height="${top}" rx="2" fill="var(--line)" opacity=".35"/>`;
+    if (n) g += `<rect x="${x.toFixed(1)}" y="${(y0 - hh).toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}" rx="2" fill="${n >= nMax ? "var(--good)" : "var(--lith)"}" opacity="${n >= nMax ? 1 : .55 + .45 * f}"/>`;
+    if (!(h % 6)) g += `<text x="${(h * bw).toFixed(1)}" y="${y0 + 13}" font-size="9.5" fill="var(--muted)">${h}</text>`; });
+  g += `<text x="${W}" y="${y0 + 13}" text-anchor="end" font-size="9.5" fill="var(--muted)">24</text>`;
+  const xn = (h0 + .5) * bw; g += `<path d="M${xn.toFixed(1)} ${y0 - top - 2}l-4 -5h8z" fill="${on ? "var(--ink)" : "var(--muted)"}"/>`;
+  const rib = `<svg class="lrn-rib" viewBox="0 -8 ${W} 70" role="img" aria-label="Quarti d'ora visti con la casa sulle batterie per ogni ora del giorno">${g}</svg>` +
+    `<p class="lrn-leg"><span><i style="background:var(--lith)"></i>visti con la casa sulle batterie</span><span><i style="background:var(--good)"></i>abbastanza per i picchi (2 ore)</span><span>▼ adesso</span></p>`;
+  // le barre: [icona, titolo, valore, frazione 0–1, nota]; fatto = frazione 1
+  const R = [], hpk = hrs.filter(n => n >= nMax).length;
+  if (L) { const wd = L.byWd.filter(Boolean).length;
+    R.push(["hab", "Abitudini di consumo", `${L.days} ${L.days === 1 ? "giorno" : "giorni"} · ${wd} su 7`, wd / 7, wd >= 7 ? "Ogni giorno della settimana ha le sue abitudini; con le settimane contano anche le stagioni." : `Giorni della settimana visti per bene (almeno 6 ore con la casa sulle batterie): quelli che mancano valgono come un feriale o un festivo qualunque.`]);
+    R.push(["hod", "Ore del giorno", `${L.hod} su 24`, L.hod / 24, L.hod >= 24 ? "Tutte le ore viste almeno una volta." : "Le ore mai viste sono stimate da quelle vicine."]); }
+  else R.push(["hab", "Abitudini di consumo", "da cominciare", 0, `Servono ${AUTO_MIN} ore con la casa sulle batterie: poi «Batterie su solare» usa le tue abitudini.`]);
+  R.push(["pk", "Picchi di consumo per ora", `${hpk} su 24`, hpk / 24, hpk ? `Nelle ore in verde il rischio di stacco conta anche i picchi; nelle altre solo l'energia.` : "Servono 2 ore viste con la casa sulle batterie alla stessa ora: poi il rischio di stacco conta anche i picchi."]);
+  if (fin(inv.rn)) { const n = Math.min(inv.rn, 10), done = inv.rn >= 10;
+    R.push(["r", "Caduta di tensione delle batterie", done ? `${nf(inv.r * 1000, 1)} mΩ` : `${n} su 10`, n / 10, done ? `Misurata su ${inv.rn} salti di corrente: la usano la soglia in volt dell'automatico e l'allarme sul prossimo picco.`
+      : "La scheda la misura quando la corrente salta di almeno 30 A (un forno, un bollitore) con la casa sulle batterie. Poi si accende l'allarme sul prossimo picco."]); }
+  if (M) { const sp = Math.min(M.span, 9);
+    R.push(["fc", "Previsione e autoverifica", M.span >= 9 ? "attive" : `${nf(sp, sp < 1 ? 1 : 0)} giorni su 9`, sp / 9, M.span >= 9 ? "La previsione a 48 ore si controlla da sola e corregge sole e consumi." : M.span >= 7 ? "Previsione a 48 ore attiva; dai 9 giorni controlla le sue previsioni e si corregge." : "Dai 7 giorni di registro parte la previsione a 48 ore, dai 9 si corregge da sola."]); }
+  if (fin(inv.vcn)) R.push(["vc", "Tensione di stacco dell'inverter", inv.vcn ? `${nf(inv.vc, 1)} V · ${inv.vcn} ${inv.vcn === 1 ? "stacco" : "stacchi"}` : `stimata ${nf(inv.vc, 1)} V`, Math.min(inv.vcn, 3) / 3,
+    inv.vcn >= 3 ? "Misurata sugli ultimi 3 stacchi veri." : `${inv.vcn ? "Misurata" : "Stimata dalla soglia impostata"}${fin(inv.vh) ? `, mai sopra i ${nf(inv.vh, 1)} V già tenuti sotto carico` : ""}: si impara solo quando l'inverter stacca davvero.`]);
+  const seg = f => { const k = Math.round(clamp(f, 0, 1) * 12); return `<span class="lrn-bar" aria-hidden="true">${Array.from({ length: 12 }, (_, i) => `<i${i < k ? ' class="on"' : ""}></i>`).join("")}</span>`; };
+  const list = `<ul class="lrn">${R.map(([i, t, v, f, d]) => `<li class="${f >= 1 ? "ok" : f > 0 ? "" : "wait"}"><span class="ri">${ico(LRN_ICON[f >= 1 ? "ok" : i])}</span><b>${t}</b><em>${v}</em>${seg(f)}<small>${d}</small></li>`).join("")}</ul>`;
+  const html = rib + list;
+  read.innerHTML = on ? "Adesso la casa è <b>sulle batterie</b>: ogni quarto d'ora entra nelle abitudini e nei picchi di quest'ora." : "Adesso la casa è <b>su Enel</b>: i consumi della casa non si vedono, la scheda impara solo quanto consuma l'impianto da solo.";
+  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+}
 const REL_ICON = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
   home: '<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
