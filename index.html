@@ -1696,7 +1696,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.03"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.04"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2783,11 +2783,12 @@ function drawSolar(k, f){
     const why = { cella: "una cella era sotto 3,00 V", volt: "la tensione era vicina allo stacco", carica: "la carica era arrivata al " + nf(lim, 0) + "%" }[ao.why] || "le batterie erano vicine allo stacco";
     let back = "Non la riaccende da sola: lo fai tu dal pulsante quando vuoi.", bt = "a mano";
     if (ao.back > 0) { const tgt = lim + ao.back; let at = null;
-      if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgt && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
+      const tgtM = tgt + (weak ? weak.gap : 0);   // la scheda aspetta la più debole (firmware 0.56): per la media vuol dire più su
+      if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgtM && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
       bt = at ? hm(q15(at)) : "oltre 48 h";
-      back = `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>` + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
+      back = (weak ? `La riaccende col sole quando anche la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(tgt, 0)}%</b>` : `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>`) + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
     return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? ora(ao.at) : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
-      tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.soc) ? nf(ao.soc, 0) + "%" : "–"], ["Riaccende", bt]]));
+      tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.sc) ? nf(ao.sc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
   const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
     : cb && cb.ok === false ? " <small>Lo Shelly non risponde: la scheda non può staccare, decide l'inverter.</small>" : "";
