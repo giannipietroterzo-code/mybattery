@@ -1696,7 +1696,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.02"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.03"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1729,7 +1729,9 @@ const MSG = {
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
   CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${aoBase() + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
-  AO_SOON:     () => { const a = data && data.ao, m = a && fin(a.eta) ? a.eta : null;
+  AO_SOON:     () => { const a = data && data.ao, m = a && fin(a.eta) ? a.eta : null, B = (data && data.batteries) || [], nm = i => fin(i) && B[i] ? nameOf(B[i], i) : null;
+    if (a && a.ew === 2 && fin(a.mvn)) return ["La scheda sta per staccare il solare", `Una cella${nm(a.mw) ? " della " + nm(a.mw) : ""} è a ${nf(a.mvn / 1000, 2)} V sotto carico: a 3,00 V la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni i carichi più forti.`];
+    if (a && a.ew === 1 && m !== null && nm(a.wk)) return ["La scheda sta per staccare il solare", `La più debole è la ${nm(a.wk)}, ${alP(a.ws)}: al consumo degli ultimi 15 minuti arriva ${alP(a.soc)} tra circa ${dur(m / 60)}, e lì le sue celle cedono: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni qualche carico.`];
     return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano ${fin(a.vs) ? `a ${nf(a.vs, 1)} V (circa ${ilP(a.soc)})` : alP(a.soc)} tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
@@ -2620,7 +2622,7 @@ function autonomy(k, f){
   // con la previsione a 48 ore si parte dallo stesso istante e dalla stessa carica (come fullInputs): con la casa sulle batterie le giornate
   // simulate sono le stesse, e la stessa notte dà gli stessi numeri nelle due sezioni
   const t0 = hab && f ? f.t[0] : now, soc0 = hab && f ? f.mid[0] : k.soc, pNow = hab && f ? f.batW : k.p;
-  const aoL = aoLimit(), key = "a" + (hab ? f ? "f" + t0 : "h" + Math.floor(now / 300) : "s" + Math.floor(now / 300)) + ":" + Math.round(k.soc * 10) + ":" + on + ":" + aoL;
+  const aoL = aoMean(), key = "a" + (hab ? f ? "f" + t0 : "h" + Math.floor(now / 300) : "s" + Math.floor(now / 300)) + ":" + Math.round(k.soc * 10) + ":" + on + ":" + aoL;
   if (nightMemo[key]) return nightMemo[key];
   let o;
   if (hab) {
@@ -2649,6 +2651,16 @@ function autonomy(k, f){
    sotto 3,00 V non si prevede: dipende dalla batteria più debole sul momento. Risposta: ora mediana, «prudente» (1 caso su 5 prima), probabilità
    nelle 96 ore e perché (carica o tensione), e quanto prima dell'inverter. */
 const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(data && data.cb)) return null; const v = a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
+/* La batteria più debole (dalla 2.03 e dal firmware 0.55; il 15/11/2026 la scheda ha spento con la media al 43% perché la Batteria 3 era al 15%):
+   quella con la carica più bassa adesso, qualunque sia. Le sue celle cedono quando LEI arriva alla soglia, quindi per la media la soglia vera
+   è più su: soglia + distacco tra la media e la più debole (tenuto fermo nelle simulazioni; contano solo distacchi da 2 punti, al massimo 30).
+   aoLimit = la soglia della scheda (per i testi), aoMean = la carica media a cui la scheda spegnerebbe (per simulazioni, barra e curva). */
+function aoWeak(){
+  const l = ((data && data.batteries) || []).map((b, i) => ({ b, i })).filter(x => x.b.online !== false && fin(x.b.soc)); if (l.length < 2) return null;
+  const w = l.reduce((a, x) => x.b.soc < a.b.soc ? x : a), mean = l.reduce((a, x) => a + x.b.soc, 0) / l.length, gap = clamp(mean - w.b.soc, 0, 30);
+  return { i: w.i, name: nameOf(w.b, w.i), soc: w.b.soc, gap: gap >= 2 ? gap : 0 };
+}
+const aoMean = () => { const l = aoLimit(), w = l ? aoWeak() : null; return l ? l + (w ? w.gap : 0) : null; };
 function aoCross(det, paths, lim){
   const N = det.P.length, vT = RM && fin(RM.vc) && fin(RM.R) && RM.R > 0 ? RM.vc + 1 : null;
   const pk = vT ? det.T.map(t => { const h = new Date(t * 1000).getHours(), d = rkKnown(h) ? rkDist(h, true, t) : []; return d.length ? quant(d.map(x => x[0]), .9) : 0; }) : null;   // solo dove i picchi sono misure
@@ -2738,7 +2750,7 @@ function dipOf(mid, night){
 }
 function solarPlan(k, f){
   const a = autonomy(k, f); if (!a) return null;
-  const now = nowOf(data), on = houseNow(), cut = a.cut, ao = data.ao, cb = data.cb, lim = aoLimit(), cbOff = !!(cb && cb.on === false);
+  const now = nowOf(data), on = houseNow(), cut = a.cut, ao = data.ao, cb = data.cb, lim = aoLimit(), limE = aoMean(), wk = lim ? aoWeak() : null, cbOff = !!(cb && cb.on === false);
   const aoCan = !!(lim && ao && ao.st !== 4 && cb && cb.ok !== false), aoLive = aoCan && !cbOff, hab = !!a.hab;
   const ev = nightRun(k, f, 1);                    // la notte con la casa sulle batterie (con le abitudini è a.nt: le stesse simulazioni)
   const cutAt = hab ? a.at : ev ? ev.at : fin(a.dark) && a.dark < 30 ? now + a.dark * HOUR : null;
@@ -2752,15 +2764,16 @@ function solarPlan(k, f){
   else if (ev) { sunAt = ev.resume; mn = Math.max(0, ev.min); }
   const byAo = fin(aoAt) && (!fin(cutAt) || aoAt <= cutAt);
   if (fin(cutAt) && fin(mn)) mn = Math.max(mn, cut);
-  if (byAo) mn = Math.max(fin(mn) ? mn : 0, Math.min(lim, k.soc));   // dopo lo spegnimento della scheda la casa è su Enel: le batterie si fermano lì
+  if (byAo) mn = Math.max(fin(mn) ? mn : 0, Math.min(limE, k.soc));   // dopo lo spegnimento della scheda la casa è su Enel: le batterie si fermano lì
   const first = byAo ? aoAt : fin(cutAt) ? cutAt : null;
-  return { a, ev, hab, now, on, cut, ao, cb, lim, cbOff, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first, byAo };
+  const weak = wk && wk.gap ? wk : null;   // c'è una batteria che resta indietro: è lei che decide
+  return { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, limWho: weak ? ` sulla più debole, ${weak.name}` : "", cbOff, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first, byAo };
 }
 function drawSolar(k, f){
   const box = $("solar"); if (!box) return;
   const P = solarPlan(k, f), na = P && nightAdvice(k, f);
   if (!P) { box.hidden = true; return; }
-  const { a, ev, hab, now, on, cut, ao, cb, lim, cbOff, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first } = P;
+  const { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, cbOff, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first } = P;
   const ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
   const show = (cls, ico, t, body, more = "") => { const h = `<div class="n-h"><span class="n-ico">${ico}</span><span class="n-t">${t}</span></div>${body}${more}`; box.hidden = false; box.className = "night sol " + cls; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
   const p = s => `<p class="n-d">${s}</p>`, tiles = l => `<dl class="tmr-g sol-g">${l.map(([t, v, c]) => `<div${c ? ` class="${c}"` : ""}><dt>${t}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
@@ -2773,12 +2786,12 @@ function drawSolar(k, f){
       if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgt && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
       bt = at ? hm(q15(at)) : "oltre 48 h";
       back = `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>` + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
-    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? ora(ao.at) : ""}`, solBar(k.soc, null, lim, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
+    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? ora(ao.at) : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
       tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.soc) ? nf(ao.soc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
   const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
     : cb && cb.ok === false ? " <small>Lo Shelly non risponde: la scheda non può staccare, decide l'inverter.</small>" : "";
-  if (aoLive && ao.st === 2) return show("bad", AOFF_ICO, "La scheda sta per staccare il solare", solBar(k.soc, null, lim, cut) + p("Una soglia è superata: se resta così per un minuto (20 secondi per una cella) spegne l'uscita e l'ATS porta la casa su Enel."));
+  if (aoLive && ao.st === 2) return show("bad", AOFF_ICO, "La scheda sta per staccare il solare", solBar(k.soc, null, limE, cut) + p("Una soglia è superata: se resta così per un minuto (20 secondi per una cella) spegne l'uscita e l'ATS porta la casa su Enel."));
   if (a.unknown && !ev) return show("wait", SOL_ICO, "Batterie su solare: serve il consumo della casa", p("La scheda lo misura la prima volta che la casa passa sulle batterie, o dopo una notte con la casa sulle batterie."));
   const h = fin(first) ? (first - now) / HOUR : null;
   // titolo: la prima cosa che succede
@@ -2792,9 +2805,10 @@ function drawSolar(k, f){
   let d = "";
   if (fin(aoAt) && (!fin(cutAt) || aoAt <= cutAt)) {
     const o = a.aoff || {};
-    d = (aoRate ? `Al consumo degli ultimi 15 minuti${fin(ao.i15) && fin(k.v) ? ` (${power(-ao.i15 * k.v)})` : ""} la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, quando le batterie arrivano al <b>${nf(lim, 0)}%</b>.` +
+    const limT = weak ? `quando la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(lim, 0)}%</b>: le batterie insieme saranno verso il ${nf(limE, 0)}%.` : `quando le batterie arrivano al <b>${nf(lim, 0)}%</b>.`;
+    d = (aoRate ? `Al consumo degli ultimi 15 minuti${fin(ao.i15) && fin(k.v) ? ` (${power(-ao.i15 * k.v)})` : ""} la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, ${limT}` +
         (fin(aoHab) ? ` Coi consumi soliti sarebbe ${ora(aoHab)}.` : "")
-      : `Coi consumi soliti ${hab ? "e il sole previsto " : "al buio "}la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, ` + (o.why === "volt" ? `per un picco di consumo con le batterie già basse.` : `quando le batterie arrivano al <b>${nf(lim, 0)}%</b>.`)) +
+      : `Coi consumi soliti ${hab ? "e il sole previsto " : "al buio "}la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, ` + (o.why === "volt" ? `per un picco di consumo con le batterie già basse.` : limT)) +
       (fin(cutAt) && cutAt - aoAt > 900 ? ` L'inverter da solo staccherebbe ${ora(cutAt)}: la casa va su Enel <b>${dur((cutAt - aoAt) / HOUR)} prima</b>, con le batterie meno tirate.` : "") +
       (!aoRate && o.early && aoAt - o.early > 1.5 * HOUR ? ` Una volta su cinque (giornata pesante o meno sole) già ${ora(o.early)}.` : "");
   } else if (fin(cutAt)) {
@@ -2811,7 +2825,8 @@ function drawSolar(k, f){
   const rk = na && na.rk, rkNew = rk && RM && RM.Rb && rk.p >= .2 && !fin(aoAt) && (!fin(cutAt) || (fin(rk.at) && rk.at < cutAt - HOUR));
   const rkTxt = rkNew ? ` Un picco di consumo forte può farlo staccare ${fin(cutAt) ? "prima" : "lo stesso"}${fin(rk.at) ? ", " + ora(rk.at).replace(/^alle/, "già dalle").replace(/ alle /, " dalle ") : ""}: rischio ${nf(rk.p * 100, 0)}%, adesso le batterie reggono circa ${nf(rk.kw, 1)} kW insieme.` : "";
   // il consiglio della notte: con l'automatico acceso «porta la casa su Enel verso…» lo fa già la scheda
-  const tip = aoLive && ao.soon ? `<div class="n-tip">Avviso mandato. Se vuoi restare sulle batterie, spegni qualche carico: a ogni lettura la scheda rifà il conto.</div>`
+  const tip = aoLive && ao.soon && ao.ew === 2 ? `<div class="n-tip">Avviso mandato: una cella${fin(ao.mw) && data.batteries[ao.mw] ? " della " + esc(nameOf(data.batteries[ao.mw], ao.mw)) : ""} è a ${nf(ao.mvn / 1000, 2)} V sotto carico, a 3,00 V la scheda spegne. Per restare sulle batterie spegni i carichi più forti.</div>`
+    : aoLive && ao.soon ? `<div class="n-tip">Avviso mandato. Se vuoi restare sulle batterie, spegni qualche carico: a ogni lettura la scheda rifà il conto.</div>`
     : na && na.tip && !(aoLive && on && !na.cutNow) ? `<div class="n-tip">${esc(na.tip.txt)}</div>`
     // con la casa su Enel: conviene riaccendere? Stessi orari del titolo e dei riquadri
     : !on && na && ev && !na.cutNow ? `<div class="n-tip">${na.solSafe && !(fin(first) && first - now < DAY)
@@ -2828,12 +2843,12 @@ function drawSolar(k, f){
   let marks = "";
   if (hab) { const n = a.t.length;
     if (fin(cutAt)) { const x = (cutAt - now) / HOUR / (n - 1) * FW; marks += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${FTOP}" y2="${FBASE}" stroke="var(--alert)" stroke-width="1.4"/>` + socMark(n, (cutAt - now) / HOUR, cut, "inverter " + hm(q15(cutAt)), false, "var(--alert)"); }
-    if (fin(aoAt)) marks += `<line x1="0" x2="${FW}" y1="${fy(lim).toFixed(1)}" y2="${fy(lim).toFixed(1)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` + socMark(n, (aoAt - now) / HOUR, lim, "scheda " + hm(q15(aoAt)), true, "var(--warn)");
+    if (fin(aoAt)) marks += `<line x1="0" x2="${FW}" y1="${fy(limE).toFixed(1)}" y2="${fy(limE).toFixed(1)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` + socMark(n, (aoAt - now) / HOUR, limE, "scheda " + hm(q15(aoAt)), true, "var(--warn)");
     if (!fin(cutAt) && !fin(aoAt) && fin(mnAt)) marks += socMark(n, (mnAt - now) / HOUR, mn, nf(mn, 0) + "%", mn > 70); }
   const more = hab ? `<button class="link-btn au-more" id="au-more" type="button" aria-expanded="${autoOpen}">${autoOpen ? "▴ Nascondi la curva" : "▾ Vedi la curva ora per ora"}</button>` +
     (autoOpen ? `<svg class="fc au-svg" viewBox="0 0 340 152" role="img" aria-label="Carica prevista con la casa sulle batterie nei prossimi ${AUTO_H / 24} giorni">${socSvg(a, marks)}</svg>` +
       `<p class="au-leg">Linea: il caso normale. Fascia: 8 casi su 10. Barre: sopra il sole previsto, sotto i consumi soliti della casa.</p>` : "") : "";
-  show(cls, ico, title, solBar(k.soc, mn, lim, cut, fin(sunAt) ? "minimo" : "più basso") + solLine(now, aoAt, cutAt, sunAt, aoAt ? a.aoff && a.aoff.early : hab ? a.early : null) + tiles(T) +
+  show(cls, ico, title, solBar(k.soc, mn, limE, cut, fin(sunAt) ? "minimo" : "più basso") + solLine(now, aoAt, cutAt, sunAt, aoAt ? a.aoff && a.aoff.early : hab ? a.early : null) + tiles(T) +
     p(d + rkTxt + aoNote + enelNote) + tip + (day || src ? p(day.trim() + src) : ""), more);
 }
 document.addEventListener("click", e => { if (e.target.closest("#au-more")) { autoOpen = !autoOpen; if (data) render(mode); } });
@@ -4783,9 +4798,9 @@ function appAlerts(bs, k, f){
     const aoE = P && P.aoLive && P.hab && !byAo ? (P.a.aoff && fin(P.a.aoff.early) && (n.resume === null || P.a.aoff.early < n.resume) ? P.a.aoff.early : null) : undefined;
     nightTold = true;
     if (na.st === "bad" && aoE !== undefined) { if (aoE !== null) push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte la scheda potrebbe staccare il solare",
-      d: `Una volta su cinque le batterie scendono alla soglia dello spegnimento automatico (${nf(P.lim, 0)}%) già verso le ${hm(q15(aoE))}, prima che i pannelli tornino a caricare${resT}: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` }); }
+      d: `Una volta su cinque le batterie scendono alla soglia dello spegnimento automatico (${nf(P.lim, 0)}%${P.limWho}) già verso le ${hm(q15(aoE))}, prima che i pannelli tornino a caricare${resT}: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` }); }
     else if (na.st === "bad" && byAo) push({ id: "fccut" + dkey(now), sev: "fc", t: `Stanotte la scheda stacca il solare verso le ${hm(q15(at))}`,
-      d: `Le batterie scendono alla soglia dello spegnimento automatico (${nf(P.lim, 0)}%) prima che i pannelli tornino a caricare${resT}: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` });
+      d: `Le batterie scendono alla soglia dello spegnimento automatico (${nf(P.lim, 0)}%${P.limWho}) prima che i pannelli tornino a caricare${resT}: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` });
     else if (na.st === "bad") push({ id: "fccut" + dkey(now), sev: "fc", t: `Stanotte l'inverter stacca${fin(at) ? ` verso le ${hm(q15(at))}` : ""}`,
       d: `Probabilità ${nf(Math.max(n.pCut, na.rk ? na.rk.p : 0) * 100, 0)}%: le batterie scendono sotto ${ilP(n.cut)} (${S.inv} V) prima che i pannelli tornino a caricare${resT}, poi l'ATS porta la casa su Enel.${tip}` });
     else push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte margine stretto: verso ${ilP(Math.max(0, n.min))}`,
