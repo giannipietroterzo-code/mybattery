@@ -1591,12 +1591,13 @@ footer{border-top:0;padding-top:0}
       <div class="aov-tr" id="aov-tr"><input type="range" id="aov-in" name="aoV" min="48" max="52.4" step="0.1" aria-label="Tensione a riposo sotto cui la scheda spegne l'uscita dell'inverter"><i class="aov-now" id="aov-now" hidden></i></div>
       <div class="aov-sc" id="aov-sc"></div>
     </div>
-    <span class="set-lbl">Riaccendi col sole quando risale di</span>
+    <span class="set-lbl">Riaccendi col sole, quando la più debole risale</span>
     <fieldset class="seg" id="set-aoback"><legend>Riaccensione automatica</legend>
       <label><input type="radio" name="aoBack" value="0"><span>mai</span></label>
       <label><input type="radio" name="aoBack" value="10"><span>+10%</span></label>
       <label><input type="radio" name="aoBack" value="20"><span>+20%</span></label>
       <label><input type="radio" name="aoBack" value="30"><span>+30%</span></label>
+      <label><input type="radio" name="aoBack" value="100"><span>al 100%</span></label>
     </fieldset>
     <span class="set-lbl">Avvisami prima che spenga</span>
     <fieldset class="seg" id="set-aowarn"><legend>Avviso prima dello spegnimento automatico</legend>
@@ -1696,7 +1697,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.04"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.05"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1728,7 +1729,7 @@ const MSG = {
   INV_RISK:    ["L'inverter potrebbe staccare", "Se stacca, l'ATS porta la casa su Enel da solo. Per risparmiare le batterie puoi portarla prima su Enel."],
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
-  CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack ? ` La riaccende col sole quando arrivano al ${aoBase() + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
+  CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack >= 100 ? " La riaccende col sole quando sono tutte al 100% da un'ora." : S.aoBack ? ` La riaccende col sole quando anche la più debole arriva al ${aoBase() + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
   AO_SOON:     () => { const a = data && data.ao, m = a && fin(a.eta) ? a.eta : null, B = (data && data.batteries) || [], nm = i => fin(i) && B[i] ? nameOf(B[i], i) : null;
     if (a && a.ew === 2 && fin(a.mvn)) return ["La scheda sta per staccare il solare", `Una cella${nm(a.mw) ? " della " + nm(a.mw) : ""} è a ${nf(a.mvn / 1000, 2)} V sotto carico: a 3,00 V la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni i carichi più forti.`];
     if (a && a.ew === 1 && m !== null && nm(a.wk)) return ["La scheda sta per staccare il solare", `La più debole è la ${nm(a.wk)}, ${alP(a.ws)}: al consumo degli ultimi 15 minuti arriva ${alP(a.soc)} tra circa ${dur(m / 60)}, e lì le sue celle cedono: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni qualche carico.`];
@@ -2157,7 +2158,7 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30], aoWarn: [0,15,30,60,120] };
+const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], reserve: [0,10,20,30], inv: [46,47,48,49,50], marg: [5,10,15,20], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
 const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, reserve: 0, inv: 48, marg: 10, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
@@ -2782,11 +2783,11 @@ function drawSolar(k, f){
   if (lim && ao && ao.st === 3) {
     const why = { cella: "una cella era sotto 3,00 V", volt: "la tensione era vicina allo stacco", carica: "la carica era arrivata al " + nf(lim, 0) + "%" }[ao.why] || "le batterie erano vicine allo stacco";
     let back = "Non la riaccende da sola: lo fai tu dal pulsante quando vuoi.", bt = "a mano";
-    if (ao.back > 0) { const tgt = lim + ao.back; let at = null;
-      const tgtM = tgt + (weak ? weak.gap : 0);   // la scheda aspetta la più debole (firmware 0.56): per la media vuol dire più su
+    if (ao.back > 0) { const full = ao.back >= 100, tgt = full ? 100 : lim + ao.back; let at = null;
+      const tgtM = full ? 99 : tgt + (weak ? weak.gap : 0);   // la scheda aspetta la più debole (firmware 0.56): per la media vuol dire più su
       if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgtM && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
       bt = at ? hm(q15(at)) : "oltre 48 h";
-      back = (weak ? `La riaccende col sole quando anche la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(tgt, 0)}%</b>` : `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>`) + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
+      back = (full ? `La riaccende col sole quando le batterie sono <b>tutte al 100%</b> da un'ora${weak ? ` (la più indietro è la <b>${esc(weak.name)}</b>, ${alP(weak.soc)})` : ""}` : weak ? `La riaccende col sole quando anche la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(tgt, 0)}%</b>` : `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>`) + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
     return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? ora(ao.at) : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
       tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.sc) ? nf(ao.sc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
@@ -6185,7 +6186,8 @@ function fillAoNote(){
   n.innerHTML = !S.aoOn ? "Spento: lo stacco lo fa l'inverter da solo, e l'ATS porta la casa su Enel dopo."
     : `La scheda spegne l'uscita quando le batterie, a riposo, scendono sotto <b>${nf(v, 1)} V</b> per un minuto (circa ${ilP(off)}): mentre scaricano conta la tensione letta più la caduta dovuta alla corrente, così un bollitore che le fa scendere di un volt non basta. Spegne anche se restano entro 1 V dallo stacco per un minuto, o se una cella va sotto 3,00 V per 20 secondi. ` +
       (old ? `<b>La scheda ha un firmware senza la soglia in volt: finché non lo aggiorni usa la carica (${off}%).</b> ` : "") +
-      (S.aoBack ? `La riaccende solo se l'ha spenta lei, quando col sole arrivano al <b>${off + S.aoBack}%</b> e caricano da 10 minuti.` : "Non la riaccende: lo fai tu dal pulsante.") +
+      (S.aoBack >= 100 ? `La riaccende solo se l'ha spenta lei, quando col sole le batterie sono <b>tutte al 100%</b> da un'ora: è il tempo in cui il BMS pareggia le celle. D'inverno possono volerci giorni: intanto la casa resta su Enel.${data && data.fw && parseFloat(data.fw) < .57 ? " <b>Serve il firmware 0.57: con quello di adesso non riaccende.</b>" : ""}`
+        : S.aoBack ? `La riaccende solo se l'ha spenta lei, quando col sole anche la batteria più debole arriva al <b>${off + S.aoBack}%</b> e caricano da 10 minuti.` : "Non la riaccende: lo fai tu dal pulsante.") +
       " Se la riaccendi tu prima, aspetta 3 ore prima di rispegnerla. A ogni manovra ti arriva una notifica" + (S.aoWarn ? `, e una ${S.aoWarn < 60 ? S.aoWarn + " minuti" : S.aoWarn / 60 + (S.aoWarn === 60 ? " ora" : " ore")} prima, stimata al consumo degli ultimi 15 minuti (la tensione e le celle possono farla spegnere senza preavviso).` : ".") + st + (data && data.cb ? "" : " <b>Serve lo Shelly collegato alla scheda (firmware 0.46).</b>");
   // chi ha scritto per ultimo le impostazioni (firmware 0.49: cfg_w = [[t, 0 casa | 1 fuori casa, 1 intere | 0 a voci, versione della app, automatico dopo]])
   const w = data && Array.isArray(data.cfg_w) && data.cfg_w[0];
