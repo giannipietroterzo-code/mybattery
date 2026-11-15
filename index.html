@@ -31,7 +31,9 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
     "rssi": -58,                     // segnale WiFi dBm
     "fc_last": 1794000000,           // ora dell'ultima previsione archiviata sulla scheda: GET /api/fc (firmware 0.27)
     "voc_at": 1794000000,            // cambia quando cambiano taratura della Voc e albe sulla scheda: GET /api/voc (firmware 0.26)
-    "log_min": 30,                   // minuti tra le righe del registro a lungo termine: GET /api/log (docs/storico-e-previsioni.md)
+    "log_min": 15,                   // minuti tra le righe del registro (fisso a 15 dalla 0.33): GET /api/log, GET /api/stress
+    "bank": { "soc_t": 13.3, "src": 2, "ih": -1.06, "a_t": 1794780000, "full_t": 0 },   // carica vera (0.58): src 0 BMS 1 conto 2 curva 3 pieno, ih A nascosti
+    "crash": { "t": 1794780000, "task": "loopTask", "fw": "0.58", "pc": "0x4200…", "bt": ["0x4200…"] },   // ultimo errore grave (0.58)
     "batteries": [{
       "addr": 0, "name": "Master", "online": true,
       "soc": 81.2, "soh": 100,       // %
@@ -794,6 +796,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .g-center .soc .pct{font-size:1.6rem;margin:0 0 1.6rem .15rem;align-self:center}
 .g-sub{position:absolute;left:0;right:0;bottom:3%;margin:0;font-size:.95rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .g-sub b{color:var(--ink);font-weight:600}
+.g-sub .g-bms{display:block;margin-top:1px;font-size:.7rem;letter-spacing:.02em;color:var(--warn)}
 .state{justify-content:center;margin:10px auto 0;width:max-content;max-width:100%;padding:6px 14px 6px 12px;border-radius:999px;font-size:.98rem;position:relative}
 .state::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
 .state.chg{background:var(--sun-tint)} .state.dsg{background:var(--out-tint)} .state.idle{background:var(--line)}
@@ -1686,7 +1689,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.06"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.09"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -1724,6 +1727,8 @@ const MSG = {
     if (a && a.ew === 1 && m !== null && nm(a.wk)) return ["La scheda sta per staccare il solare", `La più debole è la ${nm(a.wk)}, ${alP(a.ws)}: al consumo degli ultimi 15 minuti arriva ${alP(a.soc)} tra circa ${dur(m / 60)}, e lì le sue celle cedono: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni qualche carico.`];
     return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano ${fin(a.vs) ? `a ${nf(a.vs, 1)} V (circa ${ilP(a.soc)})` : alP(a.soc)} tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
+  HOUSE_SELF:  () => ["La casa è passata sulle batterie da sola", "Nessun comando all'interruttore nei 15 minuti prima: forse è mancata Enel e l'ATS ha scelto l'inverter." + (data && data.ao && data.ao.on ? " Lo spegnimento automatico resta attivo." : " Se non la vuoi lì, spegni l'uscita dell'inverter.")],
+  IDLE_DRAIN:  () => ["Le batterie scendono anche su Enel", "L'inverter acceso a vuoto le scarica" + (data && data.batteries && data.batteries.length ? `: adesso ${nf(bank(data.batteries).v, 2)} V` : "") + ". Mettilo in STOP (o spegnilo) finché il sole non le ricarica."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
   PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
@@ -2212,7 +2217,9 @@ function invLearned(){
 const ocv = s => { for (let i = 1; i < LFP_OCV.length; i++) { const [s0, v0] = LFP_OCV[i - 1], [s1, v1] = LFP_OCV[i]; if (s <= s1) return 16 * (v0 + (v1 - v0) * Math.max(0, (s - s0) / (s1 - s0))); } return 16 * 3.4; };
 const ocvSoc = v => { v /= 16; for (let i = 1; i < LFP_OCV.length; i++) { const [s0, v0] = LFP_OCV[i - 1], [s1, v1] = LFP_OCV[i]; if (v <= v1) return s0 + (s1 - s0) * Math.max(0, (v - v0) / (v1 - v0)); } return 100; };
 // la carica a cui l'inverter stacca: misurata sulle tue batterie (vale più della curva), se no la curva a riposo + 40 mV per cella di caduta
-function cutSoc(){ const L = invLearned(); return L ? L.soc : Math.round(ocvSoc((S.inv || 48) + .64)); }
+// la carica dello stacco (2.09): sempre dalla tensione (quella dello stacco misurato, se c'è) con la curva + 40 mV per cella di caduta. Prima, con uno
+// stacco misurato, era la carica dei BMS in quel momento, che deriva (al fondo il 26% un giorno e il 43% un altro): imparata una volta, l'errore restava
+function cutSoc(){ const L = invLearned(); return Math.round(ocvSoc((L ? L.v : S.inv || 48) + .64)); }
 /* la capacità e l'energia delle batterie, una per tutti (indicatore, autonomia, previsioni, notte, meteo, cursore dell'automatico):
    Ah pieni × tensione, o la capacità misurata dal registro se è credibile (capOf); whAbove = quanta ne resta sopra una carica (di norma lo stacco) */
 const bankWh = k => { const c = k.full * (fin(k.v) && k.v > 40 ? k.v : NOMV); return model ? capOf(model, c) : c; };
@@ -2457,7 +2464,7 @@ function cbPhase(c){       // la fase da mostrare: [classe, etichetta, testo] o 
     return ["bad", "Non eseguito", `${r.msg || "lo Shelly ha rifiutato"}.${r.on ? " Se l'avevi spento con la leva o è scattato, si riaccende solo a mano." : ""}`];
   }
   const a = data && data.ao;
-  if (a && a.st === 3 && !c.on && fin(a.at)) return ["arm", "Automatico", `Spenta dalla scheda il ${alWhen(a.at)}: ${a.why === "cella" ? `una cella a ${nf(a.mv / 1000, 2)} V` : a.why === "volt" ? `batterie a ${nf(a.v, 1)} V, vicine allo stacco` : `batterie al ${nf(a.sc, 0)}%`}.${a.back ? ` Si riaccende col sole al ${Math.round(a.soc + a.back)}%.` : ""}`];
+  if (a && a.st === 3 && !c.on && fin(a.at)) return ["arm", "Automatico", `Spenta dalla scheda il ${alWhen(a.at)}: ${a.why === "cella" ? `una cella a ${nf(a.mv / 1000, 2)} V` : a.why === "volt" ? `batterie a ${nf(a.v, 1)} V, vicine allo stacco` : `batterie al ${nf(a.sc, 0)}%`}.${a.back >= 100 ? " Si riaccende col sole quando le batterie sono tutte al 100% da un'ora." : a.back ? ` Si riaccende col sole quando anche la più debole arriva al ${Math.round(a.soc + a.back)}%.` : ""}`];
   if (k && k.src === 2 && k.st === 2 && k.on && now - k.at < 3600) return ["good", "Automatico", `Riaccesa dalla scheda alle ${hm(k.at)}: batterie ricaricate.`];
   if (k && now - k.at < 60) return k.st === 1 ? ["ok", "In corso", `Comando da un altro telefono: interruttore a ${S(k.on)}…`]
     : k.st === 2 ? ["good", "Fatto", `Interruttore ${S(k.on)} alle ${hm(k.at)} (da un altro telefono).`] : ["bad", "Non eseguito", `${k.msg || "lo Shelly ha rifiutato"}.`];
@@ -2653,7 +2660,8 @@ const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !
    aoLimit = la soglia della scheda (per i testi), aoMean = la carica media a cui la scheda spegnerebbe (per simulazioni, barra e curva). */
 function aoWeak(){
   const l = ((data && data.batteries) || []).map((b, i) => ({ b, i })).filter(x => x.b.online !== false && fin(x.b.soc)); if (l.length < 2) return null;
-  const w = l.reduce((a, x) => x.b.soc < a.b.soc ? x : a), mean = l.reduce((a, x) => a + x.b.soc, 0) / l.length, gap = clamp(mean - w.b.soc, 0, 30);
+  const k = bank(data.batteries), w = l.reduce((a, x) => x.b.soc < a.b.soc ? x : a);
+  const mean = k.src === "bms" ? l.reduce((a, x) => a + x.b.soc, 0) / l.length : w.b.soc, gap = clamp(mean - w.b.soc, 0, 30);   // dalla 2.08 la carica mostrata è già la più bassa: nessun distacco
   return { i: w.i, name: nameOf(w.b, w.i), soc: w.b.soc, gap: gap >= 2 ? gap : 0 };
 }
 const aoMean = () => { const l = aoLimit(), w = l ? aoWeak() : null; return l ? l + (w ? w.gap : 0) : null; };
@@ -2781,9 +2789,9 @@ function drawSolar(k, f){
     if (ao.back > 0) { const full = ao.back >= 100, tgt = full ? 100 : lim + ao.back; let at = null;
       const tgtM = full ? 99 : tgt + (weak ? weak.gap : 0);   // la scheda aspetta la più debole (firmware 0.56): per la media vuol dire più su
       if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgtM && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
-      bt = at ? hm(q15(at)) : "oltre 48 h";
+      bt = at ? hm(q15(at)) : f && f.mid ? "oltre 48 h" : full ? "al pieno" : "al " + nf(tgt, 0) + "%";   // senza previsione: la condizione, non un orario inventato
       back = (full ? `La riaccende col sole quando le batterie sono <b>tutte al 100%</b> da un'ora${weak ? ` (la più indietro è la <b>${esc(weak.name)}</b>, ${alP(weak.soc)})` : ""}` : weak ? `La riaccende col sole quando anche la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(tgt, 0)}%</b>` : `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>`) + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
-    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? ora(ao.at) : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
+    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
       tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.sc) ? nf(ao.sc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
   const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
@@ -2949,7 +2957,10 @@ function riskFor(k, f, mask){
     let tot = 0, over = 0, top = []; d.forEach(([l, w]) => { tot += w; if (l > X) over += w; top.push(l); });
     const a = bandOf(RK_S, Math.max(0, s - off)), lq = quant(top, .75) / 1000, b = bandOf(RK_L, fin(lq) ? lq : 0), haz = a >= 0 && b >= 0 ? (RM.evs[a][b] + .02) / (RM.expo[a][b] + 30) : 0;
     if (a >= 0 && b >= 0) seen = Math.max(seen, RM.cnt[a][b]);
-    if (rkKnown(h)) sur *= (1 - (tot ? over / tot : 0)) * (1 - haz);   // picchi ed eventi passati contano solo dove sono misure if (t - now <= 6 * HOUR) p6 = 1 - sur; if (at === null && 1 - sur >= .2) at = t;
+    // picchi ed eventi passati contano solo dove sono misure
+    if (rkKnown(h)) sur *= (1 - (tot ? over / tot : 0)) * (1 - haz);
+    if (t - now <= 6 * HOUR) p6 = 1 - sur;
+    if (at === null && 1 - sur >= .2) at = t;
   }
   // se l'energia stessa arriva alla carica di stacco, il rischio non dipende piu dai picchi
   if (nw && fin(nw.at)) { if (at === null || nw.at < at) at = nw.at; sur = Math.min(sur, .1); if (nw.at - now <= 6 * HOUR) p6 = Math.max(p6, .9); }
@@ -2959,10 +2970,14 @@ function drawBankMem(){
   const box = $("bankmem"); if (!box) return;
   if (!RM || !isReal() || (!STRESS.length && !IEV.length)) { box.hidden = true; return; }
   const d = RM.slots / 96, ev = IEV.slice(-8).reverse(), cut = IEV.filter(e => e[1] === 1).length, soc = data && Array.isArray(data.batteries) ? bank(data.batteries).soc : NaN;
+  // quanto reggono adesso (2.08): dalla tensione a riposo di adesso (della scheda, o la letta più la caduta), non dalla carica del BMS, che deriva
+  // (il 15/11 sera, a batterie in fondo, la carica dei BMS faceva dire 17,9 kW). Mai più di quanto direbbe la carica
+  const kb = data && Array.isArray(data.batteries) ? bank(data.batteries) : null, vNow = data && data.ao && fin(data.ao.vr) ? data.ao.vr : kb && kb.on ? kb.v + RM.R * Math.max(0, -kb.i) : NaN;
+  const kwNow = fin(vNow) && vNow > 40 ? Math.min(Math.max(0, (vNow - RM.vc) / RM.R * RM.vc), fin(soc) ? rkMaxW(soc) : Infinity) / 1000 : fin(soc) ? rkMaxW(soc) / 1000 : NaN;
   const KIND = { 1: "Stacco", 2: "Rischio", 3: "Vicino allo stacco" }, nameB = w => { const i = w >> 5; return ((data && data.batteries && data.batteries[i] && data.batteries[i].name) || "Batteria " + (i + 1)) + ", cella " + ((w & 31) + 1); };
   const html = `<div class="n-h"><span class="n-ico">${MOON}</span><span class="n-t">Memoria delle batterie</span></div>` +
     `<p class="n-d">Quello che ho imparato dai picchi veri, non dalle medie. ${d < 7 ? `<small>Solo ${d < 1 ? Math.round(RM.slots / 4) + " ore" : nf(d, 0) + " giorni"} di dati: le stime migliorano col tempo.</small>` : ""}</p>` +
-    `<dl class="mem-g"><div><dt>Adesso regge circa</dt><dd>${fin(soc) ? nf(rkMaxW(soc) / 1000, 1) + " kW" : "–"}</dd></div><div><dt>${RM.vcN ? "Stacco misurato" : "Stacco stimato"}</dt><dd>${nf(RM.vc, 1) + " V"}</dd></div><div><dt>Già tenuti sotto carico</dt><dd>${fin(RM.vh) ? nf(RM.vh, 1) + " V" : "–"}</dd></div><div><dt>Caduta delle batterie</dt><dd>${RM.Rn ? nf(RM.R * 1000, 0) + " mΩ" : "da imparare"}</dd></div><div><dt>Stacchi visti</dt><dd>${cut}</dd></div></dl>` +
+    `<dl class="mem-g"><div><dt>Adesso regge circa</dt><dd>${fin(kwNow) ? nf(kwNow, 1) + " kW" : "–"}</dd></div><div><dt>${RM.vcN ? "Stacco misurato" : "Stacco stimato"}</dt><dd>${nf(RM.vc, 1) + " V"}</dd></div><div><dt>Già tenuti sotto carico</dt><dd>${fin(RM.vh) ? nf(RM.vh, 1) + " V" : "–"}</dd></div><div><dt>Caduta delle batterie</dt><dd>${RM.Rn ? nf(RM.R * 1000, 0) + " mΩ" + (RM.Rb ? "" : "<small> stimata</small>") : "da imparare"}</dd></div><div><dt>Stacchi visti</dt><dd>${cut}</dd></div></dl>` +
     (ev.length ? `<ul class="mem-ev">${ev.map(e => `<li><b>${new Date(e[0] * 1000).toLocaleString("it-IT", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</b><i class="${e[1] === 1 ? "c" : ""}">${KIND[e[1]] || "?"}${e[2] === 3 ? " · stimato" : ""}</i><small>${nf(e[3], 1)} V · ${nf(e[5] / 1000, 1)} kW · carica ${nf(e[6], 0)}% (la più debole ${nf(e[7], 0)}%)${e[8] ? " · " + esc(nameB(e[10])) + " a " + nf(e[8] / 1000, 2) + " V" : ""}</small></li>`).join("")}</ul>` : "");
   box.hidden = false; if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
 }
@@ -3569,7 +3584,25 @@ function bank(bs){
   const diffs = on.map(b => b.cells && b.cells.length ? Math.max(...b.cells) - Math.min(...b.cells) : NaN).filter(fin);
   const temps = on.flatMap(b => [...(b.t_cells || []), b.t_mos]).filter(fin);
   const hots = on.map(tHot).filter(fin);
-  return { soc: full ? rem / full * 100 : NaN, rem, full, i, v, p: v * i, on: on.length,
+  /* la carica delle batterie insieme (2.08). Quella dei BMS deriva verso l'alto finché non fanno un pieno (il 15/11 a riposo 49,29 V, cioè circa
+     il 13%, con i BMS a 40, 55, 14, 15, 49%): sono in parallelo, quindi la carica vera è quasi la stessa per tutte, e la più vicina al vero è la
+     più bassa, quella il cui BMS si è già corretto toccando il fondo. Due regole, finché la scheda non calcola una carica vera:
+     - se i BMS non vanno d'accordo (più di 10 punti tra la più alta e la più bassa) vale la più bassa;
+     - sotto 51,2 V a riposo (3,20 V per cella, dove la curva LiFePO4 scende) la carica non supera quella della curva + 5 punti; scaricando la
+       tensione a riposo è la letta più la caduta (stimata), e il margine sale a 8. In carica la tensione non dice niente e la regola non vale.
+     socBms = la media dei BMS, src = da dove viene la carica mostrata (bms | debole | volt) */
+  const bms = full ? rem / full * 100 : NaN, socs = on.map(b => b.soc).filter(fin);
+  let soc = bms, src = "bms";
+  // dalla 0.58 la carica vera la calcola la scheda (conto con la corrente nascosta, àncore a riposo e al pieno): vale quella; le due regole sotto
+  // restano per i firmware vecchi e per il cavo USB
+  const bk = data && data.bank && bs === data.batteries ? data.bank : null;
+  if (bk && fin(bk.soc_t) && bk.src > 0 && isReal()) { soc = bk.soc_t; src = ["bms", "conto", "curva", "pieno"][bk.src] || "conto"; }
+  else try { if (isReal() && fin(soc)) {
+    if (socs.length > 1 && Math.max(...socs) - Math.min(...socs) > 10 && Math.min(...socs) < soc) { soc = Math.min(...socs); src = "debole"; }
+    const R = RM && RM.Rb ? RM.R : S.ir && fin(S.ir.r) ? S.ir.r : .01, vr = v + R * Math.max(0, -i);
+    if (v > 40 && i <= 1 && vr < 51.2) { const cap = ocvSoc(vr) + (i < -20 ? 8 : 5); if (cap < soc) { soc = Math.max(0, cap); src = "volt"; } }
+  } } catch (e) {}
+  return { soc, socBms: bms, src, rem: fin(soc) && src !== "bms" ? soc / 100 * full : rem, full, i, v, p: v * i, on: on.length,
     kwh: sum(b => b.rem_ah * b.v) / 1000,
     dmax: diffs.length ? Math.max(...diffs) : NaN,
     tmax: temps.length ? Math.max(...temps) : NaN,
@@ -3687,7 +3720,8 @@ function render(m){
   $("gauge").classList.toggle("dsg", k.on > 0 && k.i < -0.5);
   // energia che la casa può ancora usare: quella nel banco meno la parte sotto lo stacco dell'inverter
   const useKwh = k.on && fin(k.soc) && k.full > 0 ? whAbove(k) / 1000 : NaN;
-  $("g-sub").innerHTML = fin(useKwh) ? `<b>${nf(useKwh, 1)} kWh</b> utilizzabili` : "";
+  $("g-sub").innerHTML = (fin(useKwh) ? `<b>${nf(useKwh, 1)} kWh</b> utilizzabili` : "") +
+    (k.src !== "bms" && fin(k.socBms) && Math.abs(k.socBms - k.soc) >= 3 ? `<small class="g-bms">${{ volt: "dalla tensione", debole: "la batteria più bassa", conto: "calcolata dalla scheda", curva: "dalla tensione a riposo", pieno: "pieno appena visto" }[k.src] || ""} · i BMS dicono ${nf(k.socBms, 0)}%</small>` : "");
   $("app-ver").textContent = "v" + APP_VERSION + (data && data.fw ? " · f" + data.fw : "");
   drawVolt(k);
   setVal($("k-d"), fin(k.dmax) ? nf(k.dmax, 0) + " mV" : "–");
@@ -3917,7 +3951,9 @@ async function syncLog(){
       if (!j.more) break;
     }
   } catch (e) {}
-  if (added.length) { LOG.push(...added); db.put(added); }
+  // solo righe nuove e in ordine (2.09): una risposta ripetuta raddoppiava le righe fino al ricaricamento
+  const tail = LOG.length ? LOG[LOG.length - 1][0] : -Infinity, fresh = added.filter((r, j) => r[0] > tail && (!j || r[0] > added[j - 1][0]));
+  if (fresh.length) { LOG.push(...fresh); db.put(fresh); }
   await boardAlarms();
   relearn();
 }
@@ -4279,7 +4315,9 @@ function learnBattery(M){
   const c = [];
   M.H.forEach(o => { const n = o.chg - o.dsg; if (Math.abs(n) >= 300 && o.soc0 > 10 && o.soc0 < 88 && o.soc > 10 && o.soc < 90) c.push((o.soc - o.soc0) / n); });
   const cm = c.length >= 12 ? quant(c, .5) : NaN;
-  M.capWh = fin(cm) && cm > 0 ? 100 / cm : null;
+  // la capacità «misurata» confrontava la carica dei BMS col conto degli stessi BMS: dava sempre la loro, e con la deriva non vale (2.09). Resta da
+  // fare con la carica vera della scheda tra due àncore
+  M.capWh = null; void cm;
   // accettazione della carica sopra l'88%: quanto del sole in più entra davvero, a fasce di 2 punti
   const bins = Array.from({length: 6}, () => []);
   M.H.forEach(o => {
@@ -4328,26 +4366,45 @@ function simCtx(M, t0){
   return simC = { M, t0, n: fcArchive.length, cal: M.cal, pvB: cal.pvB, lB: cal.lB, arch, nc, ahead: ahead(t0, cal.pvB, cal.lB, nc, true), draw: fullDraw(M, t0, arch ? arch.pvDay : cal.pvDay, !arch && logSrc !== "demo") };
 }
 function runDet(M, t0, soc0, cap, o){
-  const N = o.N || 48, T = [], P = [], L = [], night = [], loc = here(), c = ahead(t0, o.pvB, o.lB, o.nc, o.asFc), pl = plantW();
+  const N = o.N || 48, T = [], P = [], L = [], L1 = [], L0 = [], night = [], loc = here(), c = ahead(t0, o.pvB, o.lB, o.nc, o.asFc), pl = plantW();
   for (let i = 0; i <= N; i++) {
     const t = t0 + i * HOUR; T.push(t); night.push(sinElev(t, loc.lat, loc.lon) < 0);
     if (i === N) break;
-    P.push(pvAhead(M, t, c));
-    const on = o.actual ? bankAt(t) : houseOn(t, t0);         // la casa sulle batterie (0–1); su Enel resta l'impianto
-    L.push(on * loadAhead(M, t, c) + (1 - on) * pl);
+    const pv = pvAhead(M, t, c); P.push(pv);
+    // con la casa su Enel le batterie danno lo zero: l'impianto al buio, e col sole anche quello che i BMS non vedono (2.09: ~280 W + 2,5 % del sole,
+    // misurato tutti i giorni; prima la previsione di una giornata su Enel caricava 2–2,5 kWh di troppo)
+    const off = pv > 30 ? houseZero(pv) || pl : pl, ld = loadAhead(M, t, c);
+    const on = o.actual ? bankAt(t) : houseOn(t, t0);         // la casa sulle batterie (0–1)
+    L.push(on * ld + (1 - on) * off); L1.push(ld); L0.push(off);
   }
-  return { T, P, L, night, S: integrate({ M, soc0, cap, P, L, batW: o.batW }, null) };
+  // le regole dello spegnimento automatico (2.09), quando la scheda le applica: la casa va su Enel alla soglia, e torna sulle batterie solo come
+  // dice la riaccensione (al 100 % da un'ora, o la soglia più N punti, col sole). Senza, la casa resta com'è adesso e sfuma nelle abitudini
+  const ao = o.ao ? { ...o.ao, L1, L0 } : null;
+  const S = integrate({ M, soc0, cap, P, L, batW: o.batW, ao }, null);
+  return { T, P, L: ao ? S.on.map((x, i) => x ? L1[i] : L0[i]) : L, night, S, ao };
+}
+// le regole dell'automatico per la previsione: solo se la scheda può davvero agire (automatico acceso, Shelly che risponde) e la casa è sotto il
+// suo controllo (sulle batterie adesso, o spenta da lei)
+function aoRule(){
+  const a = data && data.ao, lim = aoLimit(), cb = data && data.cb; if (!a || !lim || !cb || cb.ok === false || a.st === 4) return null;
+  const on = houseNow(); if (!on && a.st !== 3) return null;
+  return { on: on ? 1 : 0, lim, back: fin(a.back) ? a.back : 0 };
 }
 /* ---------- simulazioni: un solo integratore, per la previsione a 48 ore e per la notte ----------
    Un percorso della carica ora per ora: e = sole × fp − consumi × fl (fx: i fattori di quel percorso, null = il centrale); vicino al pieno la
    carica si accetta solo in parte; la prima ora tiene conto di quello che succede adesso (batW). */
 function integrate(inp, fx){
-  let s = inp.soc0; const a = [s];
+  let s = inp.soc0; const a = [s], ao = inp.ao; let on = ao ? ao.on : 1, okH = 0; if (ao) a.on = [];
   for (let i = 0; i < inp.P.length; i++) {
-    let e = inp.P[i] * (fx ? fx.p(i) : 1) - inp.L[i] * (fx ? fx.l(i) : 1);
+    const Li = ao ? (on ? ao.L1[i] : ao.L0[i]) : inp.L[i]; if (ao) a.on.push(on);
+    let e = inp.P[i] * (fx ? fx.p(i) : 1) - Li * (fx ? fx.l(i) : 1);
     if (e > 0) e *= accept(inp.M, s);
     if (i === 0 && fin(inp.batW)) e = .5 * e + .5 * inp.batW;
     s = clamp(s + e / inp.cap * 100, 0, 100); a.push(s);
+    if (ao) {   // la scheda: spegne alla soglia, riaccende col sole come dice aoBack (al 100 %: dopo un'ora piena)
+      if (on && s <= ao.lim) { on = 0; okH = 0; }
+      else if (!on && ao.back) { okH = inp.P[i] > 100 && (ao.back >= 100 ? s >= 99 : s >= ao.lim + ao.back) ? okH + 1 : 0; if (okH >= (ao.back >= 100 ? 2 : 1)) on = 1; }
+    }
   }
   return a;
 }
@@ -4488,7 +4545,7 @@ function forecast(t0, soc0, cap, batW){
   const M = model; if (!M || !M.prof) return null;
   if (pvBase(M, t0, true) === null) return null;
   const { arch, nc, draw, pvB, lB } = simCtx(M, t0);
-  const det = runDet(M, t0, soc0, cap, { asFc: true, pvB, lB, nc, batW });
+  const det = runDet(M, t0, soc0, cap, { asFc: true, pvB, lB, nc, batW, ao: aoRule() });
   saveSnapshot(det);
   const R = NIGHT_R, N = 48, paths = simPaths({ ...det, M, t0, soc0, cap, batW, draw }, R), low = floorSoc(), alv = S.alLow;
   const first = test => paths.map(a => { const i = a.findIndex((s, j) => j > 0 && test(s)); return i < 0 ? null : i; });
