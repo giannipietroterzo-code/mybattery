@@ -409,6 +409,19 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .grab{width:38px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .sheet-head h2{margin:0;font-size:1.2rem}
+/* passare da una batteria all'altra (2.15): trascinando di lato il corpo della finestra, con le frecce o toccando un pallino */
+.s-nav{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 2px}
+.s-nav[hidden]{display:none}
+.s-dots{display:flex;gap:7px}
+.s-dots button{width:8px;height:8px;padding:0;border:0;border-radius:50%;background:var(--line);cursor:pointer}
+.s-dots button[aria-current="true"]{background:var(--lith);transform:scale(1.25)}
+.s-arr{width:30px;height:26px;padding:0;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font-size:1.1rem;line-height:1;cursor:pointer}
+.s-arr:disabled{opacity:.3;cursor:default}
+.s-bms{display:block;margin-top:2px;font-size:.72rem;font-weight:500;color:var(--muted);letter-spacing:.03em}
+#s-body{touch-action:pan-y}
+#s-body.sw{transition:transform .22s ease,opacity .22s ease}
+:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.s-arr,.s-dots button){border-radius:0}
+[data-mecha] .s-dots button{width:12px;height:6px;transform:skewX(-20deg)}[data-mecha] .s-dots button[aria-current="true"]{transform:skewX(-20deg) scaleX(1.5)}
 .close{border:0;background:var(--bg);color:var(--ink);font:inherit;font-size:.9rem;padding:8px 14px;border-radius:999px;cursor:pointer}
 .close:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin:16px 0 0}
@@ -1526,6 +1539,7 @@ footer{border-top:0;padding-top:0}
       <h2 id="s-title">Batteria</h2>
       <button class="close" id="s-close" type="button">Chiudi</button>
     </div>
+    <div class="s-nav" id="s-nav" hidden><button type="button" class="s-arr" id="s-prev" aria-label="Batteria precedente">‹</button><span class="s-dots" id="s-dots"></span><button type="button" class="s-arr" id="s-next" aria-label="Batteria successiva">›</button></div>
     <div id="s-body"></div>
   </div>
 </dialog>
@@ -1711,7 +1725,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.14"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.15"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5650,8 +5664,8 @@ function fillSheet(i){
 
   $("s-body").innerHTML = `
     <dl class="stats">
-      <div><dt>Carica</dt><dd>${nf(b.soc,0)}%</dd></div>
-      <div><dt>Capacità residua</dt><dd>${nf(b.rem_ah,1)} di ${nf(b.full_ah,0)} Ah</dd></div>
+      <div><dt>Carica</dt><dd>${(kv => kv !== null && Math.abs(b.soc - kv) > 10 ? `≈${nf(kv, 0)}%<small class="s-bms">BMS ${nf(b.soc, 0)}%</small>` : nf(b.soc, 0) + "%")((k0 => k0.src !== "bms" && fin(k0.soc) ? k0.soc : null)(bank(data.batteries)))}</dd></div>
+      <div><dt>Capacità residua</dt><dd>${(kv => kv !== null && Math.abs(b.soc - kv) > 10 && fin(b.full_ah) ? `≈${nf(kv / 100 * b.full_ah, 0)} di ${nf(b.full_ah, 0)} Ah<small class="s-bms">BMS ${nf(b.rem_ah, 1)} Ah</small>` : `${nf(b.rem_ah,1)} di ${nf(b.full_ah,0)} Ah`)((k0 => k0.src !== "bms" && fin(k0.soc) ? k0.soc : null)(bank(data.batteries)))}</dd></div>
       <div><dt>Tensione</dt><dd>${nf(b.v,2)} V</dd></div>
       <div><dt>Corrente</dt><dd>${signed(b.i,1)} A</dd></div>
       <div><dt>Stato di salute</dt><dd>${nf(b.soh,0)}%</dd></div>
@@ -5712,9 +5726,43 @@ $("al-hid").addEventListener("click", e => { if (e.target.closest("#al-show")) {
 }
 $("alerts").addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (li) openBattery(+li.dataset.i); });
 $("alerts").addEventListener("keydown", e => { const li = e.target.closest("li[data-i]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openBattery(+li.dataset.i); } });
+// le frecce e i pallini sotto il titolo: quante batterie, quale è aperta
+function sheetNav(){
+  const n = data && Array.isArray(data.batteries) ? data.batteries.length : 0, nav = $("s-nav");
+  nav.hidden = n < 2; if (n < 2) return;
+  $("s-dots").innerHTML = data.batteries.map((b, j) => `<button type="button" data-j="${j}" aria-label="${esc(nameOf(b, j))}"${j === openIdx ? ' aria-current="true"' : ""}></button>`).join("");
+  $("s-prev").disabled = openIdx <= 0; $("s-next").disabled = openIdx >= n - 1;
+}
+// cambia batteria: il corpo esce dal lato del gesto ed entra dall'altro
+function sheetGo(j, dir){
+  const n = data && Array.isArray(data.batteries) ? data.batteries.length : 0; if (j < 0 || j >= n || j === openIdx) return;
+  const body = $("s-body"), reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const swap = () => { openIdx = j; selCell = null; fillSheet(openIdx); sheetNav(); $("sheet").querySelector(".sheet").scrollTop = 0; };
+  if (reduce) { swap(); return; }
+  body.classList.add("sw"); body.style.transform = `translateX(${dir < 0 ? -40 : 40}%)`; body.style.opacity = "0";
+  setTimeout(() => { body.classList.remove("sw"); body.style.transform = `translateX(${dir < 0 ? 40 : -40}%)`; swap();
+    setTimeout(() => { body.classList.add("sw"); body.style.transform = ""; body.style.opacity = ""; }, 30); }, 180);
+}
+$("s-prev").addEventListener("click", () => sheetGo(openIdx - 1, 1));
+$("s-next").addEventListener("click", () => sheetGo(openIdx + 1, -1));
+$("s-dots").addEventListener("click", e => { const b = e.target.closest("button[data-j]"); if (b) sheetGo(+b.dataset.j, +b.dataset.j > openIdx ? -1 : 1); });
+// il gesto: trascinando di lato il corpo lo segue; oltre un quarto della larghezza (o un colpo veloce) si passa alla batteria accanto
+{ const body = $("s-body"); let sSwiped = 0, x0 = null, y0 = 0, t0 = 0, dx = 0, lock = null;
+  body.addEventListener("pointerdown", e => { if (e.pointerType === "mouse" && e.button) return; x0 = e.clientX; y0 = e.clientY; t0 = Date.now(); dx = 0; lock = null; body.classList.remove("sw"); });
+  body.addEventListener("pointermove", e => { if (x0 === null) return; dx = e.clientX - x0; const dy = e.clientY - y0;
+    if (lock === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) lock = Math.abs(dx) > Math.abs(dy) * 1.3 ? "x" : "y";
+    if (lock === "x") { const n = data.batteries.length, edge = (dx > 0 && openIdx === 0) || (dx < 0 && openIdx === n - 1);
+      body.style.transform = `translateX(${(edge ? dx / 4 : dx).toFixed(0)}px)`; body.style.opacity = String(1 - Math.min(.5, Math.abs(dx) / 600)); } });
+  const end = () => { if (x0 === null) return; const fast = Math.abs(dx) > 40 && Date.now() - t0 < 250, far = Math.abs(dx) > body.clientWidth / 4;
+    if (lock === "x" && (far || fast)) { const j = openIdx + (dx < 0 ? 1 : -1), n = data.batteries.length;
+      if (j >= 0 && j < n) { sSwiped = Date.now(); sheetGo(j, dx < 0 ? -1 : 1); x0 = null; return; } }
+    body.classList.add("sw"); body.style.transform = ""; body.style.opacity = ""; if (lock === "x" && Math.abs(dx) > 10) sSwiped = Date.now(); x0 = null; };
+  body.addEventListener("pointerup", end); body.addEventListener("pointercancel", end);
+  body.addEventListener("click", e => { if (Date.now() - sSwiped < 400) { e.stopImmediatePropagation(); e.preventDefault(); } }, true); }
+$("sheet").addEventListener("keydown", e => { if (e.key === "ArrowRight") sheetGo(openIdx + 1, -1); else if (e.key === "ArrowLeft") sheetGo(openIdx - 1, 1); });
 function openBattery(i){
   if (!data) return;
-  openIdx = i; selCell = null; fillSheet(openIdx);
+  openIdx = i; selCell = null; fillSheet(openIdx); sheetNav();
   const d = $("sheet"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
   $("sheet").querySelector(".sheet").scrollTop = 0;
 }
