@@ -1689,7 +1689,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.10"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.11"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2803,7 +2803,15 @@ function drawSolar(k, f){
       if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgtM && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
       bt = at ? hm(q15(at)) : f && f.mid ? "oltre 48 h" : full ? "al pieno" : "al " + nf(tgt, 0) + "%";   // senza previsione: la condizione, non un orario inventato
       back = (full ? `La riaccende col sole quando le batterie sono <b>tutte al 100%</b> da un'ora${weak ? ` (la più indietro è la <b>${esc(weak.name)}</b>, ${alP(weak.soc)})` : ""}` : weak ? `La riaccende col sole quando anche la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(tgt, 0)}%</b>` : `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>`) + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
-    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}` + (cbOk ? "" : " <small>Adesso lo Shelly non risponde: l'inverter è fermo (STOP o spento). Quando lo riaccendi l'uscita resta spenta finché la scheda non la riaccende.</small>")) +
+    // e se la rimettessi sulle batterie adesso? Gli stessi orari della sezione quando la casa è sulle batterie (autonomia: consumi soliti, sole
+    // previsto). 2.11: nel riquadro dello spegnimento automatico non c'era più quanto durerebbero
+    const tra = t => `${ora(t)} (tra ${dur(Math.max(0, t - now) / HOUR)})`;
+    const ifOn = a.unknown && !ev ? "" : fin(aoAt) && aoAt - now < 15 * 60
+      ? `<b>Se la rimetti sulle batterie adesso</b> la scheda la riporterebbe subito su Enel: sono sotto la sua soglia (${nf(lim, 0)}%${weak ? " sulla più debole" : ""}).` + (fin(cutAt) ? ` Senza l'automatico l'inverter staccherebbe ${tra(cutAt)}.` : "")
+      : (pp => pp.length ? `<b>Se la rimetti sulle batterie adesso</b> ${pp.join(", e ")}.` : "")([
+          ...(fin(aoAt) ? [`la scheda la riporterebbe su Enel ${tra(aoAt)}`] : []),
+          ...(fin(cutAt) ? [`l'inverter da solo staccherebbe ${tra(cutAt)}`] : fin(sunAt) ? [`arriverebbero al sole (${ora(sunAt)}) senza staccare`] : [])]);
+    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}` + (cbOk ? "" : " <small>Adesso lo Shelly non risponde: l'inverter è fermo (STOP o spento). Quando lo riaccendi l'uscita resta spenta finché la scheda non la riaccende.</small>")) + (ifOn ? p(ifOn + (hab ? " <small>Coi consumi soliti e il sole previsto.</small>" : "")) : "") +
       tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.sc) ? nf(ao.sc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
   const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
