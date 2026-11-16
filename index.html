@@ -635,8 +635,11 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .sol-fill{transform-origin:left center;animation:solgrow .9s cubic-bezier(.2,.8,.2,1)}@keyframes solgrow{from{transform:scaleX(0)}}
 .sol-run{stroke-dasharray:10 5;animation:solrun 1.8s linear infinite}@keyframes solrun{to{stroke-dashoffset:-15}}
 @media (prefers-reduced-motion:reduce){.sol-fill,.sol-run{animation:none}}
-.sol-g dd small{font:500 .7rem var(--sans,inherit);color:var(--muted)}.sol-g .w dd{color:var(--warn)}.sol-g .a dd{color:var(--alert)}.sol-g .s dd{color:var(--sun)}
+.sol-g dd small{font:500 .7rem var(--sans,inherit);color:var(--muted)}.sol-g .w dd{color:var(--sol-ao)}.sol-g .a dd{color:var(--sol-cut)}.sol-g .s dd{color:var(--sun)}
 .sol .n-d+.n-d{margin-top:4px}
+.sol-if{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.sol-if-h{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sol-if .sol-line{margin-top:4px}
 .night .au-more{display:block;margin:8px 0 0;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--c)}.au-svg{display:block;width:100%;height:auto;margin-top:8px}.au-leg{margin:4px 0 0;font-size:.74rem;line-height:1.4;color:var(--muted)}
 .n-tip{margin:9px 0 0;padding:9px 11px;border-radius:10px;background:color-mix(in srgb,var(--lith) 12%,transparent);font-size:.84rem;line-height:1.45}
 .n-tip .set-btn{margin-top:8px;padding:7px 12px;font-size:.84rem;background:var(--lith);color:#111}
@@ -930,8 +933,12 @@ footer{border-top:0;padding-top:0}
    caratteri stretti e maiuscoli. La cornice è lo sfondo arancione del pannello, il riempimento è il ::before rientrato di 2 px */
 :root[data-style="mecha"][data-theme="dark"]{--bg:#0A0A0A; --surface:#151515; --ink:#F2F2F2; --muted:#9C9C9C; --line:#2A2A2A; --frame:#101010; --frame-ink:#6A6A6A;
   --sun:#FFB617; --sun-tint:rgba(255,182,23,.16); --out:#ECECEC; --out-tint:rgba(236,236,236,.12);
-  --good:#A6E22E; --good-tint:rgba(166,226,46,.14); --warn:#FFE04D; --warn-tint:rgba(255,224,77,.14); --alert:#FF453A; --alert-tint:rgba(255,69,58,.15)}
+  --good:#A6E22E; --good-tint:rgba(166,226,46,.14)}
 :root[data-style="mecha"]:not([data-palette])[data-theme="dark"]{--lith:#FFB617; --lith-tint:rgba(255,182,23,.18); --fill-tint:rgba(255,182,23,.24); --logo-arc:#FFB617}
+/* Mecha: niente giallo né rosso «a parte» (2.12, scelto dall'utente): l'attenzione è l'ambra del tema, il pericolo è un rosso ricavato da lei
+   (35% ambra + 65% rosso: arancio-rosso della stessa famiglia). Con le altre tavolozze segue il loro colore */
+:root[data-style="mecha"]{--warn:var(--lith); --warn-tint:color-mix(in srgb,var(--lith) 14%,transparent);
+  --alert:color-mix(in srgb,var(--lith) 35%,#E0201A); --alert-tint:color-mix(in srgb,var(--lith) 6%,rgba(224,32,26,.15))}
 [data-mecha] body{background:radial-gradient(90% 55% at 50% 30%,#171717,transparent 75%),
   repeating-linear-gradient(135deg,color-mix(in srgb,var(--lith) 4%,transparent) 0 1px,transparent 1px 16px),var(--bg)}
 [data-mecha] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){--bd:color-mix(in srgb,var(--lith) 55%,#000);position:relative;isolation:isolate;
@@ -1269,6 +1276,11 @@ footer{border-top:0;padding-top:0}
 [data-style="hitech"]{--led-ok:#36F5B0;--led-err:#FF5D73}
 [data-style="terminale"]{--led-ok:#39FF7A;--led-err:#FF5544}
 [data-style="mecha"]{--led-ok:#C3E62B;--led-err:#FF4A1C}
+/* i due livelli delle batterie su solare (2.12): la scheda e l'inverter. Di norma il giallo e il rosso del tema; in Mecha (richiesta dell'utente)
+   colori da quadro industriale: ambra chiaro per la scheda, arancio segnale per l'inverter, con scritte strette e maiuscole */
+:root{--sol-ao:var(--warn);--sol-cut:var(--alert)}
+[data-mecha] .night.sol.warn{--c:var(--sol-ao)}[data-mecha] .night.sol.bad{--c:var(--sol-cut)}
+[data-mecha] :is(.sol-bar,.sol-line) text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed;letter-spacing:.05em;text-transform:uppercase}
 [data-style="cyber"]{--led-ok:#9CFF3A;--led-err:#FF3B30}
 [data-style="reattore"]{--led-ok:#C3E62B;--led-err:#FF3D1F}
 [data-style="plancia"]{--led-ok:#4DFFB0;--led-err:#FF4D5E}
@@ -1689,7 +1701,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.11"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.12"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2709,13 +2721,13 @@ function solBar(soc, mn, lim, cut, minTxt, limTxt = "scheda"){
   const limNear = lim && X(lim) - 34 < cEnd, limX = limNear ? Math.max(X(lim) + 4, cEnd + 6) : lim ? X(lim) : 0;
   const keep = Math.max(0, fin(mn) ? Math.min(mn, soc) : soc), xs = X(soc), xm = X(keep), showMin = fin(mn) && mn < soc - 2 && !(lim && Math.abs(mn - lim) < 2) && Math.abs(mn - cut) >= 2;
   return `<svg class="sol-bar" viewBox="0 0 ${W} 72" role="img" aria-label="Carica adesso ${nf(soc, 0)}%${lim ? (limTxt === "scheda" ? ", la scheda stacca al " : ", soglia al ") + nf(lim, 0) + "%" : ""}, l'inverter al ${nf(cut, 0)}%">` +
-    `<defs><pattern id="sol-red" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--alert)" opacity=".2"/><rect width="2.6" height="6" fill="var(--alert)" opacity=".7"/></pattern>` +
+    `<defs><pattern id="sol-red" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--sol-cut)" opacity=".2"/><rect width="2.6" height="6" fill="var(--sol-cut)" opacity=".7"/></pattern>` +
     `<pattern id="sol-used" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><rect width="5" height="5" fill="var(--lith)" opacity=".16"/><rect width="1.8" height="5" fill="var(--lith)" opacity=".6"/></pattern></defs>` +
     `<path d="${shape(0, 100)}" fill="var(--bg)" stroke="var(--line)"/>` +
     `<path class="sol-fill" d="${shape(0, keep)}" fill="var(--lith)"/>` + (keep < soc ? `<path d="${shape(keep, soc)}" fill="url(#sol-used)"/>` : "") +
     // sotto la barra, le zone: rosso fino allo stacco dell'inverter, ambra fino alla soglia della scheda
-    `<rect x="${x0}" y="${y + h + 3}" width="${(X(cut) - x0).toFixed(1)}" height="4" fill="url(#sol-red)"/>` + (lim && lim > cut ? `<rect x="${X(cut).toFixed(1)}" y="${y + h + 3}" width="${(X(lim) - X(cut)).toFixed(1)}" height="4" fill="var(--warn)" opacity=".55"/>` : "") +
-    tick(cut, "var(--alert)", "inverter " + nf(cut, 0) + "%", S.inv + " V", cL ? x0 : X(cut), cL ? "start" : "middle") + (lim && lim > cut + 3 ? tick(lim, "var(--warn)", limTxt + " " + nf(lim, 0) + "%", fin(aoVs()) ? nf(aoVs(), 1) + " V" : "automatico", limX, limNear ? "start" : anc(limX)) : "") +
+    `<rect x="${x0}" y="${y + h + 3}" width="${(X(cut) - x0).toFixed(1)}" height="4" fill="url(#sol-red)"/>` + (lim && lim > cut ? `<rect x="${X(cut).toFixed(1)}" y="${y + h + 3}" width="${(X(lim) - X(cut)).toFixed(1)}" height="4" fill="var(--sol-ao)" opacity=".55"/>` : "") +
+    tick(cut, "var(--sol-cut)", "inverter " + nf(cut, 0) + "%", S.inv + " V", cL ? x0 : X(cut), cL ? "start" : "middle") + (lim && lim > cut + 3 ? tick(lim, "var(--sol-ao)", limTxt + " " + nf(lim, 0) + "%", fin(aoVs()) ? nf(aoVs(), 1) + " V" : "automatico", limX, limNear ? "start" : anc(limX)) : "") +
     `<path d="M${xs.toFixed(1)} ${y - 2}l-4.5 -6h9z" fill="var(--ink)"/><text x="${xs.toFixed(1)}" y="${y - 11}" text-anchor="${anc(xs)}" font-size="10.5" font-weight="800" fill="var(--ink)">adesso ${nf(soc, 0)}%</text>` +
     (showMin && xs - xm > 84 ? `<path d="M${xm.toFixed(1)} ${y - 2}l-4 -5.5h8z" fill="var(--lith)"/><text x="${xm.toFixed(1)}" y="${y - 11}" text-anchor="${anc(xm)}" font-size="9.5" font-weight="600" fill="var(--lith)">${minTxt} ${nf(mn, 0)}%</text>` : "") + `</svg>`;
 }
@@ -2738,14 +2750,14 @@ function solLine(now, aoAt, cutAt, sunAt, early){
   }
   const first = Math.min(...[aoAt, cutAt].filter(fin).map(X).concat([X(end)]));
   let g = `<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="4" stroke-linecap="round"/>` +
-    `<line class="sol-run" x1="${x0}" x2="${first.toFixed(1)}" y1="${y}" y2="${y}" stroke="${fin(aoAt) ? "var(--warn)" : "var(--lith)"}" stroke-width="4" stroke-linecap="round"/>`;
+    `<line class="sol-run" x1="${x0}" x2="${first.toFixed(1)}" y1="${y}" y2="${y}" stroke="${fin(aoAt) ? "var(--sol-ao)" : "var(--lith)"}" stroke-width="4" stroke-linecap="round"/>`;
   if (fin(aoAt) && fin(cutAt) && cutAt > aoAt) g += `<rect x="${X(aoAt).toFixed(1)}" y="${y - 3}" width="${(X(cutAt) - X(aoAt)).toFixed(1)}" height="6" fill="url(#sol-red)"/>`;
-  if (fin(early) && early < Math.min(...[aoAt, cutAt].filter(fin)) - 900) g += `<line x1="${X(early).toFixed(1)}" x2="${X(early).toFixed(1)}" y1="${y - 7}" y2="${y + 7}" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="2 2"/>`;
+  if (fin(early) && early < Math.min(...[aoAt, cutAt].filter(fin)) - 900) g += `<line x1="${X(early).toFixed(1)}" x2="${X(early).toFixed(1)}" y1="${y - 7}" y2="${y + 7}" stroke="var(--sol-ao)" stroke-width="1.6" stroke-dasharray="2 2"/>`;
   g += `<circle cx="${x0}" cy="${y}" r="5" fill="var(--lith)"/>` + (fin(sunAt) && X(sunAt) < 78 ? "" : `<text x="${x0 - 2}" y="${y - 13}" font-size="9.5" fill="var(--muted)">adesso</text>`);
   pts.forEach(p => {
-    if (p.k === "ao") g += `<rect x="${(p.x - 6).toFixed(1)}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${p.x.toFixed(1)} ${y})" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.4"/>` + lab(p.lx, "scheda " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--warn)", p.anc);
-    if (p.k === "cut") g += `<path d="M${p.x.toFixed(1)} ${y - 8}l7 13h-14z" fill="var(--alert)"/>` + (p.row2 ? `<text x="${p.lx.toFixed(1)}" y="${y + 33}" text-anchor="end" font-size="10.5" font-weight="700" fill="var(--alert)">inverter ${hm(q15(p.t))}${dayWord(p.t) === "oggi" ? "" : " " + dayWord(p.t)}</text>`
-      : lab(p.lx + (p.two ? 60 : 0), "inverter " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--alert)", p.anc));
+    if (p.k === "ao") g += `<rect x="${(p.x - 6).toFixed(1)}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${p.x.toFixed(1)} ${y})" fill="var(--surface)" stroke="var(--sol-ao)" stroke-width="2.4"/>` + lab(p.lx, "scheda " + (p.t - now < 900 ? "subito" : hm(q15(p.t))), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--sol-ao)", p.anc);
+    if (p.k === "cut") g += `<path d="M${p.x.toFixed(1)} ${y - 8}l7 13h-14z" fill="var(--sol-cut)"/>` + (p.row2 ? `<text x="${p.lx.toFixed(1)}" y="${y + 33}" text-anchor="end" font-size="10.5" font-weight="700" fill="var(--sol-cut)">inverter ${hm(q15(p.t))}${dayWord(p.t) === "oggi" ? "" : " " + dayWord(p.t)}</text>`
+      : lab(p.lx + (p.two ? 60 : 0), "inverter " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--sol-cut)", p.anc));
     if (p.k === "sun") g += `<g transform="translate(${p.x.toFixed(1)} ${y})" stroke="var(--sun)" stroke-width="1.8" stroke-linecap="round"><circle r="4.2" fill="var(--sun)"/><path d="M0-8.5v2M0 6.5v2M-8.5 0h2M6.5 0h2M-6 -6l1.4 1.4M4.6 4.6 6 6M-6 6l1.4-1.4M4.6-4.6 6-6"/></g>` + `<text x="${p.x.toFixed(1)}" y="${y - 13}" text-anchor="${p.x > W - 50 ? "end" : "middle"}" font-size="10.5" font-weight="700" fill="var(--sun)">sole ${hm(q15(p.t))}</text>`;
   });
   return `<svg class="sol-line" viewBox="0 0 ${W} 60" role="img" aria-label="Linea del tempo delle batterie su solare">${g}</svg>`;
@@ -2807,11 +2819,13 @@ function drawSolar(k, f){
     // previsto). 2.11: nel riquadro dello spegnimento automatico non c'era più quanto durerebbero
     const tra = t => `${ora(t)} (tra ${dur(Math.max(0, t - now) / HOUR)})`;
     const ifOn = a.unknown && !ev ? "" : fin(aoAt) && aoAt - now < 15 * 60
-      ? `<b>Se la rimetti sulle batterie adesso</b> la scheda la riporterebbe subito su Enel: sono sotto la sua soglia (${nf(lim, 0)}%${weak ? " sulla più debole" : ""}).` + (fin(cutAt) ? ` Senza l'automatico l'inverter staccherebbe ${tra(cutAt)}.` : "")
-      : (pp => pp.length ? `<b>Se la rimetti sulle batterie adesso</b> ${pp.join(", e ")}.` : "")([
+      ? `La scheda la riporterebbe <b>subito</b> su Enel: sono sotto la sua soglia (${nf(lim, 0)}%${weak ? " sulla più debole" : ""}).` + (fin(cutAt) ? ` Senza l'automatico l'inverter staccherebbe ${tra(cutAt)}.` : "")
+      : (pp => pp.length ? pp.join(", e ").replace(/^./, c => c.toUpperCase()) + "." : "")([
           ...(fin(aoAt) ? [`la scheda la riporterebbe su Enel ${tra(aoAt)}`] : []),
           ...(fin(cutAt) ? [`l'inverter da solo staccherebbe ${tra(cutAt)}`] : fin(sunAt) ? [`arriverebbero al sole (${ora(sunAt)}) senza staccare`] : [])]);
-    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}` + (cbOk ? "" : " <small>Adesso lo Shelly non risponde: l'inverter è fermo (STOP o spento). Quando lo riaccendi l'uscita resta spenta finché la scheda non la riaccende.</small>")) + (ifOn ? p(ifOn + (hab ? " <small>Coi consumi soliti e il sole previsto.</small>" : "")) : "") +
+    // lo schema prima della frase (2.12, richiesta dell'utente): la stessa linea del tempo di quando la casa è sulle batterie
+    const ifLine = ifOn ? `<div class="sol-if"><span class="sol-if-h">Se la rimetti sulle batterie adesso</span>${solLine(now, fin(aoAt) ? Math.max(aoAt, now + 300) : null, cutAt, sunAt, null)}</div>` : "";
+    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}` + (cbOk ? "" : " <small>Adesso lo Shelly non risponde: l'inverter è fermo (STOP o spento). Quando lo riaccendi l'uscita resta spenta finché la scheda non la riaccende.</small>")) + (ifOn ? ifLine + p(ifOn + (hab ? " <small>Coi consumi soliti e il sole previsto.</small>" : "")) : "") +
       tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.sc) ? nf(ao.sc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
   const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
@@ -2872,9 +2886,9 @@ function drawSolar(k, f){
     // la scheda e l'inverter: la curva scende verso il punto, quindi la scritta sta in alto a destra (vicino al bordo destro: in basso a sinistra).
     // Su 4 giorni due orari a poche ore sono a pochi punti: se le scritte si toccherebbero, una si scosta (la riga della soglia la disegna socSvg)
     const mk = (t, s, txt, col, up) => { const x = clamp((t - now) / HOUR / (n - 1) * FW, 0, FW), y = fy(s), end = x > FW - 90; return { x, y, end, txt, col, base: end ? y + 14 : y - up }; };
-    const mi = fin(cutAt) ? mk(cutAt, cut, "inverter " + hm(q15(cutAt)), "var(--alert)", 5) : null, ms = fin(aoAt) ? mk(aoAt, limE, "scheda " + hm(q15(aoAt)), "var(--warn)", 7) : null;
+    const mi = fin(cutAt) ? mk(cutAt, cut, "inverter " + hm(q15(cutAt)), "var(--sol-cut)", 5) : null, ms = fin(aoAt) ? mk(aoAt, limE, "scheda " + hm(q15(aoAt)), "var(--sol-ao)", 7) : null;
     if (mi && ms && Math.abs(mi.x - ms.x) < 74 && Math.abs(mi.base - ms.base) < 11) { if (ms.end) mi.base = ms.base + 11.5; else ms.base = mi.base - 11.5; }
-    if (mi) marks += `<line x1="${mi.x.toFixed(1)}" x2="${mi.x.toFixed(1)}" y1="${FTOP}" y2="${FBASE}" stroke="var(--alert)" stroke-width="1.4"/>`;
+    if (mi) marks += `<line x1="${mi.x.toFixed(1)}" x2="${mi.x.toFixed(1)}" y1="${FTOP}" y2="${FBASE}" stroke="var(--sol-cut)" stroke-width="1.4"/>`;
     [mi, ms].forEach(m => { if (m) marks += `<circle cx="${m.x.toFixed(1)}" cy="${m.y.toFixed(1)}" r="3.6" fill="var(--surface)" stroke="${m.col}" stroke-width="2"/>` +
       `<text x="${(m.end ? m.x - 6 : m.x + 6).toFixed(1)}" y="${m.base.toFixed(1)}" text-anchor="${m.end ? "end" : "start"}" font-size="9.5" font-weight="700" fill="${m.col}">${m.txt}</text>`; });
     if (!fin(cutAt) && !fin(aoAt) && fin(mnAt)) marks += socMark(n, (mnAt - now) / HOUR, mn, nf(mn, 0) + "%", mn > 70); }
@@ -4746,10 +4760,10 @@ function socSvg(o, marks){
   const grid = [0, 50, 100].map(v => `<line x1="0" x2="${FW}" y1="${fy(v)}" y2="${fy(v)}" stroke="var(--line)"/><text x="2" y="${fy(v) - 3}" font-size="9" fill="var(--muted)">${v}%</text>`).join("");
   // due righe: la soglia (ambra, scritta sopra) e lo stacco dell'inverter (rosso; con la soglia vicina la scritta va sotto la riga)
   const cs = cutSoc(), gs = guardSoc(), gOn = gs > cs + 1.5, gv = aoVs();
-  const res = (gOn ? `<line x1="0" x2="${FW}" y1="${fy(gs)}" y2="${fy(gs)}" stroke="var(--warn)" stroke-dasharray="4 3"/>` +
-      `<text x="${FW - 2}" y="${(fy(gs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--warn)">soglia${fin(gv) ? " " + nf(gv, 1) + " V" : ""}</text>` : "") +
-    `<line x1="0" x2="${FW}" y1="${fy(cs)}" y2="${fy(cs)}" stroke="var(--alert)" stroke-dasharray="4 3"/>` +
-    `<text x="${FW - 2}" y="${(gOn && gs - cs < 14 ? fy(cs) + 8.5 : fy(cs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--alert)">stacco ${S.inv} V</text>`;
+  const res = (gOn ? `<line x1="0" x2="${FW}" y1="${fy(gs)}" y2="${fy(gs)}" stroke="var(--sol-ao)" stroke-dasharray="4 3"/>` +
+      `<text x="${FW - 2}" y="${(fy(gs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--sol-ao)">soglia${fin(gv) ? " " + nf(gv, 1) + " V" : ""}</text>` : "") +
+    `<line x1="0" x2="${FW}" y1="${fy(cs)}" y2="${fy(cs)}" stroke="var(--sol-cut)" stroke-dasharray="4 3"/>` +
+    `<text x="${FW - 2}" y="${(gOn && gs - cs < 14 ? fy(cs) + 8.5 : fy(cs) - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--sol-cut)">stacco ${S.inv} V</text>`;
   const pts = a => a.map((s, i) => `${X(i).toFixed(1)},${fy(s).toFixed(1)}`);
   const band = `<path d="M${pts(o.hi).join(" L")} L${pts(o.lo).reverse().join(" L")} Z" fill="var(--lith-tint)"/>`;
   const line = `<polyline points="${pts(o.mid).join(" ")}" fill="none" stroke="var(--lith)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
