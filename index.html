@@ -1725,7 +1725,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.15"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.16"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4946,7 +4946,11 @@ function appAlerts(bs, k, f){
       push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, verso le ${at}` : ""}. Riduci i consumi stasera.` }); }
     if (model && model.load && model.load.hod >= 18 && hr >= 12) {      // domani: i pannelli della scheda del meteo contro i consumi delle abitudini
       const pd = pvDay(1), ld = loadDay(1);
-      if (pd && !pd.est && fin(ld) && pd.kwh < ld * .7) push({ id: "fcsun" + dkey(now), sev: "fc", t: `Domani poco sole: ${nf(pd.kwh, 1)} kWh`, d: `Contro circa ${nf(ld, 1)} kWh di consumi previsti: oggi conviene rimandare forno e lavatrice.` });
+      // solo se domani la casa starà davvero sulle batterie (2.16): il 16/11 l'avviso è arrivato alle 21 con la casa su Enel tutto il giorno e lo
+      // spegnimento automatico che la tiene lì fino al pieno. La previsione dice ora per ora dove sarà la casa (le regole dell'automatico comprese)
+      const d1 = midnight(now) + DAY, onT = f.t.some((t, i) => t >= d1 && t < d1 + DAY && (f.det && f.det.on ? f.det.on[i] : houseOn(t, now)) > .5);
+      if (onT && pd && !pd.est && fin(ld) && pd.kwh < ld * .7) push({ id: "fcsun" + dkey(now), sev: "fc", t: `Domani poco sole: ${nf(pd.kwh, 1)} kWh`,
+        d: `Contro circa ${nf(ld, 1)} kWh di consumi previsti con la casa sulle batterie: se puoi, rimanda forno e lavatrice a un giorno di sole o falli con la casa su Enel.` });
     }
   }
   if (f && S.alTip && k.i > 0.5) {
