@@ -1689,7 +1689,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.09"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.10"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2653,7 +2653,9 @@ function autonomy(k, f){
    regola solo dove i picchi sono misure (rkKnown), se no vale la sola soglia di carica. La regola della cella
    sotto 3,00 V non si prevede: dipende dalla batteria più debole sul momento. Risposta: ora mediana, «prudente» (1 caso su 5 prima), probabilità
    nelle 96 ore e perché (carica o tensione), e quanto prima dell'inverter. */
-const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(data && data.cb)) return null; const v = a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
+// la soglia della scheda: c'è se l'automatico è acceso, anche con lo Shelly muto (2.10: con l'inverter in STOP lo Shelly non risponde e, dopo un
+// riavvio, la 0.58 non lo dichiarava più; la app credeva l'automatico assente e mostrava solo l'inverter)
+const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(a || (data && data.cb))) return null; const v = a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
 /* La batteria più debole (dalla 2.03 e dal firmware 0.55; il 15/11/2026 la scheda ha spento con la media al 43% perché la Batteria 3 era al 15%):
    quella con la carica più bassa adesso, qualunque sia. Le sue celle cedono quando LEI arriva alla soglia, quindi per la media la soglia vera
    è più su: soglia + distacco tra la media e la più debole (tenuto fermo nelle simulazioni; contano solo distacchi da 2 punti, al massimo 30).
@@ -2725,8 +2727,15 @@ function solLine(now, aoAt, cutAt, sunAt, early){
   const lab = (x, t1, t2, col, anc) => `<text x="${x.toFixed(1)}" y="${y + 21}" text-anchor="${anc}" font-size="10.5" font-weight="700" fill="${col}">${t1}</text>` + (t2 ? `<text x="${x.toFixed(1)}" y="${y + 33}" text-anchor="${anc}" font-size="9" fill="var(--muted)">${t2}</text>` : "");
   const pts = [], add = (t, k) => fin(t) && pts.push({ t, k, x: X(t) }); add(aoAt, "ao"); add(cutAt, "cut"); add(sunAt, "sun"); pts.sort((a, b) => a.x - b.x);
   const low = pts.filter(p => p.k !== "sun"), near = low.length === 2 && low[1].x - low[0].x < 96;   // sotto la linea scheda e inverter, sopra il sole: non si accavallano
-  low.forEach((p, i) => { p.anc = near ? (i ? "start" : "end") : p.x < 44 ? "start" : p.x > W - 44 ? "end" : "middle"; });
+  // le scritte stanno dentro il disegno (2.10: «inverter 18:45» vicino al bordo destro usciva tagliato): larghezza stimata ~6,3 px a lettera
+  const wd = p => (p.k === "ao" ? 13 : 14) * 6.3;
+  low.forEach((p, i) => { p.lx = p.x; p.anc = near ? (i ? "start" : "end") : p.x < 44 ? "start" : p.x > W - 44 ? "end" : "middle";
+    if (p.anc === "middle" && p.x + wd(p) / 2 > W - 2) p.anc = "end"; if (p.anc === "middle" && p.x - wd(p) / 2 < 2) p.anc = "start"; });
   if (near && low[0].x < 100) { low[0].anc = "start"; low[1].two = true; }
+  else if (near && low[1].x + wd(low[1]) > W - 2) {     // vicini e in fondo: tutte e due finiscono a destra, una accanto all'altra (o su due righe)
+    low[1].anc = "end"; low[1].lx = W - 2; low[0].anc = "end"; low[0].lx = W - 2 - wd(low[1]) - 8;
+    if (low[0].lx - wd(low[0]) < 2) { low[0].lx = W - 2; low[1].row2 = true; }
+  }
   const first = Math.min(...[aoAt, cutAt].filter(fin).map(X).concat([X(end)]));
   let g = `<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="4" stroke-linecap="round"/>` +
     `<line class="sol-run" x1="${x0}" x2="${first.toFixed(1)}" y1="${y}" y2="${y}" stroke="${fin(aoAt) ? "var(--warn)" : "var(--lith)"}" stroke-width="4" stroke-linecap="round"/>`;
@@ -2734,8 +2743,9 @@ function solLine(now, aoAt, cutAt, sunAt, early){
   if (fin(early) && early < Math.min(...[aoAt, cutAt].filter(fin)) - 900) g += `<line x1="${X(early).toFixed(1)}" x2="${X(early).toFixed(1)}" y1="${y - 7}" y2="${y + 7}" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="2 2"/>`;
   g += `<circle cx="${x0}" cy="${y}" r="5" fill="var(--lith)"/>` + (fin(sunAt) && X(sunAt) < 78 ? "" : `<text x="${x0 - 2}" y="${y - 13}" font-size="9.5" fill="var(--muted)">adesso</text>`);
   pts.forEach(p => {
-    if (p.k === "ao") g += `<rect x="${(p.x - 6).toFixed(1)}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${p.x.toFixed(1)} ${y})" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.4"/>` + lab(p.x, "scheda " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--warn)", p.anc);
-    if (p.k === "cut") g += `<path d="M${p.x.toFixed(1)} ${y - 8}l7 13h-14z" fill="var(--alert)"/>` + lab(p.x + (p.two ? 60 : 0), "inverter " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--alert)", p.anc);
+    if (p.k === "ao") g += `<rect x="${(p.x - 6).toFixed(1)}" y="${y - 6}" width="12" height="12" transform="rotate(45 ${p.x.toFixed(1)} ${y})" fill="var(--surface)" stroke="var(--warn)" stroke-width="2.4"/>` + lab(p.lx, "scheda " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--warn)", p.anc);
+    if (p.k === "cut") g += `<path d="M${p.x.toFixed(1)} ${y - 8}l7 13h-14z" fill="var(--alert)"/>` + (p.row2 ? `<text x="${p.lx.toFixed(1)}" y="${y + 33}" text-anchor="end" font-size="10.5" font-weight="700" fill="var(--alert)">inverter ${hm(q15(p.t))}${dayWord(p.t) === "oggi" ? "" : " " + dayWord(p.t)}</text>`
+      : lab(p.lx + (p.two ? 60 : 0), "inverter " + hm(q15(p.t)), dayWord(p.t) === "oggi" ? "" : dayWord(p.t), "var(--alert)", p.anc));
     if (p.k === "sun") g += `<g transform="translate(${p.x.toFixed(1)} ${y})" stroke="var(--sun)" stroke-width="1.8" stroke-linecap="round"><circle r="4.2" fill="var(--sun)"/><path d="M0-8.5v2M0 6.5v2M-8.5 0h2M6.5 0h2M-6 -6l1.4 1.4M4.6 4.6 6 6M-6 6l1.4-1.4M4.6-4.6 6-6"/></g>` + `<text x="${p.x.toFixed(1)}" y="${y - 13}" text-anchor="${p.x > W - 50 ? "end" : "middle"}" font-size="10.5" font-weight="700" fill="var(--sun)">sole ${hm(q15(p.t))}</text>`;
   });
   return `<svg class="sol-line" viewBox="0 0 ${W} 60" role="img" aria-label="Linea del tempo delle batterie su solare">${g}</svg>`;
@@ -2755,7 +2765,9 @@ function dipOf(mid, night){
 function solarPlan(k, f){
   const a = autonomy(k, f); if (!a) return null;
   const now = nowOf(data), on = houseNow(), cut = a.cut, ao = data.ao, cb = data.cb, lim = aoLimit(), limE = aoMean(), wk = lim ? aoWeak() : null, cbOff = !!(cb && cb.on === false);
-  const aoCan = !!(lim && ao && ao.st !== 4 && cb && cb.ok !== false), aoLive = aoCan && !cbOff, hab = !!a.hab;
+  // la scheda può staccare: con lo Shelly che risponde, o con la casa su Enel e lo Shelly muto (l'inverter è fermo: quando riparte lo Shelly torna).
+  // aoLive = può farlo in questo momento
+  const cbOk = !!(cb && cb.ok !== false), aoCan = !!(lim && ao && ao.st !== 4 && (cbOk || !on)), aoLive = aoCan && cbOk && !cbOff, hab = !!a.hab;
   const ev = nightRun(k, f, 1);                    // la notte con la casa sulle batterie (con le abitudini è a.nt: le stesse simulazioni)
   const cutAt = hab ? a.at : ev ? ev.at : fin(a.dark) && a.dark < 30 ? now + a.dark * HOUR : null;
   const aoD = fin(a.aoDark) ? now + a.aoDark * HOUR : null;
@@ -2771,13 +2783,13 @@ function solarPlan(k, f){
   if (byAo) mn = Math.max(fin(mn) ? mn : 0, Math.min(limE, k.soc));   // dopo lo spegnimento della scheda la casa è su Enel: le batterie si fermano lì
   const first = byAo ? aoAt : fin(cutAt) ? cutAt : null;
   const weak = wk && wk.gap ? wk : null;   // c'è una batteria che resta indietro: è lei che decide
-  return { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, limWho: weak ? ` sulla più debole, ${weak.name}` : "", cbOff, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first, byAo };
+  return { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, limWho: weak ? ` sulla più debole, ${weak.name}` : "", cbOff, cbOk, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first, byAo };
 }
 function drawSolar(k, f){
   const box = $("solar"); if (!box) return;
   const P = solarPlan(k, f), na = P && nightAdvice(k, f);
   if (!P) { box.hidden = true; return; }
-  const { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, cbOff, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first } = P;
+  const { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, cbOff, cbOk, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first } = P;
   const ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
   const show = (cls, ico, t, body, more = "") => { const h = `<div class="n-h"><span class="n-ico">${ico}</span><span class="n-t">${t}</span></div>${body}${more}`; box.hidden = false; box.className = "night sol " + cls; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
   const p = s => `<p class="n-d">${s}</p>`, tiles = l => `<dl class="tmr-g sol-g">${l.map(([t, v, c]) => `<div${c ? ` class="${c}"` : ""}><dt>${t}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
@@ -2791,11 +2803,11 @@ function drawSolar(k, f){
       if (f && f.mid) for (let i = 1; i < f.mid.length; i++) if (f.mid[i] >= tgtM && f.mid[i] > f.mid[i - 1] && f.pv[i - 1] > 100) { at = f.t[i]; break; }
       bt = at ? hm(q15(at)) : f && f.mid ? "oltre 48 h" : full ? "al pieno" : "al " + nf(tgt, 0) + "%";   // senza previsione: la condizione, non un orario inventato
       back = (full ? `La riaccende col sole quando le batterie sono <b>tutte al 100%</b> da un'ora${weak ? ` (la più indietro è la <b>${esc(weak.name)}</b>, ${alP(weak.soc)})` : ""}` : weak ? `La riaccende col sole quando anche la più debole (<b>${esc(weak.name)}</b>, adesso ${alP(weak.soc)}) arriva al <b>${nf(tgt, 0)}%</b>` : `La riaccende col sole quando le batterie arrivano al <b>${nf(tgt, 0)}%</b>`) + (at ? `: col sole previsto <b>${ora(at)}</b>.` : f && f.mid ? ", ma col sole previsto non ci arrivano nelle prossime 48 ore." : "."); }
-    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}`) +
+    return show("warn", AOFF_ICO, `Solare staccato dalla scheda ${fin(ao.at) ? `${dayWord(ao.at) === "oggi" ? "" : dayWord(ao.at) + " "}alle ${hm(ao.at)}` : ""}`, solBar(k.soc, null, limE, cut) + p(`L'ha spento perché ${why}: l'ATS ha portato la casa su Enel. ${back}` + (cbOk ? "" : " <small>Adesso lo Shelly non risponde: l'inverter è fermo (STOP o spento). Quando lo riaccendi l'uscita resta spenta finché la scheda non la riaccende.</small>")) +
       tiles([["Staccato", fin(ao.at) ? hm(ao.at) : "–"], ["Carica allora", fin(ao.sc) ? nf(ao.sc, 0) + "%" : "–"], ["Riaccende", bt]]));
   }
   const aoNote = !lim ? "" : ao && ao.st === 4 ? " <small>Automatico in pausa: l'hai riacceso tu con le batterie basse, la scheda aspetta fino a 3 ore.</small>"
-    : cb && cb.ok === false ? " <small>Lo Shelly non risponde: la scheda non può staccare, decide l'inverter.</small>" : "";
+    : !cbOk ? (on ? " <small>Lo Shelly non risponde: la scheda non può staccare, decide l'inverter.</small>" : " <small>Lo Shelly non risponde: l'inverter è fermo (STOP o spento). Quando riparte, la scheda riprende a controllarlo.</small>") : "";
   if (aoLive && ao.st === 2) return show("bad", AOFF_ICO, "La scheda sta per staccare il solare", solBar(k.soc, null, limE, cut) + p("Una soglia è superata: se resta così per un minuto (20 secondi per una cella) spegne l'uscita e l'ATS porta la casa su Enel."));
   if (a.unknown && !ev) return show("wait", SOL_ICO, "Batterie su solare: serve il consumo della casa", p("La scheda lo misura la prima volta che la casa passa sulle batterie, o dopo una notte con la casa sulle batterie."));
   const h = fin(first) ? (first - now) / HOUR : null;
@@ -4386,8 +4398,9 @@ function runDet(M, t0, soc0, cap, o){
 // le regole dell'automatico per la previsione: solo se la scheda può davvero agire (automatico acceso, Shelly che risponde) e la casa è sotto il
 // suo controllo (sulle batterie adesso, o spenta da lei)
 function aoRule(){
-  const a = data && data.ao, lim = aoLimit(), cb = data && data.cb; if (!a || !lim || !cb || cb.ok === false || a.st === 4) return null;
+  const a = data && data.ao, lim = aoLimit(), cb = data && data.cb; if (!a || !lim || a.st === 4) return null;
   const on = houseNow(); if (!on && a.st !== 3) return null;
+  if (on && !(cb && cb.ok !== false)) return null;              // sulle batterie con lo Shelly muto la scheda non può staccare
   return { on: on ? 1 : 0, lim, back: fin(a.back) ? a.back : 0 };
 }
 /* ---------- simulazioni: un solo integratore, per la previsione a 48 ore e per la notte ----------
