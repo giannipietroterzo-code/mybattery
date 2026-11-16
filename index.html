@@ -1270,6 +1270,8 @@ footer{border-top:0;padding-top:0}
 .cab .name{fill:var(--ink);font:600 13px var(--body)}
 .cab .pct{fill:var(--ink);font:700 20px var(--num);letter-spacing:-.02em}
 .cab .tc.warn{fill:var(--warn);font-weight:700}
+.cab .tc.bms{fill:var(--muted)}.cab .pct.est{fill:var(--ink)}
+.cab-note{margin:10px 2px 0;font-size:.8rem;line-height:1.45;color:var(--muted)}.cab-note b{color:var(--ink);font-weight:600}
 .cab .seg,.cab .dot{fill:var(--line);transition:fill .25s}
 .cab .seg.on{fill:var(--lith);filter:drop-shadow(0 0 2px var(--lith))}
 .cab .m.low .seg.on{fill:var(--warn);filter:drop-shadow(0 0 2px var(--warn))}
@@ -1423,6 +1425,7 @@ footer{border-top:0;padding-top:0}
       <section aria-labelledby="h-cab">
         <h2 id="h-cab">Batterie</h2>
         <div class="cab" id="cab" role="group" aria-label="Le batterie"></div>
+        <p class="cab-note" id="cab-note" hidden></p>
         <dl class="kpis">
           <div><dt>Potenza</dt><dd id="k-p">–</dd></div>
           <div><dt>Corrente</dt><dd id="k-i">–</dd></div>
@@ -1708,7 +1711,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.13"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.14"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3788,7 +3791,7 @@ function render(m){
   drawFw();
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
-  drawCabinet(bs, lowSoc);
+  drawCabinet(bs, lowSoc); drawCabNote(bs);
 
   // avvisi: prima le protezioni, poi gli allarmi
   trackPv(data.pv);
@@ -5516,9 +5519,14 @@ function drawCabinet(bs, lowSoc){
     cab.onkeydown = e => { const m = e.target.closest(".m"); if (m && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openBattery(+m.dataset.i); } };
   }
   const rows = cab.querySelectorAll(".m");
+  /* la carica di ogni batteria (2.14). Sono in parallelo: a riposo hanno la stessa tensione e quasi la stessa carica vera, ma ogni BMS tiene un conto
+     suo e lo corregge solo al fondo o al pieno (16/11: 71, 85, 41, 43, 42% a 52,9 V tutte, carica vera ~39%). Quando c'è la carica vera (la scheda,
+     o le regole prudenti di bank) e il BMS se ne scosta di più di 10 punti, la riga mostra quella («≈39%») e sotto, al posto della temperatura,
+     «BMS 71%»; la barra segue la carica vera */
+  const kb = bank(bs), vera = kb.src !== "bms" && fin(kb.soc) ? kb.soc : null;
   bs.forEach((b, i) => {
-    const g = rows[i], on = !!b.online, nm = nameOf(b, i);
-    const lvl = !on ? 0 : introPhase ? 100 : fin(b.soc) ? Math.max(0, Math.min(100, b.soc)) : 0;
+    const g = rows[i], on = !!b.online, nm = nameOf(b, i), drift = on && vera !== null && fin(b.soc) && Math.abs(b.soc - vera) > 10;
+    const lvl = !on ? 0 : introPhase ? 100 : drift ? Math.max(0, Math.min(100, vera)) : fin(b.soc) ? Math.max(0, Math.min(100, b.soc)) : 0;
     const up = on && !introPhase && b.i > 0.3, down = on && !introPhase && b.i < -0.3;
     const lit = !on ? 0 : up ? Math.floor(lvl / 10) : down ? Math.max(1, Math.ceil(lvl / 10)) : Math.max(1, Math.round(lvl / 10));
     const act = up && lit < 10 ? lit : down ? lit - 1 : -1; // il segmento che si sta riempiendo o svuotando
@@ -5529,16 +5537,29 @@ function drawCabinet(bs, lowSoc){
     g.querySelectorAll(".seg").forEach((r, j) => r.setAttribute("class", "seg" + (j === act ? " act" : j < lit ? " on" : "")));
     g.querySelector(".run").setAttribute("class", "dot run" + (on ? " on" : "") + (on && !introPhase && Math.abs(b.i) > 0.3 ? " blink" : ""));
     g.querySelector(".alm").setAttribute("class", "dot alm" + (alarm ? " on" : ""));
-    g.querySelector(".pct").textContent = on ? nf(lvl, 0) + "%" : "--";
+    g.querySelector(".pct").textContent = on ? (drift && !introPhase ? "≈" : "") + nf(lvl, 0) + "%" : "--";
+    g.querySelector(".pct").setAttribute("class", "pct" + (drift ? " est" : ""));
     // la cella più calda: è la temperatura che fa scattare le protezioni di carica e scarica
     const tc = tHot(b);
     const tEl = g.querySelector(".tc");
-    tEl.textContent = on && fin(tc) ? nf(tc, 0) + " °C" : "";
-    tEl.setAttribute("class", "mono tc" + (on && (tc >= 45 || tc <= 2) ? " warn" : ""));
-    g.setAttribute("aria-label", on ? `${nm}: carica ${nf(b.soc, 0)} per cento, ${nf(b.v, 2)} volt, ${signed(b.i, 1)} ampere${fin(tc) ? `, celle fino a ${nf(tc, 0)} gradi` : ""}. Apri dettagli` : `${nm}: non risponde`);
+    const hot = on && (tc >= 45 || tc <= 2);
+    tEl.textContent = drift && !hot ? `BMS ${nf(b.soc, 0)}%` : on && fin(tc) ? nf(tc, 0) + " °C" : "";
+    tEl.setAttribute("class", "mono tc" + (hot ? " warn" : drift ? " bms" : ""));
+    g.setAttribute("aria-label", on ? `${nm}: carica ${drift ? "circa " + nf(vera, 0) + " per cento (il BMS dice " + nf(b.soc, 0) + ")" : nf(b.soc, 0) + " per cento"}, ${nf(b.v, 2)} volt, ${signed(b.i, 1)} ampere${fin(tc) ? `, celle fino a ${nf(tc, 0)} gradi` : ""}. Apri dettagli` : `${nm}: non risponde`);
   });
 }
 
+function drawCabNote(bs){
+  const el = $("cab-note"); if (!el) return;
+  const kb = bank(bs), vera = kb.src !== "bms" && fin(kb.soc) ? kb.soc : null;
+  const off = vera === null ? [] : bs.map((b, i) => b.online && fin(b.soc) && Math.abs(b.soc - vera) > 10 ? [nameOf(b, i), Math.round(b.soc - vera)] : null).filter(Boolean);
+  if (!off.length) { el.hidden = true; return; }
+  const ft = data && data.bank && data.bank.full_t, items = off.map(([n, d]) => `${esc(n)} (${d > 0 ? "+" : "−"}${Math.abs(d)})`);
+  const list = items.length > 1 ? items.slice(0, -1).join(", ") + " e " + items[items.length - 1] : items[0];
+  el.hidden = false;
+  el.innerHTML = `Le percentuali con <b>≈</b> sono la carica vera, ${{ conto: "calcolata dalla scheda", curva: "dalla tensione a riposo", pieno: "dal pieno", volt: "dalla tensione", debole: "dalla batteria più bassa" }[kb.src] || "stimata"} (<b>${nf(vera, 0)}%</b>): ` +
+    `sono in parallelo, quindi è la stessa per tutte. ${off.length > 1 ? "I BMS di" : "Il BMS di"} ${list} ${off.length > 1 ? "sono fuori" : "è fuori"} di più di 10 punti: si riallineano al prossimo pieno` + (fin(ft) ? ` (l'ultimo: ${alWhen(ft)}).` : " (da quando c'è il registro non è mai arrivato).");
+}
 /* ---------- la percentuale grande conta fino al valore invece di saltare ---------- */
 let shownSoc = 0, countRaf = 0;
 function countTo(el, target){
