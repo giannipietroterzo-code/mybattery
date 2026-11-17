@@ -587,17 +587,17 @@ dialog[open]{animation:sheet-up .28s ease-out}
 @keyframes flw{to{stroke-dashoffset:-13.1}}
 @media (prefers-reduced-motion:reduce){.flow .fl{animation:none;stroke-dasharray:none;opacity:.7}}
 .flow .nd{fill:var(--bg);stroke-width:2.2;transition:stroke .3s}
-.flow .ic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.flow .ic{fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:stroke .3s}
+.flow #fb-lvl{transition:fill .3s}
 /* la pala in «Energia adesso» (2.29): le pale girano alla velocità della produzione stimata, come nella pagina Vento; grigia quando non si stima */
 .flow #fw-g{cursor:pointer}
 .flow .fw-bl{transform-box:fill-box;transform-origin:center;animation:wndSpin var(--sp,0s) linear infinite}
 .flow #fw-g.still .fw-bl{animation:none}
-.flow #fw-g.dim .nd,.flow #fw-g.dim .ic{opacity:.4}
+.flow #fw-g.dim .nd,.flow #fw-g.dim .ic,.flow #fg-g.dim .nd,.flow #fg-g.dim .ic{opacity:.4}
 @media (prefers-reduced-motion:reduce){.flow .fw-bl{animation:none}}
 .flow .fv{font-size:16px;font-weight:700;fill:var(--ink);font-variant-numeric:tabular-nums}
 .flow .fa{font-size:11px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
 .flow .fn{font-size:9.5px;font-weight:700;letter-spacing:.09em;fill:var(--muted);text-transform:uppercase}
-.flow .bus{fill:var(--ink)}
 .flow .fs{fill:var(--lith);font-size:11px;letter-spacing:.04em}
 .flow .fp{font-size:15px;font-weight:700;fill:var(--sun);font-variant-numeric:tabular-nums}
 [data-mecha] .flow .fv,[data-style="reattore"] .flow .fv,[data-style="plancia"] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
@@ -1561,7 +1561,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
       </div>
       <p class="state idle" id="state">In attesa dei dati</p>
       <div class="eta volt" id="volt" role="img"></div>
-      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 9 340 198" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
+      <div class="flow-box in-hero"><svg class="flow" id="flow" viewBox="0 9 340 274" role="img" aria-label="Energia adesso: flussi tra pannelli, batterie e casa"></svg></div>
       <div class="eta" id="eta"></div>
       </div>
       </section>
@@ -1928,7 +1928,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.29"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.30"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3354,22 +3354,28 @@ function drawFlow(k){
     const SUN = '<circle cx="12" cy="12" r="4.4"/><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/>';
     const HOME = '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.8 9.5V20h12.4V9.5"/><path d="M10 20v-5.5h4V20"/>';
     const BAT = '<rect x="6.5" y="4" width="11" height="17.5" rx="2"/><path d="M10 2.2h4"/><rect id="fb-lvl" x="8.6" y="6" width="6.8" height="13.5" rx=".8" style="stroke:none"/>';
+    /* a stella sulle batterie (2.30, richiesta dell'utente): pannelli e pala entrano nelle batterie, la casa ne esce (l'inverter prende dai morsetti
+       delle batterie: sono loro il nodo, non serve il punto in mezzo). Le linee vanno da centro a centro e si disegnano per prime, così passano
+       dietro i cerchi; quanto entra o esce dalle batterie lo dice la scritta sotto il loro cerchio */
+    const line = (id, d, color) => `<path class="tr" id="tr-${id}" d="${d}"/><path class="fl" id="ff-${id}" d="${d}" style="stroke:${color}"/>`;
     svg.innerHTML =
-      `<path class="tr" d="M80 50H162"/><path class="tr" d="M178 50H260"/><path class="tr" d="M170 58V95"/>` +
-      `<path class="fl" id="ff-pv" d="M80 50H162" style="stroke:var(--sun)"/><path class="fl" id="ff-home" d="M178 50H260" style="stroke:var(--out)"/><path class="fl" id="ff-bat" d="M170 58V95"/>` +
-      `<circle class="bus" cx="170" cy="50" r="5"/>` +
-      node("pv", 52, 50, "var(--sun)", SUN) + node("home", 288, 50, "var(--out)", HOME) + node("bat", 170, 122, "var(--lith)", BAT) +
+      line("pv", "M52 50 170 122", "var(--sun)") + line("home", "M170 122 288 183", "var(--out)") + line("grid", "M288 50 288 183", "var(--ink)") + line("wnd", "M52 183 170 122", "var(--wn-w)") +
+      node("pv", 52, 50, "var(--sun)", SUN) + node("home", 288, 183, "var(--out)", HOME) +
+      // Enel (2.30, idea condivisa con l'utente): sopra la casa, acceso quando la casa è su Enel (l'ATS); scritte a sinistra del cerchio. Quanto
+      // consuma la casa da Enel non si misura: la linea scorre e basta
+      `<g id="fg-g">${node("grid", 288, 50, "var(--ink)", '<path d="M9 2.5v4.5M15 2.5v4.5"/><path d="M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0z"/><path d="M12 16v5.5"/>')}` +
+      `<text class="fn" x="252" y="45" text-anchor="end">Enel</text><text class="fa" id="ft-grid" x="252" y="61" text-anchor="end"></text></g>` + node("bat", 170, 122, "var(--lith)", BAT) +
       `<text class="fn" x="52" y="96" text-anchor="middle">Pannelli</text><text class="fv" id="ft-pv" x="52" y="114" text-anchor="middle"></text><text class="fa" id="fa-pv" x="52" y="128" text-anchor="middle"></text>` +
-      `<text class="fn" x="288" y="96" text-anchor="middle">Casa</text><text class="fv" id="ft-home" x="288" y="114" text-anchor="middle"></text><text class="fa" id="fa-home" x="288" y="128" text-anchor="middle"></text>` +
+      `<text class="fn" x="288" y="229" text-anchor="middle">Casa</text><text class="fv" id="ft-home" x="288" y="247" text-anchor="middle"></text><text class="fa" id="fa-home" x="288" y="261" text-anchor="middle"></text>` +
       `<text class="fn" id="fn2-bat" x="170" y="168" text-anchor="middle">Batterie<tspan class="fs" id="fs-bat" dx="5"></tspan></text><text class="fv" id="ft-bat" x="170" y="186" text-anchor="middle"></text><text class="fa" id="fa-bat" x="170" y="200" text-anchor="middle"></text>` +   /* sotto il cerchio, come pannelli e casa */
       `<text class="fa" id="fk-pv" x="52" y="143" text-anchor="middle"></text>` +
-      // la pala (2.29, richiesta dell'utente): in basso a destra, dritta nelle batterie (entra lì, non passa dai regolatori). Pale in un gruppo con un
-      // cerchio invisibile attorno al mozzo, così il centro della rotazione è il mozzo
-      `<g id="fw-g" role="link" aria-label="Pala eolica: apri la pagina Vento"><path class="tr" d="M262.6 155.8 195.4 131.2"/><path class="fl" id="ff-wnd" d="M262.6 155.8 195.4 131.2" style="stroke:var(--wn-w)"/>` +
-      node("wnd", 288, 165, "var(--wn-w)", '<path d="M12 11v11M9 22h6"/><g class="fw-bl" style="fill:var(--wn-w);stroke-width:.8">' + [0, 120, 240].map(r => `<path transform="rotate(${r} 12 10)" d="M12 10C10.9 7.4 10.9 4.4 12 1.2 13.4 4.4 13.4 7.4 12 10Z"/>`).join("") +
+      // la pala (2.29, richiesta dell'utente): in basso a sinistra, sotto i pannelli (2.30). Pale in un gruppo con un cerchio invisibile attorno al mozzo, così il centro della
+      // rotazione è il mozzo
+      `<g id="fw-g" role="link" aria-label="Pala eolica: apri la pagina Vento">` +
+      node("wnd", 52, 183, "var(--wn-w)", '<path d="M12 11v11M9 22h6"/><g class="fw-bl" style="fill:var(--wn-w);stroke-width:.8">' + [0, 120, 240].map(r => `<path transform="rotate(${r} 12 10)" d="M12 10C10.9 7.4 10.9 4.4 12 1.2 13.4 4.4 13.4 7.4 12 10Z"/>`).join("") +
         '<circle cx="12" cy="10" r="8.8" style="fill:none;stroke:none"/></g><circle cx="12" cy="10" r="1.7" style="fill:var(--bg);stroke-width:1.4"/>') +
-      `<text class="fn" x="288" y="211" text-anchor="middle">Pala</text><text class="fv" id="ft-wnd" x="288" y="229" text-anchor="middle"></text><text class="fa" id="fa-wnd" x="288" y="243" text-anchor="middle"></text>` +
-      `<text class="fa" id="fk-wnd" x="288" y="258" text-anchor="middle"></text></g>`;
+      `<text class="fn" x="52" y="229" text-anchor="middle">Pala</text><text class="fv" id="ft-wnd" x="52" y="247" text-anchor="middle"></text><text class="fa" id="fa-wnd" x="52" y="261" text-anchor="middle"></text>` +
+      `<text class="fa" id="fk-wnd" x="52" y="276" text-anchor="middle"></text></g>`;
     $("fw-g").addEventListener("click", () => goPage(5));
   }
   const v = fin(k.v) && k.v > 40 ? k.v : NOMV, { pv, prod, bat, on: onBank, dc, ac, w: home } = houseLive(k);   // la casa: la stessa cifra del chip e della pagina Pannelli
@@ -3381,31 +3387,37 @@ function drawFlow(k){
     if (on) e.style.setProperty("--d", Math.max(.45, 2.6 - Math.log10(Math.abs(w) + 1) * .55).toFixed(2) + "s");
     if (color) e.style.stroke = color; };
   set("ft-pv", prod === null ? "–" : power(prod)); set("fa-pv", prod === null ? (Array.isArray(data.pv) ? "non rispondono" : "regolatori non letti") : amp(prod));
-  set("ft-home", !onBank ? "Enel" : home === null ? "–" : power(home)); set("fa-home", !onBank ? "" : home === null ? "senza i regolatori" : ac !== null ? "dalle batterie " + power(dc) : "dalle batterie");
+  set("ft-home", !onBank ? "su Enel" : home === null ? "–" : power(home));
+  set("ft-grid", onBank ? "di riserva" : SW.mask & 1 && invCutNow() ? "l'inverter ha staccato" : ""); $("fg-g").classList.toggle("dim", onBank);
+  flow("ff-grid", onBank ? null : 400, false);
+  // si vede solo la linea della strada che fa la casa adesso (richieste dell'utente): su Enel niente batterie → casa, sulle batterie niente Enel → casa
+  $("tr-home").style.display = onBank ? "" : "none"; $("tr-grid").style.display = onBank ? "none" : ""; set("fa-home", !onBank ? "" : home === null ? "senza i regolatori" : ac !== null ? "dalle batterie " + power(dc) : "dalle batterie");
   set("ft-bat", bat === null ? "–" : power(bat)); set("fa-bat", bat === null ? "" : amp(bat) + (Math.abs(bat) < 15 ? " · ferme" : bat > 0 ? " · in carica" : " · in scarica"));
   set("fs-bat", fin(k.soc) ? nf(k.soc, 0) + "%" : "");   // accanto a «Batterie», sotto il cerchio
   set("fk-pv", prod !== null && kwh > 0 ? `oggi ${nf(kwh, 1)} kWh` : "");
   flow("ff-pv", prod, false); flow("ff-home", home, false);
-  flow("ff-bat", bat, bat !== null && bat < 0, bat !== null && bat < 0 ? "var(--out)" : "var(--lith)");
   const lv = $("fb-lvl"), f = fin(k.soc) ? clamp(k.soc, 0, 100) / 100 : 0;
   lv.setAttribute("y", (6 + 13.5 * (1 - f)).toFixed(1)); lv.setAttribute("height", (13.5 * f).toFixed(1));
-  lv.style.fill = k.soc < S.alLow ? "var(--alert)" : "var(--lith)";
+  // batterie in carica = cerchio, icona e livello verdi (2.30, richiesta dell'utente); sotto la soglia bassa il livello resta rosso
+  const chg = bat !== null && bat >= 15, bc = chg ? "var(--good)" : "var(--lith)";
+  $("fn-bat").style.stroke = bc; $("fn-bat").nextElementSibling.style.stroke = bc;
+  lv.style.fill = k.soc < S.alLow ? "var(--alert)" : bc;
   // ---- la pala: c'è solo se è segnata accesa; la stima è quella di «adesso» nella pagina Vento (batterie − pannelli − perdite, casa su Enel),
   // sotto il picco istantaneo degli ultimi 5 minuti dalla scheda (firmware 0.65)
   const now = nowOf(data), wOn = wndOn(now), g = $("fw-g"); let wTxt = "";
-  g.style.display = wOn ? "" : "none"; svg.setAttribute("viewBox", wOn ? "0 9 340 256" : "0 9 340 198");
+  [g, $("tr-wnd"), $("ff-wnd")].forEach(e => { e.style.display = wOn ? "" : "none"; }); svg.setAttribute("viewBox", "0 9 340 274");   // la casa sta in basso a destra (2.30): l'altezza è sempre quella
   if (wOn) {
     const nw = wndNow(), w = nw.ok ? (nw.w >= WND_NOISE ? nw.w : 0) : null, H = nw.ok ? wndHours() : null;
     const pk = !H || !Array.isArray(data.m1) ? null : data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 300 && r[4] > 0 && fin(r[7]))
       .reduce((a, r) => Math.max(a, r[7] - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)), -Infinity);
     set("ft-wnd", w === null ? "–" : power(w)); set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w));
-    set("fk-wnd", fin(pk) && pk >= WND_NOISE ? `picco ${nf(pk / v, pk / v < 10 ? 1 : 0)} A` : "");
+    set("fk-wnd", fin(pk) && pk >= WND_NOISE && pk > (w || 0) * 1.15 ? `picco ${nf(pk / v, pk / v < 10 ? 1 : 0)} A` : "");
     flow("ff-wnd", w, false);
     const sp = w ? clamp(2400 / (w + 200), .35, 6) : 0;
     g.classList.toggle("still", !sp); g.classList.toggle("dim", w === null); g.style.setProperty("--sp", sp.toFixed(2) + "s");
     wTxt = `, pala ${w === null ? "non stimabile" : power(w)}`;
   }
-  svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}${wTxt}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${!onBank ? "su Enel" : home === null ? "non nota" : power(home)}`);
+  svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}${wTxt}${onBank ? "" : ", casa su Enel"}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${!onBank ? "su Enel" : home === null ? "non nota" : power(home)}`);
 }
 $("q-chip") && $("q-chip").addEventListener("click", () => { goPage(2); setTimeout(() => $("quadro-sec").scrollIntoView({ behavior: "smooth", block: "start" }), 350); });
 let cfgAuto = true;                                   // il salvataggio in attesa è solo automatico: nessun pop-up
