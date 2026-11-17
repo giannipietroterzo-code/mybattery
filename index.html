@@ -1794,7 +1794,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.21"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.22"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5656,31 +5656,41 @@ function windAt(t){
   const i = Math.abs(wx.ht[hi] - t) < Math.abs(wx.ht[lo] - t) ? hi : lo; if (Math.abs(wx.ht[i] - t) > 2 * HOUR) return null;
   return { ms: wx.wind[i], gust: wx.gust ? wx.gust[i] : null, dir: wx.wdir ? wx.wdir[i] : null };
 }
-// le ore del registro con la casa su Enel: la pala stimata, ora per ora (almeno 3 quarti d'ora su 4). Anche le ore non stimabili, per il grafico
+// le ore del registro con la casa su Enel: la pala stimata, ora per ora (almeno 3 quarti d'ora su 4). Anche le ore non stimabili, per il grafico.
+/* 2.22: niente più lo «zero» della scheda. Quello che le batterie perdono a pala ferma dipende dall'inverter: in STOP quasi niente (al buio 0 W, col sole
+   ~90 W), acceso a vuoto molto di più (al buio ~60 W, col sole ~260 W). Prima si toglieva sempre quello dell'inverter acceso, e il 17/11 mattina, con
+   l'inverter in STOP e la pala ferma, la pagina segnava 100–200 W. Ora: perdita = (entrati − usciti) − pannelli, imparata dalle ore a pala spenta
+   separatamente per inverter acceso e fermo (al buio la mediana, col sole a + b × pannelli). Inverter acceso: dal firmware 0.61 il bit 8 del registro
+   (lo Shelly ha risposto); prima, al buio, perdita oltre 25 W = acceso, e di giorno vale lo stato dell'ultima ora buia. */
 let wndC = null;
 function wndHours(){
-  const key = STRESS.length + ":" + (STRESS.length ? STRESS[STRESS.length - 1][0] : 0) + ":" + (data && data.house ? data.house.zn + "/" + data.house.zd : "") + ":" + JSON.stringify(S.wnd) + ":" + (wx ? wx.at : 0);
+  const key = STRESS.length + ":" + (STRESS.length ? STRESS[STRESS.length - 1][0] : 0) + ":" + JSON.stringify(S.wnd) + ":" + (wx ? wx.at : 0);
   if (wndC && wndC.key === key) return wndC.v;
-  const by = new Map();
-  STRESS.forEach(r => { const h = Math.floor(r[0] / HOUR) * HOUR; let o = by.get(h); if (!o) by.set(h, o = { t: h, wh: 0, n: 0, bank: 0 });
+  const by = new Map(), bitFrom = (STRESS.find(r => r[10] & 8) || [Infinity])[0];
+  STRESS.forEach(r => { const h = Math.floor(r[0] / HOUR) * HOUR; let o = by.get(h); if (!o) by.set(h, o = { t: h, r: 0, pv: 0, n: 0, bank: 0, inv: 0, bit: r[0] >= bitFrom });
+    if (r[10] & 8) o.inv++;
     if (r[8]) { o.bank++; return; }
     if (r[13] === 65535 || !fin(r[11])) return;
-    const pv = r[13] * 4, w = (r[11] - r[12]) * 4 - pv + wndZero(pv);
-    o.wh += w / 4; o.pv = (o.pv || 0) + pv; o.n++; });
-  const raw = [...by.values()].sort((a, b) => a.t - b.t).map(o => ({ t: o.t, r: o.n >= 3 && !o.bank ? o.wh / o.n * 4 : null, pv: o.n ? o.pv / o.n : 0, bank: o.bank > 1 }));
-  /* taratura (2.18). Quello che resta quando la pala non dà niente è l'errore dello zero (fino al 17/11 la pala era spenta, e la stima dava lo stesso
-     60–260 W di giorno). Prima scelta: le ore con la pala SPENTA (wndOn), al buio la mediana, col sole una retta a + b × pannelli (almeno 8 ore);
-     se non bastano, le ore di calma (vento sotto 1,5 m/s) con la pala accesa, mediana per buio e sole (almeno 4 ore) */
-  const offH = raw.filter(h => h.r !== null && !wndOn(h.t) && !wndOn(h.t + HOUR - 1));
-  const calmH = raw.filter(h => h.r !== null && wndOn(h.t) && (v => v && fin(v.ms) && v.ms < 1.5)(windAt(h.t + HOUR / 2)));
-  const src = offH.filter(h => h.pv <= 30).length >= 4 || offH.filter(h => h.pv > 30).length >= 8 ? offH : calmH, by0 = src === offH ? "spenta" : "calma";
-  const night = src.filter(h => h.pv <= 30).map(h => h.r), day = src.filter(h => h.pv > 30);
-  const offN = night.length >= 4 ? quant(night, .5) : 0;
-  let a = 0, b = 0; if (day.length >= (src === offH ? 8 : 4)) { const n = day.length, mx = day.reduce((q, h) => q + h.pv, 0) / n, my = day.reduce((q, h) => q + h.r, 0) / n, sxx = day.reduce((q, h) => q + (h.pv - mx) ** 2, 0);
-    b = src === offH && sxx > 0 && n >= 12 ? clamp(day.reduce((q, h) => q + (h.pv - mx) * (h.r - my), 0) / sxx, -.2, .2) : 0; a = src === offH && b ? my - b * mx : quant(day.map(h => h.r), .5); }
-  const offAt = pv => pv > 30 ? a + b * pv : offN;
-  const v = raw.map(h => ({ t: h.t, w: h.r === null ? null : wndOn(h.t + HOUR / 2) ? Math.max(0, h.r - offAt(h.pv)) : 0, off: !wndOn(h.t + HOUR / 2), bank: h.bank }));
-  v.off = { n: offN, a, b, by: by0, nN: night.length, nD: day.length, at: offAt };
+    o.r += (r[11] - r[12]) * 4 - r[13] * 4; o.pv += r[13] * 4; o.n++; });
+  let lastOn = 1;
+  const raw = [...by.values()].sort((x, y) => x.t - y.t).map(o => {
+    const r = o.n >= 3 && !o.bank ? o.r / o.n : null, pv = o.n ? o.pv / o.n : 0;
+    let on; if (o.bit) on = o.inv > 0 ? 1 : 0; else if (r !== null && pv <= 30) on = lastOn = r < -25 ? 1 : 0; else on = lastOn;
+    return { t: o.t, r, pv, on, bank: o.bank > 1 }; });
+  // le perdite a pala ferma, per stato dell'inverter: prima le ore a pala spenta, se no quelle calme (vento sotto 1,5 m/s)
+  const fit = (hs, need) => { const night = hs.filter(h => h.pv <= 30).map(h => h.r), day = hs.filter(h => h.pv > 30);
+    const n0 = night.length >= 3 ? quant(night, .5) : null; let a = null, b = 0;
+    if (day.length >= need) { const n = day.length, mx = day.reduce((q, h) => q + h.pv, 0) / n, my = day.reduce((q, h) => q + h.r, 0) / n, sxx = day.reduce((q, h) => q + (h.pv - mx) ** 2, 0);
+      b = n >= 12 && sxx > 0 ? clamp(day.reduce((q, h) => q + (h.pv - mx) * (h.r - my), 0) / sxx, -.25, .05) : 0; a = b ? my - b * mx : quant(day.map(h => h.r), .5); }
+    return { n0, a, b, nN: night.length, nD: day.length }; };
+  const calm = h => (v => v && fin(v.ms) && v.ms < 1.5)(windAt(h.t + HOUR / 2));
+  const base = [0, 1].map(st => { const hs = raw.filter(h => h.r !== null && h.on === st);
+    const off = fit(hs.filter(h => !wndOn(h.t) && !wndOn(h.t + HOUR - 1)), 8), cm = fit(hs.filter(h => wndOn(h.t) && calm(h)), 4);
+    return { n0: off.n0 ?? cm.n0, a: off.a ?? cm.a, b: off.a !== null ? off.b : cm.b, nN: off.n0 !== null ? off.nN : cm.nN, nD: off.a !== null ? off.nD : cm.nD, by: off.n0 !== null || off.a !== null ? "spenta" : "calma" }; });
+  // senza dati per uno stato: le perdite dell'altro stato (meglio di niente) o, al limite, lo zero della scheda
+  const lossAt = (st, pv) => { const B = base[st], O = base[1 - st]; if (pv > 30) return B.a ?? O.a ?? -wndZero(pv); return B.n0 ?? O.n0 ?? -wndZero(0); };
+  const v = raw.map(h => ({ t: h.t, w: h.r === null ? null : wndOn(h.t + HOUR / 2) ? Math.max(0, h.r - lossAt(h.on, h.pv) - (h.pv > 30 ? base[h.on].b * h.pv : 0)) : 0, off: !wndOn(h.t + HOUR / 2), bank: h.bank, on: h.on }));
+  v.base = base; v.loss = (st, pv) => lossAt(st, pv) + (pv > 30 ? base[st].b * pv : 0);
   wndC = { key, v }; return v;
 }
 // la curva: per ogni m/s la mediana dei watt stimati (almeno 3 ore), mai in discesa
@@ -5700,8 +5710,9 @@ function wndNow(){
   const k = bank(data.batteries), pv = (data.pv || []).reduce((a, g) => a + (g.online !== false && fin(g.out_w) ? g.out_w : 0), 0);
   if (!k.on || !fin(k.p)) return { ok: false, why: "dati" };
   if (!wndOn(nowOf(data))) return { ok: false, why: "spenta" };
-  const off = wndHours().off, w = k.p - pv + wndZero(pv) - (off ? off.at(pv) : 0);
-  return { ok: true, w: Math.max(0, w), raw: w, pv, v: k.v };
+  // inverter acceso adesso = lo Shelly risponde (con la casa su Enel e l'inverter in STOP non risponde)
+  const st = data.cb && data.cb.ok !== false ? 1 : 0, H = wndHours(), w = k.p - pv - H.loss(st, pv);
+  return { ok: true, w: Math.max(0, w), raw: w, pv, v: k.v, st };
 }
 // la pala era accesa all'ora t? (S.wnd: periodi [da, a|null])
 const wndOn = t => (Array.isArray(S.wnd) ? S.wnd : []).some(([a, b]) => t >= a && (b === null || t < b));
@@ -5801,8 +5812,8 @@ function drawWind(){
     (gmaxF >= 20 ? ` <b>Raffiche forti:</b> il manuale Tesup dice di frenare la pala sopra i 27 m/s.` : "");
   // ---- come si calcola
   $("wnd-info").innerHTML = `<ul><li>Il regolatore Tesup <b>non comunica</b>: la scheda non legge la pala. La sua corrente però entra nelle batterie, che la scheda legge.</li>` +
-    `<li>Con la casa su Enel: <b>pala ≈ batterie − pannelli + zero dell'impianto</b> (adesso ${power(wndZero(0))} al buio, ${power(wndZero(1000))} con 1 kW di sole). Con la casa sulle batterie la pala e i consumi della casa finiscono nello stesso numero e non si separano.</li>` +
-    (hours.off && (hours.off.nN >= 4 || hours.off.nD >= 4) ? `<li>Tarata sulle ore ${hours.off.by === "spenta" ? "con la <b>pala spenta</b>" : "di calma (vento sotto 1,5 m/s)"}: quello che restava era errore dello zero, non vento. Tolti ${power(hours.off.n)} al buio (${hours.off.nN} ore) e col sole ${power(hours.off.at(1000))} con 1 kW di pannelli (${hours.off.nD} ore).</li>` : `<li>La taratura parte con almeno 4 ore al buio e 8 col sole a pala spenta (o 4 e 4 di calma).</li>`) +
+    `<li>Con la casa su Enel: <b>pala ≈ batterie − pannelli + perdite a pala ferma</b>. Con la casa sulle batterie la pala e i consumi della casa finiscono nello stesso numero e non si separano.</li>` +
+    ((B => `<li>Perdite a pala ferma, imparate dalle ore ${B[0].by === "spenta" || B[1].by === "spenta" ? "con la <b>pala spenta</b>" : "di calma"}: inverter <b>in STOP</b> ${fin(B[0].n0) ? power(-B[0].n0) : "–"} al buio, ${fin(B[0].a) ? power(-(B[0].a + B[0].b * 1000)) : "–"} con 1 kW di pannelli; inverter <b>acceso</b> ${fin(B[1].n0) ? power(-B[1].n0) : "–"} al buio, ${fin(B[1].a) ? power(-(B[1].a + B[1].b * 1000)) : "–"} con 1 kW. Adesso l'inverter è ${data && data.cb && data.cb.ok !== false ? "acceso" : "fermo"}.</li>`)(hours.base)) +
     `<li>Precisione: ±50–100 W. I BMS non vedono circa 1 A per batteria, e batterie e regolatori sono letti in istanti diversi. Sotto ${WND_NOISE} W la stima conta zero.</li>` +
     `<li>Il vento è quello di Open-Meteo a 10 m dal suolo, non quello sulla pala: la curva lo tiene in conto da sola.</li>` +
     `<li>Per misurarla davvero serve un misuratore DC sul cavo tra il regolatore Tesup e le batterie.</li>` +
