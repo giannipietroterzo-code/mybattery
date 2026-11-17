@@ -1413,6 +1413,69 @@ footer{border-top:0;padding-top:0}
   .cell{transition:none}
   dialog[open]{animation:none}
 }
+/* ---------- modalità Monitor (2.23): il telefono fa da display nella stanza della scheda. Solo su questo telefono (localStorage),
+   una schermata sola che si adatta in verticale e in orizzontale; schermo sempre acceso, a tutto schermo dove si può ---------- */
+.hero-card{position:relative}
+.mon-btn{position:absolute;top:18px;right:12px;z-index:3;width:34px;height:34px;display:grid;place-items:center;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--muted);cursor:pointer}
+.mon-btn:hover,.mon-btn:focus-visible{color:var(--lith);border-color:color-mix(in srgb,var(--lith) 55%,transparent)}
+:is(.mon-btn,.mon-x) svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+html.mon-open,html.mon-open body{overflow:hidden}
+.mon{position:fixed;inset:0;z-index:60;display:grid;grid-template:auto minmax(0,1fr) auto auto/1fr;gap:min(2.2vh,16px);padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:radial-gradient(80% 50% at 50% 38%,color-mix(in srgb,var(--lith) 7%,transparent),transparent 70%),var(--bg);color:var(--ink);overflow:hidden}
+.mon[hidden]{display:none}
+.mon-top{display:flex;align-items:center;gap:10px;min-width:0}
+.mon-badge{display:inline-flex;align-items:center;gap:.5em;padding:.42em .8em .42em .7em;border:2px solid var(--line);border-radius:999px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;font-size:clamp(1.05rem,min(5.6vw,4.6vh),1.7rem);line-height:1;letter-spacing:.12em;transition:color .4s,background .4s,border-color .4s}
+.mon-badge b{font-weight:800}
+.mon-badge::after{content:"";width:.42em;height:.42em;margin-left:.1em;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(-45deg);opacity:.55}
+.mon-badge:active{transform:scale(.97)}
+.mon-back{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));z-index:40;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:11px 18px 11px 14px;border:1px solid color-mix(in srgb,var(--lith) 60%,transparent);border-radius:999px;background:color-mix(in srgb,var(--lith) 16%,var(--surface));color:var(--ink);font:600 .92rem inherit;box-shadow:0 8px 24px -8px rgba(0,0,0,.6);cursor:pointer;overflow:hidden;white-space:nowrap}
+.mon-back[hidden]{display:none}
+.mon-back svg{width:18px;height:18px;fill:none;stroke:var(--lith);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mon-back i{position:absolute;left:0;bottom:0;height:3px;width:calc(var(--left,1) * 100%);background:var(--lith);transition:width 1s linear}
+.mon-badge svg{width:1.25em;height:1.25em;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.mon-badge.s{color:var(--sun);background:var(--sun-tint);border-color:color-mix(in srgb,var(--sun) 65%,transparent);box-shadow:0 0 22px -6px var(--sun)}
+.mon-badge.e{color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,var(--surface))}
+.mon-badge.cut{color:var(--alert);background:var(--alert-tint);border-color:color-mix(in srgb,var(--alert) 60%,transparent)}
+.mon-clk{margin-left:auto;font:600 clamp(1rem,min(5vw,4vh),1.5rem) var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mon-clk.old{color:var(--alert)}
+.mon-x{flex:none;width:40px;height:40px;display:grid;place-items:center;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer}
+.mon-g{min-height:0;display:grid;place-items:center}
+.mon-g svg{width:100%;height:100%;overflow:visible}
+.mon-g .tr{stroke:color-mix(in srgb,var(--ink) 10%,var(--surface))}
+.mon-g .fl{stroke:var(--lith);transition:stroke-dasharray 1s ease,stroke .4s;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--lith) 55%,transparent))}
+.mon-g.low .fl{stroke:var(--alert);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--alert) 55%,transparent))}
+.mon-g .pc{fill:var(--ink);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.mon-g .pc tspan{fill:var(--muted);font-weight:500}
+.mon-g .sb{fill:var(--muted);font-size:13px;font-weight:600;letter-spacing:.04em}
+.mon-g .sb.chg{fill:var(--lith)}
+.mon>*{width:100%;max-width:460px;justify-self:center;box-sizing:border-box}
+.mon>*{transform:translate(var(--mx,0),var(--my,0));transition:transform 2s ease}
+.mon .volt{margin:0;max-width:460px;padding:min(1.6vh,12px) 18px;justify-content:center}
+.mon .volt .eta-txt{flex:1;min-width:0}
+.mon .volt .volt-h b{font-size:clamp(3rem,min(18vw,11vh),7rem);letter-spacing:-.02em}
+.mon .volt-bar{height:9px}
+.mon .volt-bar em{width:16px;height:16px;margin:-8px 0 0 -8px}
+.mon .volt-sc{font-size:.72rem;height:14px}
+.mon-cut{display:grid;justify-items:center;gap:2px;padding:min(1.6vh,12px) 16px min(1.8vh,14px);border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:center}
+.mon-cut .l{font-size:clamp(.78rem,min(3.6vw,2.6vh),1rem);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mon-cut .t{font:700 clamp(2.4rem,min(14vw,8.5vh),5.5rem)/1.05 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.mon-cut .t.w{font-family:inherit;font-size:clamp(1.8rem,min(9vw,6vh),3.6rem)}
+.mon-cut .s{font-size:clamp(.85rem,min(4vw,2.8vh),1.15rem);color:var(--muted)}
+.mon-cut.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent)}.mon-cut.warn .t{color:var(--warn)}
+.mon-cut.bad{border-color:color-mix(in srgb,var(--alert) 60%,transparent);background:color-mix(in srgb,var(--alert) 8%,var(--surface))}.mon-cut.bad .t{color:var(--alert)}
+@media (orientation:landscape){
+  .mon{grid-template:auto minmax(0,1fr) minmax(0,1fr)/minmax(0,1fr) minmax(0,1.15fr)}
+  .mon-top{grid-column:1/-1;max-width:none}
+  .mon>*{max-width:none}
+  .mon-g{grid-row:2/4}
+  .mon .volt,.mon-cut{align-self:center}
+  .mon .volt .volt-h b{font-size:clamp(2.6rem,min(9vw,16vh),7rem)}
+  .mon-cut .t{font-size:clamp(2.2rem,min(7.5vw,13vh),5.5rem)}
+}
+:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.mon-badge,.mon-cut,.mon-x,.mon-btn,.mon-back){border-radius:0}
+[data-style="mecha"] .mon-cut{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+[data-style="mecha"] .mon-badge{clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);border-width:0;padding-inline:1.3em}
+[data-style="terminale"] :is(.mon-badge,.mon-cut .t,.mon-g .pc){font-family:var(--mono)}
+@media (prefers-reduced-motion: reduce){.mon>*,.mon-g .fl{transition:none}}
 </style>
 </head>
 <body>
@@ -1431,6 +1494,7 @@ footer{border-top:0;padding-top:0}
     <div class="page" id="pg-0" role="tabpanel" aria-labelledby="tab-0">
       <section class="hero">
       <div class="hero-card">
+      <button class="mon-btn" id="mon-on" type="button" aria-label="Modalità Monitor" title="Modalità Monitor: questo telefono fa da display"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg></button>
       <div class="gauge" id="gauge">
         <svg viewBox="0 0 240 240" aria-hidden="true">
           <g class="g-ticks"><line x1="42.2" y1="197.8" x2="37.3" y2="202.7"/><line x1="120" y1="10" x2="120" y2="3"/><line x1="197.8" y1="197.8" x2="202.7" y2="202.7"/></g>
@@ -1599,6 +1663,19 @@ footer{border-top:0;padding-top:0}
     <button class="tab" id="tab-5" type="button" role="tab" aria-controls="pg-5" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="1.6"/><path d="M12 7.4V2.8c2.4.6 2.9 3.2 0 4.6M13.4 9.8l4 2.3c-1.8 1.7-4.3.8-4-2.3M10.6 9.8l-4 2.3c.5-2.4 3-3.3 4-2.3"/><path d="M12 10.6V21M9 21h6"/></svg></span>Vento</button>
   </nav>
 </main>
+<button class="mon-back" id="mon-back" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg><span>Torna al Monitor</span><i id="mon-back-t"></i></button>
+<div class="mon" id="mon" role="dialog" aria-label="Monitor delle batterie" hidden>
+  <div class="mon-top"><button class="mon-badge" id="mon-badge" type="button"></button><span class="mon-clk" id="mon-clk"></span>
+    <button class="mon-x" id="mon-x" type="button" aria-label="Esci dal monitor" title="Esci dal monitor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="mon-g" id="mon-g"><svg viewBox="0 6 240 200" role="img" id="mon-gs">
+    <circle class="tr" cx="120" cy="120" r="96" fill="none" stroke-width="18" stroke-dasharray="452.4 603.2" transform="rotate(135 120 120)"/>
+    <circle class="fl" id="mon-gf" cx="120" cy="120" r="96" fill="none" stroke-width="18" stroke-dasharray="0 603.2" transform="rotate(135 120 120)"/>
+    <text class="pc" id="mon-pc" x="120" y="138" text-anchor="middle" font-size="66"></text>
+    <text class="sb" id="mon-sb" x="120" y="174" text-anchor="middle"></text>
+  </svg></div>
+  <div class="eta volt" id="mon-v" role="img"></div>
+  <div class="mon-cut" id="mon-cut"></div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <dialog id="sheet" aria-labelledby="s-title">
@@ -1794,7 +1871,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.22"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.23"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3694,10 +3771,94 @@ function offline(){
 /* ---------- calcoli sulle batterie ---------- */
 // la cella più calda di una batteria (o l'elettronica, se il BMS non manda le celle)
 function tHot(b){ const t = (b.t_cells || []).filter(fin); return t.length ? Math.max(...t) : fin(b.t_mos) ? b.t_mos : NaN; }
+/* ---------- modalità Monitor (2.23): il telefono fa da display nella stanza della scheda, al posto degli MT50. Vale solo per questo
+   telefono (localStorage): riaprendo la app ci torna da sola. Quattro cose: casa su solare o su Enel, carica, tensione, a che ora la scheda
+   stacca il solare (anche con la casa su Enel: a che ora staccherebbe rimettendola sulle batterie). Schermo sempre acceso (Wake Lock), a tutto
+   schermo dove il browser lo permette; ogni 2 minuti la schermata si sposta di qualche pixel, per non stampare l'immagine sugli schermi OLED */
+const MON_KEY = "mybattery.monitor", MON_AWAY = 120;   // dal badge: torna da solo al Monitor dopo 2 minuti senza tocchi
+let monOn = false, monTick = 0, monAway = 0, monIdle = 0;
+function monSet(on, user){
+  monOn = !!on; monAwaySet(false); lsSet(MON_KEY, monOn ? 1 : null);
+  const m = $("mon"), de = document.documentElement; m.hidden = !monOn; de.classList.toggle("mon-open", monOn);
+  clearInterval(monTick); monTick = 0;
+  if (monOn) {
+    if (user && de.requestFullscreen && !document.fullscreenElement) de.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    keepAwake(); monTick = setInterval(monClock, 15e3); monClock(); if (data) render(mode); $("mon-x").focus({ preventScroll: true });
+  } else {
+    m.style.removeProperty("--mx"); m.style.removeProperty("--my");
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    if (!cable && wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    $("mon-on").focus({ preventScroll: true });
+  }
+}
+/* il badge porta al riquadro «Casa: batterie o Enel» (pagina Pannelli), dove c'è il comando dello Shelly. Il Monitor resta la scelta del
+   telefono: la pillola «Torna al Monitor» lo riapre, e dopo 2 minuti senza tocchi ci torna da solo (non mentre un comando è armato o in corso) */
+function monAwaySet(on){
+  clearInterval(monAway); monAway = 0; $("mon-back").hidden = !on;
+  if (!on) return;
+  monIdle = Date.now();
+  monAway = setInterval(() => {
+    if (cbArmAt || (cbSent && cbSent.st === "send")) monIdle = Date.now();
+    const left = 1 - (Date.now() - monIdle) / (MON_AWAY * 1e3);
+    $("mon-back").style.setProperty("--left", Math.max(0, left).toFixed(3));
+    if (left <= 0) monSet(true);
+  }, 1000);
+}
+function monToHouse(){
+  $("mon").hidden = true; document.documentElement.classList.remove("mon-open"); clearInterval(monTick); monTick = 0; monOn = false;
+  monAwaySet(true); goPage(2, false);
+  setTimeout(() => $("quadro-sec").scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+}
+// l'ora: quella di adesso se i dati sono freschi, se no quella dei dati (in rosso)
+function monClock(){
+  if (!monOn) return;
+  const c = $("mon-clk"), age = data ? Date.now() / 1000 - nowOf(data) : Infinity, old = !data || mode === "stale" || mode === "demo" || age > (mode === "remote" ? 900 : 120);
+  c.textContent = mode === "demo" ? "DEMO · " + hm(Date.now() / 1000) : old && data ? "dati " + (dkey(nowOf(data)) === dkey(Date.now() / 1000) ? "" : dayWord(nowOf(data)).slice(0, 3) + " ") + hm(nowOf(data)) : hm(Date.now() / 1000);
+  c.classList.toggle("old", old && mode !== "demo");
+  const t = Math.floor(Date.now() / 120e3);   // anti stampaggio: un passo ogni 2 minuti su un giro di 8 posizioni
+  const ms = $("mon").style; ms.setProperty("--mx", [0, 3, 3, 0, -3, -3, 0, 2][t % 8] + "px"); ms.setProperty("--my", [0, 0, 3, 3, 0, -3, -3, 2][t % 8] + "px");
+}
+// a che ora stacca: la stessa risposta di «Batterie su solare» (solarPlan), ridotta all'orario. Il numero grande è sempre l'ora in cui la scheda
+// (o l'inverter) staccherebbe con la casa sulle batterie, anche con la casa su Enel; se è già successo lo dice la riga sotto
+function monCut(k, f){
+  const now = nowOf(data), ao = data.ao, lim = aoLimit(), when = t => dayWord(t) === "oggi" ? "" : dayWord(t) + " ", at = t => (dayWord(t) === "oggi" ? "" : dayWord(t).slice(0, 3) + " ") + hm(t);
+  if (!k.on) return { l: "Stacco del solare", t: "–", s: "nessuna batteria risponde" };
+  if (lim && ao && ao.st === 2 && data.cb && data.cb.ok !== false && houseNow() === 1) return { c: "bad", l: "La scheda sta per staccare il solare", t: "adesso", w: 1, s: "una soglia è superata" };
+  const ic = invCutNow() ? (data.open.find(r => r[0] === "INV_CUT") || [])[3] : null;
+  const past = invCutNow() ? `inverter staccato${fin(ic) ? " " + at(ic) : ""}` : lim && ao && ao.st === 3 ? `staccato${fin(ao.at) ? " " + at(ao.at) : ""}` : "";
+  const P = solarPlan(k, f);
+  if (!P || (P.a.unknown && !P.ev)) return { c: past ? "warn" : "", l: "Stacco del solare", t: "–", s: past || (P ? "serve il consumo della casa sulle batterie" : "serve la previsione") };
+  if (fin(P.first)) {
+    const t = Math.max(P.first, now + 300), h = (t - now) / HOUR;
+    return { c: past ? "warn" : h < 3 ? "warn" : "", l: P.on ? (P.byAo ? "La scheda stacca il solare alle" : "L'inverter stacca alle") : (P.byAo ? "Su solare la scheda stacca alle" : "Su solare l'inverter stacca alle"),
+      t: hm(q15(t)), s: (past ? past + " · " : when(t)) + "tra " + dur(Math.max(.25, h)) };
+  }
+  return { c: past ? "warn" : "", l: P.on ? "Stacco del solare" : "Su solare stacco", t: "nessuno", w: 1,
+    s: past || (fin(P.sunAt) ? `le batterie arrivano al sole (${when(P.sunAt)}${hm(q15(P.sunAt))})` : "nelle prossime 48 ore") };
+}
+function drawMon(k, f){
+  if (!monOn || !data) return;
+  const on = houseNow() === 1, cut = invCutNow(), b = $("mon-badge"), want = cut ? "cut" : on ? "s" : "e";
+  if (b.dataset.v !== want) { b.dataset.v = want; b.className = "mon-badge " + want; b.innerHTML = (on ? Q_SUN : Q_PLUG) + `<b>${on ? "SOLARE" : "ENEL"}</b>`; }
+  b.title = (cut ? "L'inverter ha staccato: la casa è su Enel" : on ? "La casa è sulle batterie" : "La casa è su Enel") + ". Tocca per il comando dell'inverter";
+  b.setAttribute("aria-label", b.title);
+  const ok = k.on && fin(k.soc), soc = ok ? clamp(k.soc, 0, 100) : 0, lim = data.limits || {}, lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
+  $("mon-gf").style.strokeDasharray = `${(452.4 * soc / 100).toFixed(1)} 603.2`;
+  $("mon-g").classList.toggle("low", ok && k.soc < lowG);
+  $("mon-pc").innerHTML = ok ? `${Math.round(k.soc)}<tspan font-size="30" dx="2">%</tspan>` : "–";
+  const sb = $("mon-sb"), chg = k.on && k.i > .5, dsg = k.on && k.i < -.5;
+  sb.textContent = !k.on ? "" : chg ? `▲ IN CARICA · ${power(k.p)}` : dsg ? `▼ IN SCARICA · ${power(k.p)}` : "A RIPOSO";
+  sb.setAttribute("class", "sb" + (chg ? " chg" : ""));
+  $("mon-gs").setAttribute("aria-label", ok ? `Carica ${Math.round(k.soc)} per cento` : "Carica non disponibile");
+  drawVolt(k, $("mon-v"));
+  const c = monCut(k, f), box = $("mon-cut"), h = `<span class="l">${c.l}</span><span class="t${c.w ? " w" : ""}">${c.t}</span><span class="s">${c.s}</span>`;
+  box.className = "mon-cut" + (c.c ? " " + c.c : "");
+  if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
+  monClock();
+}
 // tensione del banco (le batterie sono in parallelo: è la stessa per tutte, faccio la media) su una scala da vuoto a pieno
 const V_LO = 44.8, V_HI = 58.4, V_WARN = 48, V_BOOST = 56; // 2,80 · 3,65 · 3,00 · 3,50 V a cella
-function drawVolt(k){
-  const el = $("volt");
+function drawVolt(k, el = $("volt")){
   if (!k.on || !fin(k.v) || k.v < 30) { el.innerHTML = ""; el.removeAttribute("aria-label"); return; }
   const v = k.v, x = u => (clamp((u - V_LO) / (V_HI - V_LO), 0, 1) * 100).toFixed(1) + "%";
   el.classList.toggle("low", v < V_WARN);
@@ -3872,6 +4033,7 @@ function render(m){
   drawLearn();
   drawFlow(k);
   drawSolar(k, f);
+  drawMon(k, f);
   try { drawWind(); } catch (e) { console.error(e); }
   drawWeather(k);
   drawFw();
@@ -6356,7 +6518,7 @@ async function cabOpen(kind, dev){
     }
     lsSet(UACC_KEY, c.acc || null);
   }
-  cabWake(); fillCab();
+  keepAwake(); fillCab();
   toast(kind === "sim" ? "Cavo simulato: dati di prova, il registro non si tocca" : `Cavo collegato: ${c.link.chip}`);
   cabLoop(c);
 }
@@ -6367,7 +6529,7 @@ async function cabClose(keep){
   if (c.real) { lsSet(UHIST_KEY, c.hist); cabKeepLast(c); }
   if (!keep) lsSet(CAB_KEY, null);
   try { await c.link.close(); } catch (e) {}
-  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  if (wakeLock && !monOn && !monAway) { wakeLock.release().catch(() => {}); wakeLock = null; }
   if (!keep) { lastOk = 0; schedule(); poll(); fillCab(); }
 }
 function cabLost(c, why){
@@ -6383,12 +6545,12 @@ async function cabAuto(){
     else if (kind === "usb" && navigator.usb) { const [d] = await navigator.usb.getDevices(); if (d) await cabOpen("usb", d); }
   } catch (e) {}
 }
-// col cavo la app è la scheda: lo schermo resta acceso, se no il telefono la addormenta e il registro si ferma
-async function cabWake(){
-  if (!cable || document.hidden || wakeLock || !navigator.wakeLock) return;
+// col cavo la app è la scheda: lo schermo resta acceso, se no il telefono la addormenta e il registro si ferma. Anche in modalità Monitor
+async function keepAwake(){
+  if ((!cable && !monOn && !monAway) || document.hidden || wakeLock || !navigator.wakeLock) return;
   try { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } catch (e) {}
 }
-document.addEventListener("visibilitychange", cabWake);
+document.addEventListener("visibilitychange", keepAwake);
 if (CAB_OK) {
   if (navigator.serial) navigator.serial.addEventListener("connect", cabAuto);
   if (navigator.usb) {
@@ -6776,6 +6938,14 @@ $("set-csv").addEventListener("click", () => {
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 });
 
+$("mon-on").addEventListener("click", () => monSet(true, true));
+$("mon-x").addEventListener("click", () => monSet(false));
+$("mon-badge").addEventListener("click", monToHouse);
+$("mon-back").addEventListener("click", () => monSet(true, true));
+["pointerdown", "keydown", "scroll"].forEach(ev => document.addEventListener(ev, () => { if (monAway) monIdle = Date.now(); }, { capture: true, passive: true }));
+document.addEventListener("keydown", e => { if (monOn && e.key === "Escape") monSet(false); });
+document.addEventListener("visibilitychange", () => { if (monOn && !document.hidden) monClock(); });
+if (lsGet(MON_KEY)) monSet(true);
 $("open-set").addEventListener("click", () => {
   fillSettings(); fillLoc(); fillCab(); bkShow();
   $("set-csv").disabled = !LOG.length;
