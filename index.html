@@ -1309,6 +1309,9 @@ footer{border-top:0;padding-top:0}
 .wnd-day .bar i{position:absolute;left:0;right:0;bottom:0;background:var(--wn-w)}
 .wnd-day .bar em{position:absolute;left:0;right:0;top:0;background:repeating-linear-gradient(-45deg,var(--line) 0 2px,transparent 2px 5px)}
 .wnd-day b{font:700 .82rem var(--num,inherit);color:var(--ink)}
+.wnd-sw{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:.84rem;color:var(--muted)}
+.wnd-sw b{color:var(--ink)}.wnd-sw .set-btn{flex:none;padding:6px 12px;font-size:.8rem}
+.wnd-day.off b{color:var(--muted);font-weight:500}
 .wnd-info ul{margin:0;padding:0 0 0 16px;display:grid;gap:5px}.wnd-info b{color:var(--ink);font-weight:600}
 :is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.wnd-g div,.wnd-day .bar){border-radius:0}
 [data-mecha] .wnd-g div{clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)}
@@ -1787,7 +1790,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.17"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.18"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2251,7 +2254,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], inv: [46,47,48,49,50], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, inv: 48, log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, inv: 48, wnd: [[1794877800, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2263,7 +2266,9 @@ function loadSettings(){
   AL_BOOL.forEach(k => { if (typeof s[k] === "boolean") o[k] = s[k]; });
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
   if (fin(s.aoSoc) && s.aoSoc >= 5 && s.aoSoc <= 60) o.aoSoc = Math.round(s.aoSoc);
-  if (fin(s.aoV) && s.aoV >= 46 && s.aoV <= 54) o.aoV = Math.round(s.aoV * 10) / 10;   // la soglia in volt dello spegnimento automatico (1.99)
+  if (fin(s.aoV) && s.aoV >= 46 && s.aoV <= 54) o.aoV = Math.round(s.aoV * 10) / 10;
+  // la pala eolica (2.18): quando è stata accesa e spenta, [[da, a|null], …] (ultimi 20). Di fabbrica: accesa il 17/11/2026 alle 02:10, detto dall'utente
+  if (Array.isArray(s.wnd)) o.wnd = s.wnd.filter(p => Array.isArray(p) && fin(p[0]) && p[0] > 1.7e9 && (p[1] === null || (fin(p[1]) && p[1] > p[0]))).slice(-20).map(p => [Math.round(p[0]), p[1] === null ? null : Math.round(p[1])]);   // la soglia in volt dello spegnimento automatico (1.99)
   if ([3, 5, 10, 15].includes(s.aoMarg)) o.aoMarg = s.aoMarg;                         // il margine in % di prima: serve solo a tradurlo in volt la prima volta
   if (s.rem && /^[A-Za-z0-9_-]{12,64}$/.test(s.rem.t) && /^[A-Za-z0-9_-]{43}$/.test(s.rem.k)) o.rem = { t: s.rem.t, k: s.rem.k };
   if (s.pv && typeof s.pv === "object") Object.entries(s.pv).forEach(([a, c]) => { // falda di ogni regolatore
@@ -2331,7 +2336,7 @@ const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0
 const guardSoc = () => Math.max(aoMean() ?? aoBase(), cutSoc());
 const aoActs = () => { const a = data && data.ao, cb = data && data.cb; return !!(aoLimit() && cb && cb.ok !== false && cb.on !== false && !(a && a.st === 4)); };
 const floorSoc = () => houseNow() && aoActs() ? guardSoc() : cutSoc();
-const SHARED = ["inv", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
+const SHARED = ["inv", "wnd", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* le impostazioni condivise si salvano a voci (firmware 0.48): cfgBase è come la scheda le ha l'ultima volta che le abbiamo viste o scritte, e si manda
@@ -5650,7 +5655,7 @@ function windAt(t){
 // le ore del registro con la casa su Enel: la pala stimata, ora per ora (almeno 3 quarti d'ora su 4). Anche le ore non stimabili, per il grafico
 let wndC = null;
 function wndHours(){
-  const key = STRESS.length + ":" + (STRESS.length ? STRESS[STRESS.length - 1][0] : 0) + ":" + (data && data.house ? data.house.zn + "/" + data.house.zd : "");
+  const key = STRESS.length + ":" + (STRESS.length ? STRESS[STRESS.length - 1][0] : 0) + ":" + (data && data.house ? data.house.zn + "/" + data.house.zd : "") + ":" + JSON.stringify(S.wnd) + ":" + (wx ? wx.at : 0);
   if (wndC && wndC.key === key) return wndC.v;
   const by = new Map();
   STRESS.forEach(r => { const h = Math.floor(r[0] / HOUR) * HOUR; let o = by.get(h); if (!o) by.set(h, o = { t: h, wh: 0, n: 0, bank: 0 });
@@ -5659,17 +5664,24 @@ function wndHours(){
     const pv = r[13] * 4, w = (r[11] - r[12]) * 4 - pv + wndZero(pv);
     o.wh += w / 4; o.pv = (o.pv || 0) + pv; o.n++; });
   const raw = [...by.values()].sort((a, b) => a.t - b.t).map(o => ({ t: o.t, r: o.n >= 3 && !o.bank ? o.wh / o.n * 4 : null, pv: o.n ? o.pv / o.n : 0, bank: o.bank > 1 }));
-  /* taratura sulla calma: con vento sotto 1,5 m/s la pala non gira, quindi quello che resta è l'errore dello zero (16/11: 60–80 W anche a vento fermo,
-     di giorno di più). Si toglie la mediana delle ore calme, separata per il buio e per il sole (almeno 4 ore ciascuna) */
-  const calm = sun => raw.filter(h => h.r !== null && (h.pv > 30) === sun && (v => v && fin(v.ms) && v.ms < 1.5)(windAt(h.t + HOUR / 2))).map(h => h.r);
-  const cN = calm(false), cD = calm(true), offN = cN.length >= 4 ? quant(cN, .5) : 0, offD = cD.length >= 4 ? quant(cD, .5) : 0;
-  const v = raw.map(h => ({ t: h.t, w: h.r === null ? null : Math.max(0, h.r - (h.pv > 30 ? offD : offN)), bank: h.bank }));
-  v.off = { n: offN, d: offD, nN: cN.length, nD: cD.length };
+  /* taratura (2.18). Quello che resta quando la pala non dà niente è l'errore dello zero (fino al 17/11 la pala era spenta, e la stima dava lo stesso
+     60–260 W di giorno). Prima scelta: le ore con la pala SPENTA (wndOn), al buio la mediana, col sole una retta a + b × pannelli (almeno 8 ore);
+     se non bastano, le ore di calma (vento sotto 1,5 m/s) con la pala accesa, mediana per buio e sole (almeno 4 ore) */
+  const offH = raw.filter(h => h.r !== null && !wndOn(h.t) && !wndOn(h.t + HOUR - 1));
+  const calmH = raw.filter(h => h.r !== null && wndOn(h.t) && (v => v && fin(v.ms) && v.ms < 1.5)(windAt(h.t + HOUR / 2)));
+  const src = offH.filter(h => h.pv <= 30).length >= 4 || offH.filter(h => h.pv > 30).length >= 8 ? offH : calmH, by0 = src === offH ? "spenta" : "calma";
+  const night = src.filter(h => h.pv <= 30).map(h => h.r), day = src.filter(h => h.pv > 30);
+  const offN = night.length >= 4 ? quant(night, .5) : 0;
+  let a = 0, b = 0; if (day.length >= (src === offH ? 8 : 4)) { const n = day.length, mx = day.reduce((q, h) => q + h.pv, 0) / n, my = day.reduce((q, h) => q + h.r, 0) / n, sxx = day.reduce((q, h) => q + (h.pv - mx) ** 2, 0);
+    b = src === offH && sxx > 0 && n >= 12 ? clamp(day.reduce((q, h) => q + (h.pv - mx) * (h.r - my), 0) / sxx, -.2, .2) : 0; a = src === offH && b ? my - b * mx : quant(day.map(h => h.r), .5); }
+  const offAt = pv => pv > 30 ? a + b * pv : offN;
+  const v = raw.map(h => ({ t: h.t, w: h.r === null ? null : wndOn(h.t + HOUR / 2) ? Math.max(0, h.r - offAt(h.pv)) : 0, off: !wndOn(h.t + HOUR / 2), bank: h.bank }));
+  v.off = { n: offN, a, b, by: by0, nN: night.length, nD: day.length, at: offAt };
   wndC = { key, v }; return v;
 }
 // la curva: per ogni m/s la mediana dei watt stimati (almeno 3 ore), mai in discesa
 function wndCurve(hours){
-  const bins = []; hours.forEach(h => { if (h.w === null) return; const wv = windAt(h.t + HOUR / 2); if (!wv || !fin(wv.ms)) return; const b = Math.min(20, Math.floor(wv.ms / WND_BIN)); (bins[b] = bins[b] || []).push(h.w); });
+  const bins = []; hours.forEach(h => { if (h.w === null || h.off) return; const wv = windAt(h.t + HOUR / 2); if (!wv || !fin(wv.ms)) return; const b = Math.min(20, Math.floor(wv.ms / WND_BIN)); (bins[b] = bins[b] || []).push(h.w); });
   const pts = []; let last = 0;
   bins.forEach((a, b) => { if (!a || a.length < 3) return; const m = Math.max(last, quant(a, .5)); last = m; pts.push({ ms: (b + .5) * WND_BIN, w: m, n: a.length }); });
   const useful = pts.filter(p => p.ms >= 3).length >= 3;
@@ -5683,9 +5695,19 @@ function wndNow(){
   if (houseNow()) return { ok: false, why: "casa" };
   const k = bank(data.batteries), pv = (data.pv || []).reduce((a, g) => a + (g.online !== false && fin(g.out_w) ? g.out_w : 0), 0);
   if (!k.on || !fin(k.p)) return { ok: false, why: "dati" };
-  const off = (wndHours().off || {}), w = k.p - pv + wndZero(pv) - (pv > 30 ? off.d || 0 : off.n || 0);
+  if (!wndOn(nowOf(data))) return { ok: false, why: "spenta" };
+  const off = wndHours().off, w = k.p - pv + wndZero(pv) - (off ? off.at(pv) : 0);
   return { ok: true, w: Math.max(0, w), raw: w, pv };
 }
+// la pala era accesa all'ora t? (S.wnd: periodi [da, a|null])
+const wndOn = t => (Array.isArray(S.wnd) ? S.wnd : []).some(([a, b]) => t >= a && (b === null || t < b));
+const wndSince = () => { const p = (Array.isArray(S.wnd) ? S.wnd : []).filter(([a, b]) => b === null); return p.length ? p[p.length - 1][0] : null; };
+function wndSet(on){
+  const now = nowOf(data), w = (Array.isArray(S.wnd) ? S.wnd : []).map(p => [...p]);
+  if (on && !wndOn(now)) w.push([Math.round(now), null]); else if (!on) w.forEach(p => { if (p[1] === null) p[1] = Math.round(now); });
+  S.wnd = w.slice(-20); wndC = null; saveSettings(); if (data) render(mode);
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-wnd]"); if (b) wndSet(b.dataset.wnd === "1"); });
 const compass = d => fin(d) ? ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][Math.round(d / 45) % 8] : "–";
 function drawWind(){
   const head = $("wnd-head"); if (!head) return;
@@ -5698,7 +5720,10 @@ function drawWind(){
     <g class="bl" fill="var(--wn-w)">${[0, 120, 240].map(a => `<path transform="rotate(${a} 60 52)" d="M60 52 C57 40 57 20 60 6 C64 20 64 40 60 52Z"/>`).join("")}</g>
     <circle cx="60" cy="52" r="5" fill="var(--surface)" stroke="var(--wn-w)" stroke-width="2.5"/></svg>`;
   const big = wEst !== null ? `${wEst >= 1000 ? nf(wEst / 1000, 1) : nf(wEst, 0)}<small>${wEst >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
-  const st = !nw.ok && nw.why === "casa" ? "Con la casa sulle batterie la pala non si separa dai consumi della casa: la stima c'è solo con la casa su Enel."
+  const since = wndSince(), onNow = wndOn(now);
+  const sw = `<div class="wnd-sw"><span>${onNow ? `Pala <b>accesa</b>${since ? " dal " + alWhen(since) : ""}` : "Pala <b>spenta</b> (freno)"}</span><button type="button" class="set-btn" data-wnd="${onNow ? 0 : 1}">${onNow ? "Segna spenta" : "Segna accesa adesso"}</button></div>`;
+  const st = !nw.ok && nw.why === "spenta" ? "La pala è segnata come spenta: niente da stimare. Quando la accendi, segnalo qui sotto: le ore a pala spenta servono a tarare la stima."
+    : !nw.ok && nw.why === "casa" ? "Con la casa sulle batterie la pala non si separa dai consumi della casa: la stima c'è solo con la casa su Enel."
     : !nw.ok ? "Mancano i dati delle batterie."
     : wEst === 0 ? `La pala adesso <b>non dà</b> niente che si possa distinguere (meno di ${WND_NOISE} W).` : "Stimata dalle batterie, tolti i pannelli e lo zero dell'impianto.";
   const exp = curve.useful && ms !== null ? curve.at(ms) : null;
@@ -5707,7 +5732,7 @@ function drawWind(){
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
-    (!wx || !wx.wind ? `<p class="set-note">Il vento arriva col meteo: serve la località (Impostazioni → Meteo).</p>` : "");
+    (!wx || !wx.wind ? `<p class="set-note">Il vento arriva col meteo: serve la località (Impostazioni → Meteo).</p>` : "") + sw;
   // ---- ultime 48 ore
   const W = 340, top = 10, base = 120, t0 = Math.floor(now / HOUR) * HOUR - 47 * HOUR, X = t => (t - t0) / (48 * HOUR) * W;
   const last = hours.filter(h => h.t >= t0), wmax = Math.max(500, ...last.map(h => h.w || 0)), vs = last.map(h => windAt(h.t + HOUR / 2)).map(v => v && fin(v.ms) ? v.ms : null);
@@ -5717,32 +5742,35 @@ function drawWind(){
     g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${top}" y2="${base}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${x.toFixed(1)}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${d.getHours() ? String(d.getHours()).padStart(2, "0") : WD[d.getDay()].slice(0, 3)}</text>`; }
   const bw = W / 48 - 1.2;
   last.forEach(h => { const x = X(h.t) + .6;
+    if (h.off) return;
     if (h.w === null) bars += `<rect x="${x.toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" fill="url(#wn-na)" opacity=".7"/>`;
     else if (h.w >= WND_NOISE) { const hh = h.w / wmax * (base - top); bars += `<rect x="${x.toFixed(1)}" y="${(base - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" fill="var(--wn-w)"/>`; } });
   for (let t = t0; t <= t0 + 48 * HOUR; t += HOUR) { const v = windAt(t); if (v && fin(v.ms)) line.push(`${X(t).toFixed(1)},${(base - v.ms / vmax * (base - top)).toFixed(1)}`); }
+  const sOn = since && since > t0 ? X(since) : null;
+  if (sOn !== null) bars += `<line x1="${sOn.toFixed(1)}" x2="${sOn.toFixed(1)}" y1="${top - 4}" y2="${base}" stroke="var(--wn-w)" stroke-width="1.4" stroke-dasharray="3 2"/><text x="${(sOn > W - 50 ? sOn - 3 : sOn + 3).toFixed(1)}" y="${top + 18}" text-anchor="${sOn > W - 50 ? "end" : "start"}" font-size="9" font-weight="700" fill="var(--wn-w)">accesa</text>`;
   $("wnd-48").innerHTML = `<defs><pattern id="wn-na" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="5" fill="var(--line)"/></pattern></defs>` + g +
     `<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>` + bars +
     (line.length ? `<polyline points="${line.join(" ")}" fill="none" stroke="var(--wn-v)" stroke-width="1.8" stroke-linejoin="round"/>` : "") +
     `<text x="2" y="${top + 8}" font-size="9" fill="var(--muted)">${power(wmax)}</text><text x="${W - 2}" y="${top + 8}" text-anchor="end" font-size="9" fill="var(--muted)">${nf(vmax, 0)} m/s</text>`;
-  const est = last.filter(h => h.w !== null), kwh48 = est.reduce((a, h) => a + (h.w >= WND_NOISE ? h.w : 0), 0) / 1000, wmax48 = Math.max(0, ...est.map(h => h.w));
-  $("wnd-48r").innerHTML = est.length ? `Stimate <b>${est.length}</b> ore su 48 (quelle con la casa su Enel): la pala ha dato circa <b>${nf(kwh48, 1)} kWh</b>, al massimo ${power(wmax48)} in un'ora.`
+  const est = last.filter(h => h.w !== null && !h.off), kwh48 = est.reduce((a, h) => a + (h.w >= WND_NOISE ? h.w : 0), 0) / 1000, wmax48 = Math.max(0, ...est.map(h => h.w));
+  $("wnd-48r").innerHTML = !est.length && last.some(h => h.off) ? "La pala era spenta: le ultime ore servono a tarare la stima." : est.length ? `Stimate <b>${est.length}</b> ore su 48 (quelle con la casa su Enel): la pala ha dato circa <b>${nf(kwh48, 1)} kWh</b>, al massimo ${power(wmax48)} in un'ora.`
     : "Nessuna ora stimabile nelle ultime 48: la casa era sulle batterie, o il registro non è ancora arrivato.";
   // ---- 7 giorni
   const d0 = midnight(now), days = [];
-  for (let k = 6; k >= 0; k--) { const a = d0 - k * DAY, hs = hours.filter(h => h.t >= a && h.t < a + DAY), e = hs.filter(h => h.w !== null);
-    days.push({ a, kwh: e.reduce((s2, h) => s2 + (h.w >= WND_NOISE ? h.w : 0), 0) / 1000, cov: e.length / 24, n: e.length }); }
+  for (let k = 6; k >= 0; k--) { const a = d0 - k * DAY, hs = hours.filter(h => h.t >= a && h.t < a + DAY), e = hs.filter(h => h.w !== null && !h.off);
+    days.push({ a, kwh: e.reduce((s2, h) => s2 + (h.w >= WND_NOISE ? h.w : 0), 0) / 1000, cov: e.length / 24, n: e.length, off: hs.length && hs.every(h => h.off) }); }
   const dmax = Math.max(1, ...days.map(d => d.kwh));
-  $("wnd-days").innerHTML = days.map(d => `<div class="wnd-day"><b>${d.n ? nf(d.kwh, d.kwh < 10 ? 1 : 0) : "–"}</b><span class="bar"><em style="height:${((1 - d.cov) * 100).toFixed(0)}%"></em><i style="height:${(d.kwh / dmax * 100).toFixed(0)}%"></i></span><span>${WD[new Date(d.a * 1000).getDay()].slice(0, 3)}</span></div>`).join("");
+  $("wnd-days").innerHTML = days.map(d => `<div class="wnd-day${d.off ? " off" : ""}"><b>${d.off ? "off" : d.n ? nf(d.kwh, d.kwh < 10 ? 1 : 0) : "–"}</b><span class="bar"><em style="height:${((1 - d.cov) * 100).toFixed(0)}%"></em><i style="height:${(d.kwh / dmax * 100).toFixed(0)}%"></i></span><span>${WD[new Date(d.a * 1000).getDay()].slice(0, 3)}</span></div>`).join("");
   $("wnd-days-n").innerHTML = "kWh stimati nelle ore con la casa su Enel; la parte a strisce in alto è la parte del giorno che non si è potuta stimare.";
   // ---- curva
   const cp = curve.pts, cmax = Math.max(500, ...cp.map(p => p.w)), cmsx = 15, cx = v => 30 + v / cmsx * 300, cy = w => 140 - w / cmax * 125;
-  let sc = ""; hours.forEach(h => { if (h.w === null) return; const v = windAt(h.t + HOUR / 2); if (!v || !fin(v.ms)) return; sc += `<circle cx="${cx(Math.min(cmsx, v.ms)).toFixed(1)}" cy="${cy(h.w).toFixed(1)}" r="2" fill="var(--wn-w)" opacity=".35"/>`; });
+  let sc = ""; hours.forEach(h => { if (h.w === null || h.off) return; const v = windAt(h.t + HOUR / 2); if (!v || !fin(v.ms)) return; sc += `<circle cx="${cx(Math.min(cmsx, v.ms)).toFixed(1)}" cy="${cy(h.w).toFixed(1)}" r="2" fill="var(--wn-w)" opacity=".35"/>`; });
   let ax = `<line x1="30" x2="330" y1="140" y2="140" stroke="var(--line)"/><line x1="30" x2="30" y1="12" y2="140" stroke="var(--line)"/>`;
   for (let v = 0; v <= cmsx; v += 3) ax += `<text x="${cx(v).toFixed(1)}" y="153" text-anchor="middle" font-size="9" fill="var(--muted)">${v}</text>`;
   ax += `<text x="330" y="166" text-anchor="end" font-size="9" fill="var(--muted)">vento m/s</text><text x="26" y="${cy(cmax) + 3}" text-anchor="end" font-size="9" fill="var(--muted)">${power(cmax)}</text><text x="26" y="143" text-anchor="end" font-size="9" fill="var(--muted)">0</text>`;
   const cl = cp.length > 1 ? `<polyline points="${cp.map(p => cx(p.ms).toFixed(1) + "," + cy(p.w).toFixed(1)).join(" ")}" fill="none" stroke="var(--wn-v)" stroke-width="2"/>` + cp.map(p => `<circle cx="${cx(p.ms).toFixed(1)}" cy="${cy(p.w).toFixed(1)}" r="3" fill="var(--surface)" stroke="var(--wn-v)" stroke-width="1.6"/>`).join("") : "";
   $("wnd-curve").innerHTML = ax + sc + cl;
-  const nH = hours.filter(h => h.w !== null).length;
+  const nH = hours.filter(h => h.w !== null && !h.off).length;
   $("wnd-curve-n").innerHTML = curve.useful ? `Ogni punto è un'ora stimata (${nH} in tutto); la linea è il valore tipico per ogni m/s di vento, da almeno 3 ore. Più ore su Enel con vento, più è precisa.`
     : `Ancora poche ore stimate col vento (${nH} in tutto): la curva si disegna quando ci sono almeno 3 velocità del vento sopra i 3 m/s con 3 ore ciascuna.`;
   // ---- previsione
@@ -5763,7 +5791,7 @@ function drawWind(){
   // ---- come si calcola
   $("wnd-info").innerHTML = `<ul><li>Il regolatore Tesup <b>non comunica</b>: la scheda non legge la pala. La sua corrente però entra nelle batterie, che la scheda legge.</li>` +
     `<li>Con la casa su Enel: <b>pala ≈ batterie − pannelli + zero dell'impianto</b> (adesso ${power(wndZero(0))} al buio, ${power(wndZero(1000))} con 1 kW di sole). Con la casa sulle batterie la pala e i consumi della casa finiscono nello stesso numero e non si separano.</li>` +
-    (hours.off && (hours.off.nN >= 4 || hours.off.nD >= 4) ? `<li>Tarata sulle ore di calma (vento sotto 1,5 m/s): tolti ${power(hours.off.n)} al buio (${hours.off.nN} ore) e ${power(hours.off.d)} col sole (${hours.off.nD} ore), che erano errore dello zero e non vento.</li>` : `<li>La taratura sulle ore di calma (vento sotto 1,5 m/s) parte con almeno 4 ore calme al buio e 4 col sole.</li>`) +
+    (hours.off && (hours.off.nN >= 4 || hours.off.nD >= 4) ? `<li>Tarata sulle ore ${hours.off.by === "spenta" ? "con la <b>pala spenta</b>" : "di calma (vento sotto 1,5 m/s)"}: quello che restava era errore dello zero, non vento. Tolti ${power(hours.off.n)} al buio (${hours.off.nN} ore) e col sole ${power(hours.off.at(1000))} con 1 kW di pannelli (${hours.off.nD} ore).</li>` : `<li>La taratura parte con almeno 4 ore al buio e 8 col sole a pala spenta (o 4 e 4 di calma).</li>`) +
     `<li>Precisione: ±50–100 W. I BMS non vedono circa 1 A per batteria, e batterie e regolatori sono letti in istanti diversi. Sotto ${WND_NOISE} W la stima conta zero.</li>` +
     `<li>Il vento è quello di Open-Meteo a 10 m dal suolo, non quello sulla pala: la curva lo tiene in conto da sola.</li>` +
     `<li>Per misurarla davvero serve un misuratore DC sul cavo tra il regolatore Tesup e le batterie.</li>` +
