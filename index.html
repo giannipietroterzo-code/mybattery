@@ -1288,6 +1288,9 @@ footer{border-top:0;padding-top:0}
 :root{--wn-w:var(--lith);--wn-v:var(--ink)}
 :root[data-style="mecha"]{--wn-v:#D9D9D9}
 .wnd-svg{display:block;width:100%;height:auto;margin-top:8px;overflow:visible}
+.wnd-1h{touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
+.legend i.wn-pk{background:linear-gradient(var(--wn-w),var(--wn-w)) center/1.5px 100% no-repeat;opacity:.8}
+.legend i.wn-gap{background:transparent;border:0;border-bottom:2px solid var(--line);border-radius:0}
 .legend i.wn-na{background:repeating-linear-gradient(-45deg,var(--line) 0 2px,transparent 2px 4px);border:1px solid var(--line)}
 .wnd-top{display:grid;grid-template-columns:118px 1fr;gap:6px 14px;align-items:center;margin-top:6px}
 .wnd-rot{width:118px;height:118px}
@@ -1665,10 +1668,16 @@ html.mon-open,html.mon-open body{overflow:hidden}
         <h2 id="h-wnd">Pala eolica</h2>
         <div id="wnd-head"></div>
       </section>
+      <section class="panel" aria-labelledby="h-wnd1">
+        <h2 id="h-wnd1">Ultima ora</h2>
+        <svg class="wnd-svg wnd-1h" id="wnd-1h" viewBox="0 0 340 150" role="img" aria-label="Potenza e corrente stimate della pala minuto per minuto nell'ultima ora"></svg>
+        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala, media del minuto</span><span><i class="wn-na"></i>Casa sulle batterie</span><span><i class="wn-gap"></i>Nessuna lettura</span></p>
+        <p class="hist-read" id="wnd-1hr"></p>
+      </section>
       <section class="panel" aria-labelledby="h-wnd48">
         <h2 id="h-wnd48">Ultime 48 ore</h2>
         <svg class="wnd-svg" id="wnd-48" viewBox="0 0 340 150" role="img" aria-label="Potenza stimata della pala e vento nelle ultime 48 ore"></svg>
-        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala (stimata)</span><span><i style="background:var(--wn-v)"></i>Vento m/s</span><span><i class="wn-na"></i>Casa sulle batterie: non stimabile</span></p>
+        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala (stimata)</span><span><i class="wn-pk"></i>Picco del quarto d'ora</span><span><i style="background:var(--wn-v)"></i>Vento m/s</span><span><i class="wn-na"></i>Casa sulle batterie: non stimabile</span></p>
         <p class="hist-read" id="wnd-48r"></p>
       </section>
       <section class="panel" aria-labelledby="h-wndd">
@@ -1913,7 +1922,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.26"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.27"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3531,6 +3540,7 @@ async function remApply(b, fresh){
   if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
   remCfgTake(b);
   if (b.voc && !(fin(b.t) && b.t < remCmdAt)) vocTake(b.voc);
+  if (Array.isArray(b.wpk)) wpkTake(b.wpk);   // il picco della pala per quarto d'ora (firmware 0.63)
   fcCap = fin(b.s.fc_last);
   if (fresh && Array.isArray(b.log)) { const rows = b.log.filter(validRow); if (rows.length) await db.put(rows); logSrc = ""; await realLog(); relearn(); }
 }
@@ -5927,6 +5937,104 @@ function wndSet(on){
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-wnd]"); if (b) wndSet(b.dataset.wnd === "1"); });
 const compass = d => fin(d) ? ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][Math.round(d / 45) % 8] : "–";
+/* ---------- la pala minuto per minuto, ultima ora (2.27). Dal firmware 0.63 i minuti li tiene la scheda (data.m1: [minuto, W batterie, W pannelli,
+   V × 100, letture su Enel, letture con la casa sulle batterie, letture con lo Shelly vivo], tutta l'ora in /api/status e nel pacchetto, gli ultimi
+   minuti nella diretta): la app li unisce in localStorage (mybattery.wnd1b) e ci toglie pannelli e perdite a pala ferma (wndHours), come «adesso».
+   Con un firmware più vecchio li registra il telefono a ogni lettura mentre la app è aperta (mybattery.wnd1m: [minuto, somma W, letture, somma V,
+   letture con la casa sulle batterie]). Vale prima la scheda */
+const W1_KEY = "mybattery.wnd1m", W1B_KEY = "mybattery.wnd1b";
+let W1 = null, W1B = null, w1Seen = 0, w1I = null, w1Timer = 0, w1G = null;
+function w1Add(nw){
+  if (!data || !isReal() || !fin(data.time) || data.time === w1Seen || !wndOn(nowOf(data)) || Array.isArray(data.m1)) return;
+  const now = nowOf(data); if (Math.abs(now - Date.now() / 1000) > 120) return;   // dati vecchi (scheda muta, pacchetto ritardato): non sono di questo minuto
+  w1Seen = data.time;
+  const m = Math.floor(now / 60) * 60; let r = W1.find(x => x[0] === m);
+  if (!r) { r = [m, 0, 0, 0, 0]; W1.push(r); }
+  if (nw.ok) { r[1] += nw.raw; r[2]++; r[3] += nw.v; } else if (nw.why === "casa") r[4]++;
+  W1 = W1.filter(x => x[0] > m - HOUR).sort((a, b) => a[0] - b[0]); lsSet(W1_KEY, W1);
+}
+/* il picco della pala per quarto d'ora (firmware 0.63): /wpk.bin sulla scheda, gli ultimi 2 giorni, [quarto d'ora, W batterie − pannelli del minuto
+   più alto, W pannelli in quel minuto, inverter acceso]. In casa GET /api/wpk quando cambia wpk_at, da fuori casa nel pacchetto. La app ci toglie le
+   perdite a pala ferma come per «adesso»: nel grafico delle 48 ore le raffiche brevi che nella media dell'ora sparirebbero */
+const WPK_KEY = "mybattery.wpk";
+let WPK = null, wpkSeen = null, wpkBusy = false;
+function wpkTake(rows){
+  if (!WPK) WPK = (v => v && typeof v === "object" && !Array.isArray(v) ? v : {})(lsGet(WPK_KEY));
+  if (!Array.isArray(rows)) return;
+  const lim = (data ? nowOf(data) : Date.now() / 1000) - 3 * DAY;
+  rows.forEach(r => { if (Array.isArray(r) && r.length >= 4 && fin(r[0]) && fin(r[1]) && r[0] > lim) WPK[r[0]] = [r[1], r[2], r[3]]; });
+  Object.keys(WPK).forEach(k => { if (+k <= lim) delete WPK[k]; });
+  lsSet(WPK_KEY, WPK);
+}
+async function wpkPull(){
+  if (wpkBusy || mode !== "live" || !data || !("wpk_at" in data) || data.wpk_at === wpkSeen) return;
+  wpkBusy = true;
+  try { const j = await (await fetch("/api/wpk", { cache: "no-store" })).json(); wpkSeen = data.wpk_at; wpkTake(j.rows); } catch (e) {}
+  wpkBusy = false;
+}
+function w1Merge(){                                   // i minuti della scheda: tiene la riga con più letture (il minuto in corso cresce)
+  if (!data || !isReal() || !Array.isArray(data.m1)) return;
+  const now = nowOf(data); let ch = false;
+  data.m1.forEach(r => { if (!Array.isArray(r) || r.length < 7 || !fin(r[0])) return; const o = W1B[r[0]]; if (!o || o[4] + o[5] < r[4] + r[5]) { W1B[r[0]] = r; ch = true; } });
+  Object.keys(W1B).forEach(k => { if (+k < now - HOUR - 120) { delete W1B[k]; ch = true; } });
+  if (ch) lsSet(W1B_KEY, W1B);
+}
+function drawW1(nw, H){
+  if (!W1) W1 = (v => Array.isArray(v) ? v.filter(r => Array.isArray(r) && r.length === 5) : [])(lsGet(W1_KEY));   // al primo uso: lsGet è più avanti
+  if (!W1B) W1B = (v => v && typeof v === "object" && !Array.isArray(v) ? v : {})(lsGet(W1B_KEY));
+  w1Add(nw); w1Merge();
+  const svg = $("wnd-1h"); if (!svg) return;
+  const now = nowOf(data), m1 = Math.floor(now / 60) * 60, m0 = m1 - 59 * 60, W = 340, top = 12, base = 120, cw = W / 60;
+  const mins = Array.from({ length: 60 }, (_, i) => { const t = m0 + i * 60, b = W1B[t], r = W1.find(x => x[0] === t);
+    if (!wndOn(t + 30)) return { t, k: "off" };
+    if (b) { if (b[4]) { const st = b[6] * 2 >= b[4] ? 1 : 0; return { t, k: "w", w: Math.max(0, b[1] - b[2] - H.loss(st, b[2])), v: b[3] / 100, n: b[4], sch: 1 }; } return { t, k: b[5] ? "na" : "gap" }; }
+    return !r ? { t, k: "gap" } : r[2] ? { t, k: "w", w: Math.max(0, r[1] / r[2]), v: r[3] / r[2], n: r[2] } : r[4] ? { t, k: "na" } : { t, k: "gap" }; });
+  const ws = mins.filter(x => x.k === "w"), vAvg = ws.length ? ws.reduce((a, x) => a + x.v, 0) / ws.length : (nw.ok ? nw.v : 52);
+  const top0 = Math.max(200, ...ws.map(x => x.w)), wmax = Math.ceil(top0 / (top0 > 1000 ? 500 : 100)) * (top0 > 1000 ? 500 : 100), Y = w => base - w / wmax * (base - top);
+  let g = "";
+  [.5, 1].forEach(f => { const y = Y(wmax * f); g += `<line x1="0" x2="${W}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-dasharray="2 3"/>` +
+    `<text x="2" y="${(y - 3).toFixed(1)}" font-size="9" fill="var(--muted)">${power(wmax * f)}</text><text x="${W - 2}" y="${(y - 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${nf(wmax * f / vAvg, 0)} A</text>`; });
+  for (let i = 0; i < 60; i++) { const t = m0 + i * 60; if (new Date(t * 1000).getMinutes() % 15) continue; const x = i * cw;
+    g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${top}" y2="${base}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${x.toFixed(1)}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${hm(t)}</text>`; }
+  let bars = "";
+  mins.forEach((x, i) => { const bx = (i * cw + .5).toFixed(1), bw = (cw - 1).toFixed(1);
+    if (x.k === "off") return;
+    if (x.k === "na") bars += `<rect x="${bx}" y="${top}" width="${bw}" height="${base - top}" fill="url(#wn1-na)" opacity=".7"/>`;
+    else if (x.k === "gap") bars += `<rect x="${bx}" y="${base - 2}" width="${bw}" height="2" fill="var(--line)"/>`;
+    else { const h = Math.max(x.w >= WND_NOISE ? 1.5 : 0, base - Y(x.w)); if (h > 0) bars += `<rect x="${bx}" y="${(base - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="var(--wn-w)" opacity="${x.w >= WND_NOISE ? 1 : .35}"/>`; } });
+  svg.innerHTML = `<defs><pattern id="wn1-na" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="5" fill="var(--line)"/></pattern></defs>` + g +
+    `<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>` + bars + `<text x="${W}" y="${base + 13}" text-anchor="end" font-size="9" fill="var(--muted)">ora</text>` +
+    `<g id="w1-cur" visibility="hidden"><rect id="w1-cb" y="${top - 4}" height="${base - top + 4}" fill="var(--ink)" opacity=".1"/><line id="w1-cl" y1="${top - 4}" y2="${base}" stroke="var(--ink)" stroke-width="1"/></g>`;
+  w1G = { mins, cw, ws };
+  w1Read();
+}
+function w1Read(){
+  const el = $("wnd-1hr"); if (!el || !w1G) return;
+  const { mins, cw, ws } = w1G, cur = $("w1-cur");
+  if (w1I === null) {
+    if (cur) cur.setAttribute("visibility", "hidden");
+    const nNa = mins.filter(x => x.k === "na").length, wh = ws.reduce((a, x) => a + (x.w >= WND_NOISE ? x.w : 0), 0) / 60, pk = ws.reduce((a, x) => !a || x.w > a.w ? x : a, null);
+    el.innerHTML = !wndOn(nowOf(data)) ? "La pala è segnata come spenta: non registro niente."
+      : !isReal() ? "In prova non c'è niente da registrare: i minuti li segna il telefono collegato alla scheda."
+      : !ws.length ? (nNa ? "In quest'ora la casa è stata sulle batterie: la pala non si separa dai consumi." : data && Array.isArray(data.m1) ? "La scheda sta raccogliendo i minuti: tra un minuto compare la prima barra." : "I minuti li registra questo telefono mentre la app è aperta (col firmware 0.63 li tiene la scheda): tra un minuto compare la prima barra.")
+      : `Nell'ultima ora (${ws.length} ${ws.length === 1 ? "minuto stimato" : "minuti stimati"}${nNa ? `, ${nNa} con la casa sulle batterie` : ""}) la pala ha dato circa <b>${nf(wh, 0)} Wh</b>` +
+        (pk && pk.w >= WND_NOISE ? `, al massimo <b>${power(pk.w)}</b> (${nf(pk.w / pk.v, 1)} A) alle ${hm(pk.t)}.` : ": sempre sotto i " + WND_NOISE + " W.") + " <small>Tocca il grafico per i singoli minuti.</small>";
+    return;
+  }
+  const x = mins[w1I]; if (!x) return;
+  cur.setAttribute("visibility", "visible");
+  $("w1-cb").setAttribute("x", (w1I * cw).toFixed(1)); $("w1-cb").setAttribute("width", cw.toFixed(1));
+  $("w1-cl").setAttribute("x1", ((w1I + .5) * cw).toFixed(1)); $("w1-cl").setAttribute("x2", ((w1I + .5) * cw).toFixed(1));
+  el.innerHTML = `<b>${w1I === 59 ? "Questo minuto" : "Alle " + hm(x.t)}</b><br>` + (x.k === "w" ? `Pala <b>${power(x.w)}</b> · <b>${nf(x.w / x.v, 1)} A</b> a ${nf(x.v, 1)} V <small>(${x.n} letture${x.sch ? " della scheda" : " del telefono"})</small>` + (x.w < WND_NOISE ? " · sotto la soglia: conta zero" : "")
+    : x.k === "na" ? "Casa sulle batterie: non stimabile" : x.k === "off" ? "Pala segnata spenta" : data && Array.isArray(data.m1) ? "Nessuna lettura: la scheda era spenta o senza batterie lette" : "Nessuna lettura: la app era chiusa");
+}
+function w1At(e){ if (!w1G) return; const r = $("wnd-1h").getBoundingClientRect(); w1I = clamp(Math.floor((e.clientX - r.left) / r.width * 60), 0, 59); w1Read(); }
+{ const el = $("wnd-1h");
+  el.addEventListener("pointerdown", e => { clearTimeout(w1Timer); w1At(e); });
+  el.addEventListener("pointermove", e => { if (e.pointerType === "mouse" || e.buttons) w1At(e); });
+  el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { w1I = null; w1Read(); } });
+  el.addEventListener("pointerup", e => { if (e.pointerType !== "mouse") { clearTimeout(w1Timer); w1Timer = setTimeout(() => { w1I = null; w1Read(); }, 4000); } });
+  el.addEventListener("pointercancel", () => { w1I = null; w1Read(); }); }
 function drawWind(){
   const head = $("wnd-head"); if (!head) return;
   const now = nowOf(data), hours = wndHours(), cur = windAt(now), nw = wndNow(), curve = wndCurve(hours);
@@ -5958,9 +6066,13 @@ function drawWind(){
   if (head.dataset.h !== html) { head.dataset.h = html; head.innerHTML = html; if (keep) $("wnd-rotw").append(keep); }
   if (!$("wnd-rotw").firstElementChild) $("wnd-rotw").innerHTML = rot;
   const rEl = $("wnd-rotw").firstElementChild; rEl.setAttribute("class", "wnd-rot" + (sp ? "" : " still") + (dim ? " dim" : "")); rEl.style.setProperty("--sp", sp.toFixed(2) + "s");
+  // ---- ultima ora, al minuto
+  drawW1(nw, hours);
   // ---- ultime 48 ore
   const W = 340, top = 10, base = 120, t0 = Math.floor(now / HOUR) * HOUR - 47 * HOUR, X = t => (t - t0) / (48 * HOUR) * W;
-  const last = hours.filter(h => h.t >= t0), wmax = Math.max(500, ...last.map(h => h.w || 0)), vs = last.map(h => windAt(h.t + HOUR / 2)).map(v => v && fin(v.ms) ? v.ms : null);
+  wpkPull(); if (!WPK) wpkTake(null);
+  const pks = Object.keys(WPK).map(Number).filter(t => t >= t0 && wndOn(t + 450)).map(t => { const [d, pv, c] = WPK[t]; return { t, w: Math.max(0, d - hours.loss(c ? 1 : 0, pv)), pv }; }).filter(p => p.w >= WND_NOISE);
+  const last = hours.filter(h => h.t >= t0), wmax = Math.max(500, ...last.map(h => h.w || 0), ...pks.map(p => p.w)), vs = last.map(h => windAt(h.t + HOUR / 2)).map(v => v && fin(v.ms) ? v.ms : null);
   const vmax = Math.max(6, ...vs.filter(fin), ...Array.from({ length: 48 }, (_, i) => { const v = windAt(t0 + i * HOUR); return v && fin(v.ms) ? v.ms : 0; }));
   let g = "", bars = "", line = [];
   for (let i = 0; i <= 48; i += 6) { const x = X(t0 + i * HOUR), d = new Date((t0 + i * HOUR) * 1000);
@@ -5971,6 +6083,10 @@ function drawWind(){
     if (h.w === null) bars += `<rect x="${x.toFixed(1)}" y="${top}" width="${bw.toFixed(1)}" height="${base - top}" fill="url(#wn-na)" opacity=".7"/>`;
     else if (h.w >= WND_NOISE) { const hh = h.w / wmax * (base - top); bars += `<rect x="${x.toFixed(1)}" y="${(base - hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" fill="var(--wn-w)"/>`; } });
   for (let t = t0; t <= t0 + 48 * HOUR; t += HOUR) { const v = windAt(t); if (v && fin(v.ms)) line.push(`${X(t).toFixed(1)},${(base - v.ms / vmax * (base - top)).toFixed(1)}`); }
+  // i picchi del quarto d'ora: uno stelo sottile dietro le barre dell'ora, con la punta
+  let pkG = ""; pks.forEach(p => { const x = X(p.t + 450), y = base - p.w / wmax * (base - top);
+    pkG += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${base}" y2="${y.toFixed(1)}" stroke="var(--wn-w)" stroke-width="1.1" opacity=".45"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.4" fill="var(--wn-w)"/>`; });
+  bars = pkG + bars;
   const sOn = since && since > t0 ? X(since) : null;
   if (sOn !== null) bars += `<line x1="${sOn.toFixed(1)}" x2="${sOn.toFixed(1)}" y1="${top - 4}" y2="${base}" stroke="var(--wn-w)" stroke-width="1.4" stroke-dasharray="3 2"/><text x="${(sOn > W - 50 ? sOn - 3 : sOn + 3).toFixed(1)}" y="${top + 18}" text-anchor="${sOn > W - 50 ? "end" : "start"}" font-size="9" font-weight="700" fill="var(--wn-w)">accesa</text>`;
   $("wnd-48").innerHTML = `<defs><pattern id="wn-na" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="5" fill="var(--line)"/></pattern></defs>` + g +
@@ -5978,8 +6094,10 @@ function drawWind(){
     (line.length ? `<polyline points="${line.join(" ")}" fill="none" stroke="var(--wn-v)" stroke-width="1.8" stroke-linejoin="round"/>` : "") +
     `<text x="2" y="${top + 8}" font-size="9" fill="var(--muted)">${power(wmax)}</text><text x="${W - 2}" y="${top + 8}" text-anchor="end" font-size="9" fill="var(--muted)">${nf(vmax, 0)} m/s</text>`;
   const est = last.filter(h => h.w !== null && !h.off), kwh48 = est.reduce((a, h) => a + (h.w >= WND_NOISE ? h.w : 0), 0) / 1000, wmax48 = Math.max(0, ...est.map(h => h.w));
+  const pkT = pks.reduce((a, p) => !a || p.w > a.w ? p : a, null), pkTxt = pkT ? ` Picco di un minuto: <b>${power(pkT.w)}</b>${data && data.batteries ? (v => v > 40 ? ` (${nf(pkT.w / v, 1)} A)` : "")(bank(data.batteries).v) : ""} ${dayWord(pkT.t) === "oggi" ? "" : dayWord(pkT.t) + " "}verso le ${hm(pkT.t + 450)}.` : "";
   $("wnd-48r").innerHTML = !est.length && last.some(h => h.off) ? "La pala era spenta: le ultime ore servono a tarare la stima." : est.length ? `Stimate <b>${est.length}</b> ore su 48 (quelle con la casa su Enel): la pala ha dato circa <b>${nf(kwh48, 1)} kWh</b>, al massimo ${power(wmax48)} in un'ora.`
     : "Nessuna ora stimabile nelle ultime 48: la casa era sulle batterie, o il registro non è ancora arrivato.";
+  if (pkTxt) $("wnd-48r").innerHTML += pkTxt;
   // ---- 7 giorni
   const d0 = midnight(now), days = [];
   for (let k = 6; k >= 0; k--) { const a = d0 - k * DAY, hs = hours.filter(h => h.t >= a && h.t < a + DAY), e = hs.filter(h => h.w !== null && !h.off);
