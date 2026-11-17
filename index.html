@@ -592,9 +592,9 @@ dialog[open]{animation:sheet-up .28s ease-out}
 /* la pala in «Energia adesso» (2.29): le pale girano alla velocità della produzione stimata, come nella pagina Vento; grigia quando non si stima */
 .flow #fw-g{cursor:pointer}
 .flow .fw-bl{transform-box:fill-box;transform-origin:center;animation:wndSpin var(--sp,0s) linear infinite}
-.flow #fw-g.still .fw-bl{animation:none}
+.flow #fw-g.still .fw-bl{animation:none;transform:rotate(22deg)}   /* ferma: pale un po' girate, se no con una pala in su sembra un aereo (richiesta dell'utente) */
 .flow #fw-g.dim .nd,.flow #fw-g.dim .ic,.flow #fg-g.dim .nd,.flow #fg-g.dim .ic{opacity:.4}
-@media (prefers-reduced-motion:reduce){.flow .fw-bl{animation:none}}
+@media (prefers-reduced-motion:reduce){.flow .fw-bl{animation:none;transform:rotate(22deg)}}
 .flow .fv{font-size:16px;font-weight:700;fill:var(--ink);font-variant-numeric:tabular-nums}
 .flow .fa{font-size:11px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
 .flow .fn{font-size:9.5px;font-weight:700;letter-spacing:.09em;fill:var(--muted);text-transform:uppercase}
@@ -1301,11 +1301,11 @@ footer{border-top:0;padding-top:0}
 .wnd-top{display:grid;grid-template-columns:118px 1fr;gap:6px 14px;align-items:center;margin-top:6px}
 .wnd-rot{width:118px;height:118px}
 .wnd-rot .bl{transform-origin:60px 52px;animation:wndSpin var(--sp,0s) linear infinite}
-.wnd-rot.still .bl{animation:none}
+.wnd-rot.still .bl{animation:none;transform:rotate(22deg)}
 .wnd-rot.dim .bl,.wnd-rot.dim circle{opacity:.35}
 .wnd-rot .bl{transition:opacity .3s}
 @keyframes wndSpin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.wnd-rot .bl{animation:none}}
+@media (prefers-reduced-motion:reduce){.wnd-rot .bl{animation:none;transform:rotate(22deg)}}
 .wnd-big{font-family:var(--num,inherit);font-size:2.3rem;font-weight:700;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
 .wnd-big small{font-size:1rem;margin-left:3px;color:var(--muted);font-weight:600}
 .wnd-a{margin-top:4px;font:600 1rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}.wnd-a b{font-weight:700}.wnd-a span{margin-left:4px;font-size:.78rem;font-weight:500;color:var(--muted)}
@@ -1928,7 +1928,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.30"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.31"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
