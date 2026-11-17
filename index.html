@@ -1790,7 +1790,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.18"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.19"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2254,7 +2254,7 @@ const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
 const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], inv: [46,47,48,49,50], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, inv: 48, wnd: [[1794877800, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, inv: 48, wnd: [[1794878400, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2267,7 +2267,7 @@ function loadSettings(){
   if (typeof s.ntfy === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(s.ntfy)) o.ntfy = s.ntfy;
   if (fin(s.aoSoc) && s.aoSoc >= 5 && s.aoSoc <= 60) o.aoSoc = Math.round(s.aoSoc);
   if (fin(s.aoV) && s.aoV >= 46 && s.aoV <= 54) o.aoV = Math.round(s.aoV * 10) / 10;
-  // la pala eolica (2.18): quando è stata accesa e spenta, [[da, a|null], …] (ultimi 20). Di fabbrica: accesa il 17/11/2026 alle 02:10, detto dall'utente
+  // la pala eolica (2.18): quando è stata accesa e spenta, [[da, a|null], …] (ultimi 20). Di fabbrica: accesa il 17/11/2026 alle 02:20, detto dall'utente
   if (Array.isArray(s.wnd)) o.wnd = s.wnd.filter(p => Array.isArray(p) && fin(p[0]) && p[0] > 1.7e9 && (p[1] === null || (fin(p[1]) && p[1] > p[0]))).slice(-20).map(p => [Math.round(p[0]), p[1] === null ? null : Math.round(p[1])]);   // la soglia in volt dello spegnimento automatico (1.99)
   if ([3, 5, 10, 15].includes(s.aoMarg)) o.aoMarg = s.aoMarg;                         // il margine in % di prima: serve solo a tradurlo in volt la prima volta
   if (s.rem && /^[A-Za-z0-9_-]{12,64}$/.test(s.rem.t) && /^[A-Za-z0-9_-]{43}$/.test(s.rem.k)) o.rem = { t: s.rem.t, k: s.rem.k };
