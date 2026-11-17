@@ -1419,7 +1419,7 @@ footer{border-top:0;padding-top:0}
 .mon-set svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .mon-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 html.mon-open,html.mon-open body{overflow:hidden}
-.mon{position:fixed;inset:0;z-index:60;display:grid;grid-template:auto minmax(0,1fr) auto auto/1fr;gap:min(2.2vh,16px);padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:radial-gradient(80% 50% at 50% 38%,color-mix(in srgb,var(--lith) 7%,transparent),transparent 70%),var(--bg);color:var(--ink);overflow:hidden}
+.mon{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:grid;grid-template:auto minmax(0,1fr) auto auto/1fr;gap:min(2.2vh,16px);padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:radial-gradient(80% 50% at 50% 38%,color-mix(in srgb,var(--lith) 7%,transparent),transparent 70%),var(--bg);color:var(--ink);overflow:hidden}
 .mon[hidden]{display:none}
 .mon-top{display:flex;align-items:center;gap:10px;min-width:0}
 .mon-badge{display:inline-flex;align-items:center;gap:.5em;padding:.42em .8em .42em .7em;border:2px solid var(--line);border-radius:999px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;font-size:clamp(1.05rem,min(5.6vw,4.6vh),1.7rem);line-height:1;letter-spacing:.12em;transition:color .4s,background .4s,border-color .4s}
@@ -1476,6 +1476,47 @@ html.mon-open,html.mon-open body{overflow:hidden}
 [data-style="terminale"] :is(.mon-badge,.mon-cut .t,.mon-g .pc){font-family:var(--mono)}
 @media (prefers-reduced-motion: reduce){.mon>*,.mon-g .fl{transition:none}}
 </style>
+<script>/* Chrome prima della 111 (marzo 2023) non conosce color-mix(): gli sfondi che la usano diventano trasparenti (impostazioni, Monitor, riquadri).
+   Lì calcolo io i colori misti col tema di adesso e riscrivo il foglio di stile con colori normali; lo rifaccio quando cambiano tema, stile o colori
+   (e col tema automatico quando il telefono passa da chiaro a scuro). Sui browser nuovi non fa niente. Prova: index.html#cmfix lo forza */
+(function(){
+  if (!/cmfix/.test(location.hash) && window.CSS && CSS.supports && CSS.supports("color", "color-mix(in srgb, red 50%, blue)")) return;
+  var st = document.querySelector("style"), orig = st.textContent, root = document.documentElement, cx = document.createElement("canvas").getContext("2d"), cs, memo;
+  function rgba(c){                                   // un colore CSS -> [r, g, b, a], null se non si può (currentColor, variabili locali)
+    if (/currentcolor|var\(/i.test(c)) return null;
+    cx.fillStyle = "#010203"; cx.fillStyle = c; var v = cx.fillStyle;
+    if (v === "#010203" && c.replace(/\s/g, "").toLowerCase() !== "#010203") return null;
+    if (v.charAt(0) === "#") return [parseInt(v.substr(1, 2), 16), parseInt(v.substr(3, 2), 16), parseInt(v.substr(5, 2), 16), 1];
+    var m = v.match(/[\d.]+/g); return m && m.length >= 3 ? [+m[0], +m[1], +m[2], m.length > 3 ? +m[3] : 1] : null;
+  }
+  function args(t){ var out = [], d = 0, a = 0; for (var i = 0; i < t.length; i++) { var c = t.charAt(i); if (c === "(") d++; else if (c === ")") d--; else if (c === "," && !d) { out.push(t.slice(a, i).trim()); a = i + 1; } } out.push(t.slice(a).trim()); return out; }
+  function vars(t){ for (var k = 0; k < 6 && /var\(/.test(t); k++) t = t.replace(/var\(\s*(--[\w-]+)\s*(?:,([^()]*))?\)/g, function(all, n, fb){ var v = cs.getPropertyValue(n).trim(); return v || (fb != null ? fb.trim() : all); }); return t; }
+  function mix(inner){                                // "in srgb, A p%, B q%" -> rgba(), come fa il browser (alfa premoltiplicato)
+    var a = args(inner).slice(1), c = [], p = [];
+    for (var i = 0; i < 2; i++) { var m = (a[i] || "transparent").match(/^([\s\S]*?)\s+([\d.]+)%$/); c.push(m ? m[1] : a[i] || "transparent"); p.push(m ? +m[2] : null); }
+    if (p[0] === null && p[1] === null) p = [50, 50]; else if (p[0] === null) p[0] = 100 - p[1]; else if (p[1] === null) p[1] = 100 - p[0];
+    var sum = p[0] + p[1] || 100, am = sum < 100 ? sum / 100 : 1, w0 = p[0] / sum, w1 = p[1] / sum, x = rgba(c[0]), y = rgba(c[1]);
+    if (!x || !y) return w0 >= w1 ? c[0] : c[1];       // non calcolabile: vale il colore che pesa di più
+    var al = x[3] * w0 + y[3] * w1; if (!al) return "rgba(0,0,0,0)";
+    var ch = [0, 1, 2].map(function(j){ return Math.round((x[j] * x[3] * w0 + y[j] * y[3] * w1) / al); });
+    return "rgba(" + ch.join(",") + "," + +(al * am).toFixed(3) + ")";
+  }
+  function resolve(t){                                // ogni color-mix(), dalla più interna, diventa un colore
+    for (var g = 0; g < 400; g++) {
+      var i = t.lastIndexOf("color-mix("); if (i < 0) break;
+      var d = 0, j = i + 9; for (; j < t.length; j++) { if (t.charAt(j) === "(") d++; else if (t.charAt(j) === ")" && !--d) break; }
+      var inner = t.slice(i + 10, j), key = inner;
+      if (!(key in memo)) { var v = vars(inner); memo[key] = mix(/color-mix\(/.test(v) ? resolve(v) : v); }
+      t = t.slice(0, i) + memo[key] + t.slice(j + 1);
+    }
+    return t;
+  }
+  function run(){ st.textContent = orig; cs = getComputedStyle(root); memo = {}; st.textContent = resolve(orig); }
+  run();
+  if (window.MutationObserver) new MutationObserver(run).observe(root, { attributes: true, attributeFilter: ["data-style", "data-theme", "data-palette", "data-mecha", "data-hud"] });
+  var mq = window.matchMedia && matchMedia("(prefers-color-scheme: dark)"); if (mq && mq.addListener) mq.addListener(run);
+})();
+</script>
 </head>
 <body>
 <main class="app">
@@ -1873,7 +1914,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.24"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.25"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
