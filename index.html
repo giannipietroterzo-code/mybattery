@@ -1293,6 +1293,8 @@ footer{border-top:0;padding-top:0}
 .wnd-rot{width:118px;height:118px}
 .wnd-rot .bl{transform-origin:60px 52px;animation:wndSpin var(--sp,0s) linear infinite}
 .wnd-rot.still .bl{animation:none}
+.wnd-rot.dim .bl,.wnd-rot.dim circle{opacity:.35}
+.wnd-rot .bl{transition:opacity .3s}
 @keyframes wndSpin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.wnd-rot .bl{animation:none}}
 .wnd-big{font-family:var(--num,inherit);font-size:2.3rem;font-weight:700;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -1790,7 +1792,7 @@ footer{border-top:0;padding-top:0}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.19"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.20"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5714,8 +5716,10 @@ function drawWind(){
   const now = nowOf(data), hours = wndHours(), cur = windAt(now), nw = wndNow(), curve = wndCurve(hours);
   // ---- adesso
   const ms = cur && fin(cur.ms) ? cur.ms : null, wEst = nw.ok && nw.w >= WND_NOISE ? nw.w : nw.ok ? 0 : null;
-  const sp = wEst !== null && wEst > 0 ? clamp(4 - wEst / 500, .5, 4) : ms !== null && ms > 1.5 ? clamp(8 / ms, .8, 6) : 0;
-  const rot = `<svg class="wnd-rot${sp ? "" : " still"}" viewBox="0 0 120 120" style="--sp:${sp.toFixed(2)}s" aria-hidden="true">
+  // il rotore segue la produzione stimata (2.20, richiesta dell'utente), non il vento del meteo: fermo a pala spenta, a zero o quando non si può stimare
+  // (casa sulle batterie: grigio). Un giro ogni 6 s a 60 W, sempre più svelto fino a un giro ogni 0,35 s sopra i 3 kW
+  const sp = wEst !== null && wEst > 0 ? clamp(2400 / (wEst + 200), .35, 6) : 0, dim = wEst === null;
+  const rot = `<svg class="wnd-rot${sp ? "" : " still"}${dim ? " dim" : ""}" viewBox="0 0 120 120" style="--sp:${sp.toFixed(2)}s" aria-hidden="true">
     <path d="M57 56 L60 116 L63 56Z" fill="var(--line)"/><rect x="48" y="112" width="24" height="4" fill="var(--line)"/>
     <g class="bl" fill="var(--wn-w)">${[0, 120, 240].map(a => `<path transform="rotate(${a} 60 52)" d="M60 52 C57 40 57 20 60 6 C64 20 64 40 60 52Z"/>`).join("")}</g>
     <circle cx="60" cy="52" r="5" fill="var(--surface)" stroke="var(--wn-w)" stroke-width="2.5"/></svg>`;
@@ -5728,11 +5732,16 @@ function drawWind(){
     : wEst === 0 ? `La pala adesso <b>non dà</b> niente che si possa distinguere (meno di ${WND_NOISE} W).` : "Stimata dalle batterie, tolti i pannelli e lo zero dell'impianto.";
   const exp = curve.useful && ms !== null ? curve.at(ms) : null;
   const arrow = cur && fin(cur.dir) ? `<svg class="wnd-cmp" viewBox="0 0 16 16" aria-hidden="true"><g transform="rotate(${(cur.dir + 180) % 360} 8 8)"><path d="M8 2 L11 12 L8 10 L5 12Z" fill="var(--wn-w)"/></g></svg>` : "";
-  head.innerHTML = `<div class="wnd-top">${rot}<div><div class="wnd-big">${big}</div><div class="wnd-st">${st}${exp !== null ? ` <br>Col vento di adesso la curva imparata dice circa <b>${power(exp)}</b>.` : ""}</div></div></div>` +
+  // il rotore non si ridisegna a ogni lettura (ripartirebbe da capo e scatterebbe): si crea una volta e poi si cambiano solo velocità e colore
+  const html = `<div class="wnd-top"><span id="wnd-rotw"></span><div><div class="wnd-big">${big}</div><div class="wnd-st">${st}${exp !== null ? ` <br>Col vento di adesso la curva imparata dice circa <b>${power(exp)}</b>.` : ""}</div></div></div>` +
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
     (!wx || !wx.wind ? `<p class="set-note">Il vento arriva col meteo: serve la località (Impostazioni → Meteo).</p>` : "") + sw;
+  const keep = $("wnd-rotw") && $("wnd-rotw").firstElementChild;
+  if (head.dataset.h !== html) { head.dataset.h = html; head.innerHTML = html; if (keep) $("wnd-rotw").append(keep); }
+  if (!$("wnd-rotw").firstElementChild) $("wnd-rotw").innerHTML = rot;
+  const rEl = $("wnd-rotw").firstElementChild; rEl.setAttribute("class", "wnd-rot" + (sp ? "" : " still") + (dim ? " dim" : "")); rEl.style.setProperty("--sp", sp.toFixed(2) + "s");
   // ---- ultime 48 ore
   const W = 340, top = 10, base = 120, t0 = Math.floor(now / HOUR) * HOUR - 47 * HOUR, X = t => (t - t0) / (48 * HOUR) * W;
   const last = hours.filter(h => h.t >= t0), wmax = Math.max(500, ...last.map(h => h.w || 0)), vs = last.map(h => windAt(h.t + HOUR / 2)).map(v => v && fin(v.ms) ? v.ms : null);
