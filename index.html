@@ -972,7 +972,7 @@ footer{border-top:0;padding-top:0}
 [data-mecha] .pv-col.low{--bd:var(--warn)}
 [data-mecha] :is(.hero-card,.panel)::after{content:"";position:absolute;top:9px;right:24px;width:54px;height:7px;pointer-events:none;
   background:repeating-linear-gradient(-45deg,var(--lith) 0 3px,transparent 3px 7px)}
-[data-mecha] .hero-card{padding:20px 14px 20px}
+[data-mecha] .hero-card{padding:15px 14px 20px}   /* 2.35: 5 px in meno in alto (dall'utente) */
 [data-mecha] :is(.soc .big,.soc .pct,.kpis dd,.pv-w,.pv-rv,section h2,.state,.tab,.kpis dt,.pv-n,.pv-st,.brand,.g-sub,.eta b){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
 [data-mecha] .soc .big{font-weight:700;letter-spacing:-.02em}
 [data-mecha] :is(.kpis dt,.state,.tab,.pv-st,.pv-n){text-transform:uppercase;letter-spacing:.06em}
@@ -1927,7 +1927,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.34"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.35"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
