@@ -137,12 +137,12 @@ body{height:100%;overflow:hidden}
 .pages::-webkit-scrollbar{display:none}
 .page{flex:0 0 100%;min-width:0;overflow-x:hidden;overflow-y:auto;scroll-snap-align:start;scroll-snap-stop:always;overscroll-behavior-y:contain;padding:4px 18px 28px}
 .page>section:first-child:not(.hero){margin-top:12px}
-.tabs{flex:none;display:grid;grid-template-columns:repeat(6,1fr);padding:6px 4px 8px;border-top:1px solid var(--line);
+.tabs{flex:none;display:grid;grid-template-columns:repeat(7,1fr);padding:7px 2px 9px;border-top:1px solid var(--line);
   background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .tab{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;border:0;background:none;color:var(--muted);font:inherit;font-size:.66rem;font-weight:600;
   padding:2px 0;cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap}
-.tab .ti{position:relative;display:grid;place-items:center;width:52px;height:30px;border-radius:999px;transition:background .25s,color .25s}
-.tab svg{width:21px;height:21px}
+.tab .ti{position:relative;display:grid;place-items:center;width:46px;height:34px;border-radius:999px;transition:background .25s,color .25s}
+.tab svg{width:23px;height:23px}
 .tab[aria-selected="true"]{color:var(--ink)}
 .tab[aria-selected="true"] .ti{background:var(--lith-tint);color:var(--sun)}
 .tab:focus-visible{outline:none}
@@ -1006,7 +1006,7 @@ footer{border-top:0;padding-top:0}
 [data-mecha] .state::before{border-radius:0;width:7px;height:7px}
 [data-mecha] .eta{border-radius:0;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
 [data-mecha] .tabs{background:var(--bg);border-top:2px solid var(--lith)}
-[data-mecha] .tab .ti{border-radius:0;clip-path:polygon(9px 0,100% 0,calc(100% - 9px) 100%,0 100%);width:58px}
+[data-mecha] .tab .ti{border-radius:0;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);width:48px}
 [data-mecha] .tab[aria-selected="true"]{color:var(--lith)}
 [data-mecha] .tab[aria-selected="true"] .ti{background:var(--lith);color:#111}
 [data-mecha] :is(.pv-rows,.pv-tab){border-radius:0;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
@@ -1056,7 +1056,7 @@ footer{border-top:0;padding-top:0}
 [data-style="cyber"] .eta{background:rgba(0,0,0,.35);border:1px solid color-mix(in srgb,var(--out) 45%,transparent);border-radius:10px}
 [data-style="cyber"] .tabs{background:rgba(5,4,3,.9);border-top:1.5px solid color-mix(in srgb,var(--lith) 60%,transparent);box-shadow:0 -6px 18px -12px var(--lith)}
 [data-style="cyber"] .tab{color:var(--lith);font-size:.56rem}
-[data-style="cyber"] .tab .ti{width:40px;height:30px;border-radius:8px;border:1.5px solid color-mix(in srgb,var(--out) 70%,transparent);color:var(--out);box-shadow:0 0 8px -2px var(--out)}
+[data-style="cyber"] .tab .ti{width:40px;height:32px;border-radius:8px;border:1.5px solid color-mix(in srgb,var(--out) 70%,transparent);color:var(--out);box-shadow:0 0 8px -2px var(--out)}
 [data-style="cyber"] .tab[aria-selected="true"]{color:var(--lith);text-shadow:0 0 6px var(--lith)}
 [data-style="cyber"] .tab[aria-selected="true"] .ti{background:color-mix(in srgb,var(--out) 22%,transparent);border-color:var(--out);color:#fff;box-shadow:0 0 14px var(--out)}
 [data-style="cyber"] .pv-g .f{filter:drop-shadow(0 0 4px var(--c))}
@@ -1308,19 +1308,19 @@ footer{border-top:0;padding-top:0}
 .fw-rot .rot-bl{transform-origin:50% 50%}
 /* «adesso» della pala (2.40, richiesta dell'utente: più ordinato): etichetta di una riga, watt grandi, barra fino ai 3 kW della Zeus 3.0
    e due valori sotto, ampere e tensione. Tutto ad altezza fissa: cambiando i numeri non si sposta niente */
-.wnd-now{min-width:0;display:flex;flex-direction:column;gap:7px}
+.wnd-live{min-width:0;display:flex;flex-direction:column;gap:7px}
 .wnd-tag{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:3px 9px 3px 7px;border:1px solid var(--line);border-radius:99px;
   font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
 .wnd-tag i{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
-.wnd-now.now .wnd-tag{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,transparent)}
-.wnd-now.now .wnd-tag i{background:var(--good);animation:pulse 2s infinite;--lith-tint:color-mix(in srgb,var(--good) 45%,transparent)}
-.wnd-now.min .wnd-tag{color:var(--ink)}.wnd-now.min .wnd-tag i{background:var(--wn-w)}
+.wnd-live.now .wnd-tag{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,transparent)}
+.wnd-live.now .wnd-tag i{background:var(--good);animation:pulse 2s infinite;--lith-tint:color-mix(in srgb,var(--good) 45%,transparent)}
+.wnd-live.min .wnd-tag{color:var(--ink)}.wnd-live.min .wnd-tag i{background:var(--wn-w)}
 .wnd-big{font-family:var(--num,inherit);font-size:2.6rem;font-weight:700;line-height:.95;color:var(--ink);font-variant-numeric:tabular-nums}
 .wnd-big small{font-size:1rem;margin-left:4px;color:var(--muted);font-weight:600}
-.wnd-now.now .wnd-big{color:var(--good)}
+.wnd-live.now .wnd-big{color:var(--good)}
 .wnd-bar{position:relative;height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
 .wnd-bar i{position:absolute;left:0;top:0;bottom:0;width:var(--f,0%);background:var(--wn-w);border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
-.wnd-now.now .wnd-bar i{background:var(--good)}
+.wnd-live.now .wnd-bar i{background:var(--good)}
 .wnd-sc{display:flex;justify-content:space-between;margin-top:3px;font-size:.62rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .wnd-av{display:flex;align-items:baseline;gap:0;font:700 1.02rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}
 .wnd-av span{flex:1;min-width:0}.wnd-av span+span{padding-left:12px;margin-left:12px;border-left:1px solid var(--line)}
@@ -1329,6 +1329,31 @@ footer{border-top:0;padding-top:0}
 [data-mecha] .wnd-av{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
 :is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.wnd-tag,.wnd-bar,.wnd-bar i){border-radius:0}
 
+/* pagina Inverter (2.41): uscita misurata dal misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac), rendimento DC → AC, ultimi minuti, stato */
+.inv-top{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:6px 12px;margin-top:6px}
+.inv-top .wnd-live{gap:8px}
+.inv-sub{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.45;min-height:2.9em}.inv-sub span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.inv-sub b{color:var(--ink);font-weight:600}
+.inv-ring{width:92px;height:92px}
+.inv-ring .tr{fill:none;stroke:var(--line);stroke-width:9}
+.inv-ring .fl{fill:none;stroke:var(--lith);stroke-width:9;stroke-linecap:round;transition:stroke-dasharray .6s cubic-bezier(.2,.8,.2,1)}
+.wnd-live.now + .inv-ring .fl,.inv-top.now .inv-ring .fl{stroke:var(--good)}
+.inv-ring text{fill:var(--ink);font:700 15px var(--num,inherit);font-variant-numeric:tabular-nums}
+.inv-ring .u{fill:var(--muted);font-size:9px;font-weight:600;letter-spacing:.06em}
+.inv-eff{display:grid;gap:10px;margin-top:4px}
+.inv-row{display:grid;grid-template-columns:7.2em minmax(0,1fr) 4.6em;align-items:center;gap:10px;font-size:.78rem;color:var(--muted)}
+.inv-row b{justify-self:end;color:var(--ink);font:700 .92rem var(--num,inherit);font-variant-numeric:tabular-nums;white-space:nowrap}
+.inv-row .wnd-bar{height:10px;border-radius:5px}.inv-row .wnd-bar i{border-radius:5px}
+.inv-row.dc .wnd-bar i{background:var(--lith)}.inv-row.ac .wnd-bar i{background:var(--good)}
+.inv-big{display:flex;align-items:baseline;gap:10px;margin-top:2px}
+.inv-big>b{font:700 1.9rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}.inv-big span{font-size:.8rem;color:var(--muted)}.inv-big span b{color:var(--ink);font-weight:700}
+.inv-dl{display:grid;gap:0;margin:2px 0 0}
+.inv-dl div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:.82rem}
+.inv-dl div:first-child{border-top:0}
+.inv-dl dt{color:var(--muted)}.inv-dl dd{margin:0;text-align:right;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.inv-dl dd.bad{color:var(--warn)}.inv-dl dd.ok{color:var(--good)}
+.inv-empty{margin:6px 0 2px;font-size:.84rem;color:var(--muted);line-height:1.45}.inv-empty b{color:var(--ink)}
+[data-mecha] .inv-big b,[data-mecha] .inv-ring text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
+:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) .inv-row .wnd-bar,:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) .inv-row .wnd-bar i{border-radius:0}
 .wnd-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 0}
 .wnd-g div{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 .wnd-g dt{font-size:.72rem;color:var(--muted)}.wnd-g dd{margin:3px 0 0;font:700 1.05rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -1641,6 +1666,62 @@ html.mon-open,html.mon-open body{overflow:hidden}
         <div class="ql" id="ql"></div>
       </section>
     </div>
+    <div class="page" id="pg-5" role="tabpanel" aria-labelledby="tab-5">
+      <section class="panel wnd-now" aria-labelledby="h-wnd" id="wnd-now">
+        <h2 id="h-wnd">Pala eolica</h2>
+        <div id="wnd-head"></div>
+      </section>
+      <section class="panel" aria-labelledby="h-wnd1">
+        <h2 id="h-wnd1">Ultima ora</h2>
+        <svg class="wnd-svg wnd-1h" id="wnd-1h" viewBox="0 0 340 150" role="img" aria-label="Potenza e corrente stimate della pala minuto per minuto nell'ultima ora"></svg>
+        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala, media del minuto</span><span><i class="wn-pk"></i>Picco istantaneo</span><span><i class="wn-na"></i>Casa sulle batterie</span><span><i class="wn-gap"></i>Nessuna lettura</span></p>
+        <p class="hist-read" id="wnd-1hr"></p>
+      </section>
+      <section class="panel" aria-labelledby="h-wnd48">
+        <h2 id="h-wnd48">Ultime 48 ore</h2>
+        <svg class="wnd-svg" id="wnd-48" viewBox="0 0 340 150" role="img" aria-label="Potenza stimata della pala e vento nelle ultime 48 ore"></svg>
+        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala (stimata)</span><span><i class="wn-pk"></i>Picchi del quarto d'ora: minuto (pieno), istante (vuoto)</span><span><i style="background:var(--wn-v)"></i>Vento m/s</span><span><i class="wn-na"></i>Casa sulle batterie: non stimabile</span></p>
+        <p class="hist-read" id="wnd-48r"></p>
+      </section>
+      <section class="panel" aria-labelledby="h-wndd">
+        <h2 id="h-wndd">Ultimi 7 giorni</h2>
+        <div class="wnd-days" id="wnd-days"></div>
+        <p class="set-note" id="wnd-days-n"></p>
+      </section>
+      <section class="panel" aria-labelledby="h-wndc">
+        <h2 id="h-wndc">La curva della pala</h2>
+        <svg class="wnd-svg" id="wnd-curve" viewBox="0 0 340 170" role="img" aria-label="Potenza della pala secondo la velocità del vento"></svg>
+        <p class="set-note" id="wnd-curve-n"></p>
+      </section>
+      <section class="panel" aria-labelledby="h-wndf">
+        <h2 id="h-wndf">Prossime 48 ore</h2>
+        <svg class="wnd-svg" id="wnd-fc" viewBox="0 0 340 150" role="img" aria-label="Vento previsto e produzione attesa della pala"></svg>
+        <p class="hist-read" id="wnd-fcr"></p>
+      </section>
+      <section class="panel plain" aria-labelledby="h-wndi">
+        <h2 id="h-wndi">Come si calcola</h2>
+        <div class="set-note wnd-info" id="wnd-info"></div>
+      </section>
+    </div>
+    <div class="page" id="pg-6" role="tabpanel" aria-labelledby="tab-6">
+      <section class="panel" aria-labelledby="h-inv" id="inv-now">
+        <h2 id="h-inv">Inverter</h2>
+        <div id="inv-head"></div>
+      </section>
+      <section class="panel" aria-labelledby="h-inv-eff">
+        <h2 id="h-inv-eff">Rendimento adesso</h2>
+        <div id="inv-eff"></div>
+      </section>
+      <section class="panel" aria-labelledby="h-inv-run">
+        <h2 id="h-inv-run">Ultimi minuti</h2>
+        <svg class="wnd-svg" id="inv-run" viewBox="0 0 340 130" role="img" aria-label="Potenza in uscita dall'inverter negli ultimi minuti"></svg>
+        <p class="hist-read" id="inv-runr"></p>
+      </section>
+      <section class="panel" aria-labelledby="h-inv-dev">
+        <h2 id="h-inv-dev">Interruttore e misuratore</h2>
+        <div id="inv-dev"></div>
+      </section>
+    </div>
     <div class="page" id="pg-3" role="tabpanel" aria-labelledby="tab-3">
     <section class="panel" aria-labelledby="h-hist">
       <h2 id="h-hist">Ultime 24 ore</h2>
@@ -1688,51 +1769,15 @@ html.mon-open,html.mon-open body{overflow:hidden}
       <div id="lrn"></div>
     </section>
     </div>
-      <div class="page" id="pg-5" role="tabpanel" aria-labelledby="tab-5">
-      <section class="panel wnd-now" aria-labelledby="h-wnd" id="wnd-now">
-        <h2 id="h-wnd">Pala eolica</h2>
-        <div id="wnd-head"></div>
-      </section>
-      <section class="panel" aria-labelledby="h-wnd1">
-        <h2 id="h-wnd1">Ultima ora</h2>
-        <svg class="wnd-svg wnd-1h" id="wnd-1h" viewBox="0 0 340 150" role="img" aria-label="Potenza e corrente stimate della pala minuto per minuto nell'ultima ora"></svg>
-        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala, media del minuto</span><span><i class="wn-pk"></i>Picco istantaneo</span><span><i class="wn-na"></i>Casa sulle batterie</span><span><i class="wn-gap"></i>Nessuna lettura</span></p>
-        <p class="hist-read" id="wnd-1hr"></p>
-      </section>
-      <section class="panel" aria-labelledby="h-wnd48">
-        <h2 id="h-wnd48">Ultime 48 ore</h2>
-        <svg class="wnd-svg" id="wnd-48" viewBox="0 0 340 150" role="img" aria-label="Potenza stimata della pala e vento nelle ultime 48 ore"></svg>
-        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala (stimata)</span><span><i class="wn-pk"></i>Picchi del quarto d'ora: minuto (pieno), istante (vuoto)</span><span><i style="background:var(--wn-v)"></i>Vento m/s</span><span><i class="wn-na"></i>Casa sulle batterie: non stimabile</span></p>
-        <p class="hist-read" id="wnd-48r"></p>
-      </section>
-      <section class="panel" aria-labelledby="h-wndd">
-        <h2 id="h-wndd">Ultimi 7 giorni</h2>
-        <div class="wnd-days" id="wnd-days"></div>
-        <p class="set-note" id="wnd-days-n"></p>
-      </section>
-      <section class="panel" aria-labelledby="h-wndc">
-        <h2 id="h-wndc">La curva della pala</h2>
-        <svg class="wnd-svg" id="wnd-curve" viewBox="0 0 340 170" role="img" aria-label="Potenza della pala secondo la velocità del vento"></svg>
-        <p class="set-note" id="wnd-curve-n"></p>
-      </section>
-      <section class="panel" aria-labelledby="h-wndf">
-        <h2 id="h-wndf">Prossime 48 ore</h2>
-        <svg class="wnd-svg" id="wnd-fc" viewBox="0 0 340 150" role="img" aria-label="Vento previsto e produzione attesa della pala"></svg>
-        <p class="hist-read" id="wnd-fcr"></p>
-      </section>
-      <section class="panel plain" aria-labelledby="h-wndi">
-        <h2 id="h-wndi">Come si calcola</h2>
-        <div class="set-note wnd-info" id="wnd-info"></div>
-      </section>
-    </div>
 </div>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Pagine">
-    <button class="tab" id="tab-0" type="button" role="tab" aria-controls="pg-0" aria-selected="true" tabindex="0"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 17.8a8 8 0 1 1 13.6 0"/><path d="M12 13.5l3.2-3.6"/><circle cx="12" cy="14" r="1.4"/></svg><span class="tab-n" id="tab-n" hidden></span></span>Dashboard</button>
-    <button class="tab" id="tab-1" type="button" role="tab" aria-controls="pg-1" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></span>Batterie</button>
-    <button class="tab" id="tab-2" type="button" role="tab" aria-controls="pg-2" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg></span>Pannelli</button>
-    <button class="tab" id="tab-3" type="button" role="tab" aria-controls="pg-3" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 19.5h17"/><path d="M4.5 15l4.5-5 3.5 3 6.5-7.5"/><path d="M15.5 5.5h3.5V9"/></svg></span>Andamento</button>
-    <button class="tab" id="tab-4" type="button" role="tab" aria-controls="pg-4" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.8v3.4M16 2.8v3.4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/></svg></span>Abitudini</button>
-    <button class="tab" id="tab-5" type="button" role="tab" aria-controls="pg-5" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="1.6"/><path d="M12 7.4V2.8c2.4.6 2.9 3.2 0 4.6M13.4 9.8l4 2.3c-1.8 1.7-4.3.8-4-2.3M10.6 9.8l-4 2.3c.5-2.4 3-3.3 4-2.3"/><path d="M12 10.6V21M9 21h6"/></svg></span>Vento</button>
+    <button class="tab" id="tab-0" type="button" role="tab" aria-label="Dashboard" title="Dashboard" aria-controls="pg-0" aria-selected="true" tabindex="0"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 17.8a8 8 0 1 1 13.6 0"/><path d="M12 13.5l3.2-3.6"/><circle cx="12" cy="14" r="1.4"/></svg><span class="tab-n" id="tab-n" hidden></span></span></button>
+    <button class="tab" id="tab-1" type="button" role="tab" aria-label="Batterie" title="Batterie" aria-controls="pg-1" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></span></button>
+    <button class="tab" id="tab-2" type="button" role="tab" aria-label="Pannelli" title="Pannelli" aria-controls="pg-2" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg></span></button>
+    <button class="tab" id="tab-5" type="button" role="tab" aria-label="Vento" title="Vento" aria-controls="pg-5" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="1.6"/><path d="M12 7.4V2.8c2.4.6 2.9 3.2 0 4.6M13.4 9.8l4 2.3c-1.8 1.7-4.3.8-4-2.3M10.6 9.8l-4 2.3c.5-2.4 3-3.3 4-2.3"/><path d="M12 10.6V21M9 21h6"/></svg></span></button>
+    <button class="tab" id="tab-6" type="button" role="tab" aria-label="Inverter" title="Inverter" aria-controls="pg-6" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M5.5 18.5l13-13"/><path d="M6.5 8h4.5M6.5 10.3h1.4M8.4 10.3h1.2M10.1 10.3h.9"/><path d="M13 15.5c.8-1.6 1.6-1.6 2.4 0s1.6 1.6 2.4 0"/></svg></span></button>
+    <button class="tab" id="tab-3" type="button" role="tab" aria-label="Andamento" title="Andamento" aria-controls="pg-3" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 19.5h17"/><path d="M4.5 15l4.5-5 3.5 3 6.5-7.5"/><path d="M15.5 5.5h3.5V9"/></svg></span></button>
+    <button class="tab" id="tab-4" type="button" role="tab" aria-label="Abitudini" title="Abitudini" aria-controls="pg-4" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.8v3.4M16 2.8v3.4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/></svg></span></button>
   </nav>
 </main>
 <button class="mon-back" id="mon-back" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg><span>Torna al Monitor</span><i id="mon-back-t"></i></button>
@@ -1947,7 +1992,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.40"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.41"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4141,6 +4186,7 @@ function render(m){
   drawSolar(k, f);
   drawMon(k, f);
   try { drawWind(); } catch (e) { console.error(e); }
+  try { drawInv(k); } catch (e) { console.error(e); }
   drawWeather(k);
   drawFw();
 
@@ -6171,6 +6217,74 @@ function wndShown(nw){
   const avg = ws.length ? ws.reduce((a, x) => a + x, 0) / ws.length : 0;
   return avg >= 15 ? { w: avg, src: "min", sp: clamp(2400 / (avg + 200), .35, 8) } : { w: 0, src: "ora", sp: 0 };
 }
+/* ---------- pagina Inverter (2.41, richiesta dell'utente) ----------
+   Il misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac: v, a, w, kwh, hz, ok, code, ip, ver, at, n, bad, ms) misura l'uscita vera
+   dell'inverter, cioè la casa quando è sulle batterie. Si alimenta dalla stessa linea: con lo Shelly aperto o l'inverter fermo è spento anche lui.
+   Rendimento: i watt in uscita contro quelli che entrano dal lato delle batterie (pannelli − carica delle batterie, houseLive): con la pala
+   accesa l'ingresso è stimato per difetto (la scheda non la vede), quindi il rendimento esce più alto del vero. Ultimi minuti: le letture
+   che arrivano mentre la app è aperta (la scheda non le registra ancora). Il contatore di oggi parte dalla prima lettura del giorno */
+const INV_KEY = "mybattery.invday", AC_ERR = { "-1": "in attesa della prima lettura", 1: "non si riesce a mandare la domanda", 2: "non risponde all'accordo della chiave (chiave sbagliata?)",
+  3: "la chiave non torna", 4: "non risponde alla domanda (chiave sbagliata?)", 5: "risposta non leggibile", 6: "vuole un altro tipo di domanda", 7: "versione del protocollo non gestita",
+  10: "connessione rifiutata", 11: "non si sente in rete: è senza corrente o fuori dal WiFi", 12: "risposta senza dati", 13: "non trovato in rete, neanche indirizzo per indirizzo" };
+let invRun = [], invDay = null;
+function drawInv(k){
+  const head = $("inv-head"); if (!head) return;
+  const a = data && data.ac, cb = data && data.cb, now = nowOf(data), L = houseLive(k);
+  const cbOff = cb && cb.ok && cb.on === false, ok = !!(a && a.ok && fin(a.w));
+  if (ok && (!invRun.length || invRun[invRun.length - 1].t !== a.at)) {
+    invRun.push({ t: a.at || now, w: a.w }); invRun = invRun.filter(x => x.t >= now - 900);
+    if (fin(a.kwh)) { if (!invDay) invDay = lsGet(INV_KEY); if (!invDay || invDay.d !== dkey(now) || a.kwh < invDay.k) { invDay = { d: dkey(now), k: a.kwh, t: now }; lsSet(INV_KEY, invDay); } }
+  }
+  // ---- adesso
+  const st = !a ? ["", "Misuratore da collegare"] : cbOff ? ["", "Uscita spenta"] : !ok ? ["", "Non letto"]
+    : L.on && a.w >= 20 ? [" now", "Casa sulle batterie"] : a.v >= 180 ? [" min", "Acceso, casa su Enel"] : ["", "Senza tensione"];
+  const w = ok ? a.w : null, big = w !== null ? `${w >= 1000 ? nf(w / 1000, 2) : nf(w, 0)}<small>${w >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
+  const today = ok && invDay && fin(a.kwh) ? a.kwh - invDay.k : null, from = invDay && invDay.t - midnight(now) > 600 ? ` dalle ${hm(invDay.t)}` : "";
+  const sub = !a ? "Serve il firmware 0.67 e la chiave del misuratore."
+    : cbOff ? "Lo Shelly è aperto: il misuratore, alimentato dalla stessa linea, è spento."
+    : !ok ? esc(AC_ERR[a.code] || "codice " + a.code)
+    : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 1) : "–"}</b> kWh</span>`;
+  // anello: la potenza sulla scala dei 6 kW (un inverter da casa), con la radice come la barra della pala
+  const f = w ? Math.sqrt(Math.min(1, w / 6000)) : 0, C = 2 * Math.PI * 38;
+  const ring = `<svg class="inv-ring" viewBox="0 0 92 92" aria-hidden="true"><circle class="tr" cx="46" cy="46" r="38"/><circle class="fl" cx="46" cy="46" r="38" transform="rotate(-90 46 46)" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}"/>` +
+    `<text x="46" y="48" text-anchor="middle">${ok && fin(a.a) ? nf(a.a, a.a < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">AMPERE</text></svg>`;
+  const tile = (t, v, u) => `<div><dt>${t}</dt><dd>${v}${u ? `<small>${u}</small>` : ""}</dd></div>`;
+  head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
+    `<dl class="wnd-g">${tile("Tensione", ok && fin(a.v) ? nf(a.v, 1) : "–", "V")}${tile("Frequenza", ok && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", ok && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, w / (a.v * a.a)), 2) : "–", "")}</dl>`;
+  // ---- rendimento
+  const dc = L.on && fin(L.dc) ? L.dc : null, eff = ok && dc && dc > 150 && w > 50 ? w / dc : null;
+  const top = Math.max(500, dc || 0, w || 0), bar = (cls, t, v) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${v ? (Math.min(1, v / top) * 100).toFixed(1) : 0}%"></i></div><b>${v !== null ? power(v) : "–"}</b></div>`;
+  $("inv-eff").innerHTML = eff !== null
+    ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - w))}</b></span></div><div class="inv-eff">${bar("dc", "Entra (batterie)", dc)}${bar("ac", "Esce (casa)", w)}</div>` +
+      `<p class="set-note">L'ingresso è quello che la scheda vede dal lato delle batterie (pannelli meno la carica). Con la pala che gira la sua corrente non si vede, e il rendimento esce più alto del vero.</p>`
+    : `<p class="inv-empty">${!ok ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : "Serve un carico di almeno 50 W."}</p>`;
+  // ---- ultimi minuti
+  drawInvRun(now);
+  // ---- interruttore e misuratore
+  const row = (t, v, c) => `<div><dt>${t}</dt><dd${c ? ` class="${c}"` : ""}>${v}</dd></div>`, age = a && a.at ? Math.max(0, now - a.at) : null;
+  $("inv-dev").innerHTML = `<dl class="inv-dl">` +
+    row("Interruttore Shelly", !cb ? "–" : !cb.ok ? "non risponde" : cb.on ? "chiuso" : "aperto", cb && cb.ok ? (cb.on ? "ok" : "") : "bad") +
+    (cb && cb.ok && fin(cb.t) ? row("Temperatura dello Shelly", nf(cb.t, 0) + " °C", cb.t >= 70 ? "bad" : "") : "") +
+    row("Misuratore", !a ? "non collegato" : ok ? (age !== null && age < 5 ? "letto adesso" : age !== null && age < 60 ? `letto ${nf(age, 0)} s fa` : "letto alle " + hm(a.at)) : esc(AC_ERR[a.code] || "codice " + a.code), !a ? "" : ok ? "ok" : "bad") +
+    (a ? row("In rete", a.ip ? `${esc(a.ip)}${a.ver ? " · protocollo " + esc(a.ver) : ""}` : "non ancora trovato", "") +
+      row("Letture", `${nf(a.n || 0, 0)} buone · ${nf(a.bad || 0, 0)} sbagliate${fin(a.ms) && a.ms ? ` · ${nf(a.ms, 0)} ms` : ""}`, "") : "") + `</dl>`;
+}
+function drawInvRun(now){
+  const svg = $("inv-run"); if (!svg) return;
+  const W = 340, H = 130, l = 34, r = 8, t0 = 10, b = 112, from = now - 900, X = t => l + (t - from) / 900 * (W - l - r);
+  const pts = invRun.filter(x => x.t >= from), top = Math.max(500, ...pts.map(x => x.w)), Y = w => b - w / top * (b - t0);
+  let g = `<line x1="${l}" y1="${b}" x2="${W - r}" y2="${b}" stroke="var(--line)"/><line x1="${l}" y1="${t0}" x2="${W - r}" y2="${t0}" stroke="var(--line)" stroke-dasharray="2 3"/>` +
+    `<text x="${l - 4}" y="${t0 + 3}" text-anchor="end" font-size="9" fill="var(--muted)">${power(top)}</text><text x="${l - 4}" y="${b + 3}" text-anchor="end" font-size="9" fill="var(--muted)">0</text>` +
+    [15, 10, 5, 0].map(m => `<text x="${X(now - m * 60)}" y="${b + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${m ? "−" + m + "′" : "ora"}</text>`).join("");
+  if (pts.length >= 2) {
+    const line = pts.map((x, i) => `${i ? "L" : "M"}${X(x.t).toFixed(1)} ${Y(x.w).toFixed(1)}`).join("");
+    g += `<path d="${line}L${X(pts[pts.length - 1].t).toFixed(1)} ${b}L${X(pts[0].t).toFixed(1)} ${b}Z" fill="var(--good)" opacity=".18"/><path d="${line}" fill="none" stroke="var(--good)" stroke-width="1.8" stroke-linejoin="round"/>`;
+  }
+  svg.innerHTML = g;
+  const avg = pts.length ? pts.reduce((s, x) => s + x.w, 0) / pts.length : null, mx = pts.reduce((m, x) => !m || x.w > m.w ? x : m, null);
+  $("inv-runr").innerHTML = pts.length >= 2 ? `Media <b>${power(avg)}</b> · massimo <b>${power(mx.w)}</b> alle ${hm(mx.t)}. Sono le letture arrivate da quando hai aperto la app.`
+    : "Le letture si accumulano mentre la app è aperta (una ogni 5 secondi dalla scheda).";
+}
 function drawWind(){
   const head = $("wnd-head"); if (!head) return;
   const now = nowOf(data), hours = wndHours(), cur = windAt(now), nw = wndNow(), curve = wndCurve(hours);
@@ -6194,7 +6308,7 @@ function drawWind(){
   const tag = wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
     : live ? "Adesso" : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${WND_NOISE} W`;
   const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
-  const now1 = `<div class="wnd-now${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
+  const now1 = `<div class="wnd-live${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
     `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
     `<div class="wnd-av"><span><em>Corrente</em>${wEst !== null && hasV ? nf(wEst / nw.v, 1) : "–"}<small>A</small></span><span><em>Batterie</em>${hasV ? nf(nw.v, 1) : "–"}<small>V</small></span></div></div>`;
   const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}</div>` +
@@ -6504,29 +6618,32 @@ $("sheet").addEventListener("close", () => { openIdx = null; selCell = null; });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 
 /* ---------- pagine: scorrimento laterale e barra in basso; si ricorda l'ultima pagina aperta ---------- */
-const pagesEl = $("pages"), tabEls = [...document.querySelectorAll(".tab")];
-let pageIdx = 0;
+/* 2.41 (richiesta dell'utente): Vento subito dopo Pannelli, poi la pagina Inverter, poi Andamento e Abitudini. Ogni pagina tiene il suo numero
+   (pg-N, tab-N, goPage(N), la pagina ricordata): PG dice quale pagina sta in ogni posizione, nell'ordine della barra in basso */
+const pagesEl = $("pages"), tabEls = [...document.querySelectorAll(".tab")], PG = tabEls.map(t => +t.id.slice(4));
+let pageIdx = 0;                                       // la posizione, non il numero della pagina
 function setTab(i){
   pageIdx = i;
   tabEls.forEach((t, j) => { t.setAttribute("aria-selected", j === i); t.tabIndex = j === i ? 0 : -1; });
-  try { localStorage.setItem("mybattery.page", i); } catch (e) {}
+  try { localStorage.setItem("mybattery.page", PG[i]); } catch (e) {}
 }
-function goPage(i, smooth = true){
+function goPos(i, smooth = true){
   i = Math.max(0, Math.min(tabEls.length - 1, i));
   const quiet = !smooth || matchMedia("(prefers-reduced-motion: reduce)").matches;
   pagesEl.scrollTo({ left: i * pagesEl.clientWidth, behavior: quiet ? "auto" : "smooth" });
   setTab(i);
 }
+function goPage(n, smooth = true){ const i = PG.indexOf(n); goPos(i < 0 ? 0 : i, smooth); }
 let pageRaf = 0;
 pagesEl.addEventListener("scroll", () => {
   cancelAnimationFrame(pageRaf);
   pageRaf = requestAnimationFrame(() => { const i = Math.round(pagesEl.scrollLeft / pagesEl.clientWidth); if (i !== pageIdx) setTab(i); });
 }, { passive: true });
 // toccando l'icona della pagina già aperta si torna in cima
-tabEls.forEach((t, i) => t.addEventListener("click", () => i === pageIdx ? $("pg-" + i).scrollTo({ top: 0, behavior: "smooth" }) : goPage(i)));
+tabEls.forEach((t, i) => t.addEventListener("click", () => i === pageIdx ? $("pg-" + PG[i]).scrollTo({ top: 0, behavior: "smooth" }) : goPos(i)));
 $("tabs").addEventListener("keydown", e => {
   const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (!d) return;
-  e.preventDefault(); goPage(pageIdx + d); tabEls[pageIdx].focus();
+  e.preventDefault(); goPos(pageIdx + d); tabEls[pageIdx].focus();
 });
 addEventListener("resize", () => pagesEl.scrollTo({ left: pageIdx * pagesEl.clientWidth }));
 { let p0 = 0; try { p0 = +localStorage.getItem("mybattery.page") || 0; } catch (e) {} requestAnimationFrame(() => goPage(p0, false)); }
@@ -7058,7 +7175,11 @@ function simulate(){
   const offDemo = pv.map(g => { const c = demoPvOff >> (g.addr - 1) & 1, hi = g.addr === 3 ? 92 : 141, lim = 140.2, a = g.addr === 1 ? 2 : g.addr === 2 ? 1 : 0;
     return { ...g, ...(c ? { w: 0, out_w: 0, v: .4, a: 0, state: "off" } : {}), fc: { a, v: a === 2 ? 146 : hi, at: now + 14 * HOUR, n: a === 1 ? 149 : hi - 2, nt: now + 38 * HOUR, l: lim, b: a === 2 ? now + 16 * HOUR : now, c: g.addr !== 3 } }; });
   const cb = { ip: "192.168.0.29", ok: true, on: demoCb.on, ...(demoCb.cmd ? { cmd: demoCb.cmd } : {}), v: +(225.5 + Math.sin(now / 97) * 1.2).toFixed(1), t: +(41 + Math.sin(now / 900) * 2).toFixed(1), err: [], src: "SHC", at: Math.round(now), ver: "2.0.0" };
-  return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo, cb,
+  // il misuratore dopo lo Shelly (firmware 0.67): la casa vista dal lato delle batterie, col rendimento dell'inverter
+  const pvOut = offDemo.reduce((s, g) => s + (g.out_w || 0), 0), acW = demoCb.on ? Math.max(0, Math.round((pvOut - total * 52.8) * .92)) : 0, acV = +(229.4 + Math.sin(now / 61) * .8).toFixed(1);
+  const ac = demoCb.on ? { ip: "192.168.0.33", ver: "3.4", ok: true, code: 0, at: Math.round(now), v: acV, a: +(acW / acV / .97).toFixed(3), w: acW, kwh: +(812.4 + now % 86400 / 86400 * 9).toFixed(2), hz: 50, n: 1200, bad: 3, ms: 240 }
+    : { ip: "192.168.0.33", ver: "3.4", ok: false, code: 11, n: 1200, bad: 40, ms: 0 };
+  return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo, cb, ac,
     limits: { bal_start: 3400, bal_diff: 30, cell_ov: 3650, cell_uv: 2500, low_soc: 10 },
     batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})),
     history: { step: hs.step, soc: [...hs.soc], p: [...hs.p] } };
