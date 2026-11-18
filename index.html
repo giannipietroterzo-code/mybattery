@@ -1306,12 +1306,28 @@ footer{border-top:0;padding-top:0}
 .fw-rot.dim{opacity:.4}
 .fw-rot svg{display:block;width:100%;height:100%;overflow:visible}
 .fw-rot .rot-bl{transform-origin:50% 50%}
-.wnd-big{font-family:var(--num,inherit);font-size:2.3rem;font-weight:700;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
-.wnd-big small{font-size:1rem;margin-left:3px;color:var(--muted);font-weight:600}
-/* 2.36 (richiesta dell'utente): watt e ampere verdi quando sono la misura di adesso, bianchi quando sono la media dell'ultimo minuto */
-.wnd-top.now .wnd-big,.wnd-top.now .wnd-a{color:var(--good)}
-.wnd-a{margin-top:4px;font:600 1rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}.wnd-a b{font-weight:700}.wnd-a span{margin-left:4px;font-size:.78rem;font-weight:500;color:var(--muted)}
-[data-mecha] .wnd-a{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
+/* «adesso» della pala (2.40, richiesta dell'utente: più ordinato): etichetta di una riga, watt grandi, barra fino ai 3 kW della Zeus 3.0
+   e due valori sotto, ampere e tensione. Tutto ad altezza fissa: cambiando i numeri non si sposta niente */
+.wnd-now{min-width:0;display:flex;flex-direction:column;gap:7px}
+.wnd-tag{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:3px 9px 3px 7px;border:1px solid var(--line);border-radius:99px;
+  font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.wnd-tag i{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+.wnd-now.now .wnd-tag{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,transparent)}
+.wnd-now.now .wnd-tag i{background:var(--good);animation:pulse 2s infinite;--lith-tint:color-mix(in srgb,var(--good) 45%,transparent)}
+.wnd-now.min .wnd-tag{color:var(--ink)}.wnd-now.min .wnd-tag i{background:var(--wn-w)}
+.wnd-big{font-family:var(--num,inherit);font-size:2.6rem;font-weight:700;line-height:.95;color:var(--ink);font-variant-numeric:tabular-nums}
+.wnd-big small{font-size:1rem;margin-left:4px;color:var(--muted);font-weight:600}
+.wnd-now.now .wnd-big{color:var(--good)}
+.wnd-bar{position:relative;height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.wnd-bar i{position:absolute;left:0;top:0;bottom:0;width:var(--f,0%);background:var(--wn-w);border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.wnd-now.now .wnd-bar i{background:var(--good)}
+.wnd-sc{display:flex;justify-content:space-between;margin-top:3px;font-size:.62rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.wnd-av{display:flex;align-items:baseline;gap:0;font:700 1.02rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}
+.wnd-av span{flex:1;min-width:0}.wnd-av span+span{padding-left:12px;margin-left:12px;border-left:1px solid var(--line)}
+.wnd-av small{margin-left:3px;font-size:.74rem;font-weight:600;color:var(--muted)}
+.wnd-av em{display:block;font-style:normal;font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:1px}
+[data-mecha] .wnd-av{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
+:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.wnd-tag,.wnd-bar,.wnd-bar i){border-radius:0}
 
 .wnd-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 0}
 .wnd-g div{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
@@ -1931,7 +1947,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.39"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.40"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -6173,7 +6189,15 @@ function drawWind(){
      cambiando lunghezza spostava i riquadri sotto. Restano watt e ampere, sempre su due righe: «–» quando non c'è la stima */
   const arrow = cur && fin(cur.dir) ? `<svg class="wnd-cmp" viewBox="0 0 16 16" aria-hidden="true"><g transform="rotate(${(cur.dir + 180) % 360} 8 8)"><path d="M8 2 L11 12 L8 10 L5 12Z" fill="var(--wn-w)"/></g></svg>` : "";
   // il rotore non si ridisegna a ogni lettura (ripartirebbe da capo e scatterebbe): si crea una volta e poi si cambiano solo velocità e colore
-  const html = `<div class="wnd-top${shown.src === "ora" && wEst > 0 ? " now" : ""}"><span id="wnd-rotw"></span><div><div class="wnd-big">${big}</div><div class="wnd-a">${wEst !== null && nw.v > 40 ? `<b>${nf(wEst / nw.v, 1)}</b> A <span>a ${nf(nw.v, 1)} V</span>` : `<b>–</b> A`}</div></div></div>` +
+  // la barra va fino ai 3 kW della Zeus 3.0 con la radice quadrata, così anche poche decine di watt si vedono
+  const live = shown.src === "ora" && wEst > 0, cls = live ? " now" : shown.src === "min" ? " min" : "", hasV = nw && fin(nw.v) && nw.v > 40;
+  const tag = wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
+    : live ? "Adesso" : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${WND_NOISE} W`;
+  const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
+  const now1 = `<div class="wnd-now${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
+    `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
+    `<div class="wnd-av"><span><em>Corrente</em>${wEst !== null && hasV ? nf(wEst / nw.v, 1) : "–"}<small>A</small></span><span><em>Batterie</em>${hasV ? nf(nw.v, 1) : "–"}<small>V</small></span></div></div>`;
+  const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}</div>` +
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
