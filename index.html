@@ -1992,7 +1992,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.44"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.45"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4587,7 +4587,7 @@ function learn(rows){
   if (rows.length < 2) return null;
   const loc = here(), hours = new Map();
   let pvRows = 0, prev = rows[0][2]; const plant = [];
-  rows.forEach(([t, m, soc, chg, dsg, pv]) => {
+  rows.forEach(([t, m, soc, chg, dsg, pv, ac]) => {
     const mid = t + m * 30, d = new Date(mid * 1000); d.setMinutes(0, 0, 0);
     const key = d.getTime() / 1000, has = fin(pv);
     if (has) pvRows++;
@@ -4595,13 +4595,16 @@ function learn(rows){
     let load = has ? pv - chg + dsg : sinElev(mid, loc.lat, loc.lon) < -.05 ? dsg - chg : null;
     if (fin(load) && !bankAt(mid)) { if (sinElev(mid, loc.lat, loc.lon) < -.05) plant.push(load * 60 / m); load = null; }   // casa su Enel: è solo l'impianto
     let o = hours.get(key);
-    if (!o) hours.set(key, o = { t: key, lwh: 0, lmin: 0, pwh: 0, pmin: 0, cwh: 0, dwh: 0, nmin: 0, soc0: prev, soc });
+    if (!o) hours.set(key, o = { t: key, lwh: 0, lmin: 0, pwh: 0, pmin: 0, cwh: 0, dwh: 0, nmin: 0, awh: 0, amin: 0, wnd: false, soc0: prev, soc });
     if (fin(load)) { o.lwh += Math.max(0, load); o.lmin += m; }
+    if (fin(ac) && bankAt(mid)) { o.awh += Math.max(0, ac); o.amin += m; }      // 2.45: Wh misurati in uscita dall'inverter (firmware 0.71)
+    if (wndOn(mid)) o.wnd = true;
     if (has) { o.pwh += pv; o.pmin += m; }
     o.cwh += chg; o.dwh += dsg; o.nmin += m; o.soc = soc; prev = soc;
   });
   const H = [...hours.values()].map(o => ({ t: o.t, soc0: o.soc0, soc: o.soc, load: o.lmin >= 15 ? o.lwh / (o.lmin / 60) : null,
-    pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, chg: o.nmin ? o.cwh / (o.nmin / 60) : 0, dsg: o.nmin ? o.dwh / (o.nmin / 60) : 0 }));
+    pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, chg: o.nmin ? o.cwh / (o.nmin / 60) : 0, dsg: o.nmin ? o.dwh / (o.nmin / 60) : 0,
+    acW: o.amin >= 45 ? o.awh / (o.amin / 60) : null, wnd: o.wnd }));
   H.forEach(o => o.net = o.chg - o.dsg);
   const Hmap = new Map(H.map(o => [o.t, o]));
   const first = rows[0][0], last = rows[rows.length - 1][0] + rows[rows.length - 1][1] * 60;
@@ -4609,6 +4612,27 @@ function learn(rows){
   const M = { span, rows: rows.length, step: rows[rows.length - 1][1], first, last, H, Hmap, pvKnown: pvRows > rows.length * .5, patterns: [], insight: {} };
   M.socT = rows.map(r => r[0] + r[1] * 60); M.socV = rows.map(r => r[2]);
   M.plantW = plant.length >= 4 ? clamp(quant(plant, .5), 15, 200) : null;       // l'impianto da solo, con la casa su Enel
+  /* i consumi veri della casa (2.45, richiesta dell'utente). Dalla 0.71 le righe del registro hanno anche i Wh misurati in uscita dall'inverter
+     (misuratore Tuya dopo lo Shelly). I consumi della app sono dal lato delle batterie (sole − entrata + uscita: comprendono le perdite
+     dell'inverter e l'impianto), e con la pala accesa la sua corrente li fa sembrare più bassi. Allora: dalle ore senza pala, con tutte e due
+     le misure, si impara come l'inverter passa da uscita a ingresso, DC = a × AC + b (a = 1 / rendimento, b = a vuoto più l'impianto); nelle
+     ore con l'uscita misurata il consumo diventa a × AC + b, che non sente la pala. Senza ancora la taratura (meno di 3 ore) lo si fa solo
+     nelle ore con la pala accesa, con a = 1,1 e b = l'impianto */
+  { const P = H.filter(o => o.acW !== null && o.load !== null && !o.wnd && o.acW > 150 && o.load > o.acW * .8);
+    const p0 = fin(M.plantW) ? M.plantW : 48; let fit = null;
+    if (P.length >= 3) {
+      const xs = P.map(o => o.acW), span = Math.max(...xs) - Math.min(...xs);
+      if (P.length >= 8 && span >= 800) {
+        const n = P.length, mx = xs.reduce((a, x) => a + x, 0) / n, my = P.reduce((a, o) => a + o.load, 0) / n;
+        const a = clamp(P.reduce((s, o) => s + (o.acW - mx) * (o.load - my), 0) / P.reduce((s, o) => s + (o.acW - mx) ** 2, 0), 1, 1.4);
+        fit = { a, b: clamp(my - a * mx, 0, 400), n };
+      } else fit = { a: clamp(quant(P.map(o => (o.load - p0) / o.acW), .5), 1, 1.4), b: p0, n: P.length };
+    }
+    M.acFit = fit;
+    const F = fit || { a: 1.1, b: p0 };
+    H.forEach(o => { if (o.acW !== null && (fit || o.wnd)) { o.dcLoad = o.load; o.load = F.a * o.acW + F.b; o.acUsed = true; } });
+    M.insight.acHours = H.filter(o => o.acUsed).length;
+  }
 
   // giorni: tipo (festivi come domenica), consumi ora per ora, temperatura
   const days = new Map();
@@ -5692,6 +5716,8 @@ function drawReliab(){
     if (east !== null && east < .8) items.push(["shade", `La mattina presto, col sole a est, i pannelli rendono il ${nf((1 - east) * 100, 0)}% in meno`, "Un'ombra o un ostacolo: è nella mappa del sole qui sotto."]);
     if (west !== null && west < .8) items.push(["shade", `Verso sera, col sole a ovest, i pannelli rendono il ${nf((1 - west) * 100, 0)}% in meno`, "Un'ombra o un ostacolo: è nella mappa del sole qui sotto."]);
   }
+  if (M.insight.acHours) items.push(["sun", `${M.insight.acHours} ${M.insight.acHours === 1 ? "ora" : "ore"} coi consumi misurati in uscita dall'inverter`,
+    M.acFit && M.acFit.n >= 3 ? `Riportati al lato delle batterie col rendimento imparato (${nf(100000 / (M.acFit.a * 1000 + M.acFit.b), 0)}% a 1 kW): la pala non li falsa più.` : "Per ora solo nelle ore con la pala accesa: il rendimento dell'inverter si impara dalle ore senza pala."]);
   if (M.insight.away) items.push(["cal", `${M.insight.away} ${M.insight.away === 1 ? "giorno" : "giorni"} di assenza riconosciuti`, "Non contano come abitudini."]);
   if (M.insight.hol) items.push(["cal", "I festivi valgono come domeniche", `${M.insight.hol} nel periodo imparato.`]);
   list.innerHTML = items.map(([i, t, d]) => `<li><span class="ri">${ico(REL_ICON[i])}</span><span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></li>`).join("");
@@ -6253,20 +6279,24 @@ function drawInv(k){
     : !ok && avg !== null ? `<span>Media di <b>${nf(Math.max(1, a.wdt / 60), 0)}</b> min fino alle ${hm(a.wat)}, dai kWh</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 2) : "–"}</b> kWh${today !== null ? ` · oggi <b>${nf(today, 2)}</b>` : ""}</span>`
     : !ok ? `<span>In attesa delle misure${a.t6 ? ": le ultime alle " + hm(a.t6) : ""}.</span><span>Il misuratore le manda circa ogni 5 minuti.</span>`
     : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 1) : "–"}</b> kWh</span>`;
+  // gli ampere: misurati (dato 6, fino a 10 minuti), o con la sola media dai kWh i medi, watt ÷ tensione (l'ultima letta, se no 230 V)
+  // la tensione: quella del misuratore se recente, se no quella dello Shelly (stessa linea, la legge ogni 3 s)
+  const vSh = cb && cb.ok && cb.on && fin(cb.v) && cb.v > 150 ? cb.v : null, vNow = six && fin(a.v) ? a.v : vSh;
+  const ampAvg = !(six && fin(a.a)) && !ok && w !== null, amp = six && fin(a.a) ? a.a : ampAvg ? w / (vNow || 230) : null;
   // anello: la potenza sulla scala dei 6 kW (un inverter da casa), con la radice come la barra della pala
   const f = w ? Math.sqrt(Math.min(1, w / 6000)) : 0, C = 2 * Math.PI * 38;
   const ring = `<svg class="inv-ring" viewBox="0 0 92 92" aria-hidden="true"><circle class="tr" cx="46" cy="46" r="38"/><circle class="fl" cx="46" cy="46" r="38" transform="rotate(-90 46 46)" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}"/>` +
-    `<text x="46" y="48" text-anchor="middle">${six && fin(a.a) ? nf(a.a, a.a < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">AMPERE</text></svg>`;
+    `<text x="46" y="48" text-anchor="middle">${amp !== null ? (ampAvg ? "≈" : "") + nf(amp, amp < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">${ampAvg ? "A MEDI" : "AMPERE"}</text></svg>`;
   const tile = (t, v, u) => `<div><dt>${t}</dt><dd>${v}${u ? `<small>${u}</small>` : ""}</dd></div>`;
   head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
-    `<dl class="wnd-g">${tile("Tensione", six && fin(a.v) ? nf(a.v, 1) : "–", "V")}${tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
+    `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
   // ---- rendimento
   const dc = L.on && fin(L.dc) ? L.dc : null, eff = ok && dc && dc > 150 && w > 50 ? w / dc : null;
   const top = Math.max(500, dc || 0, w || 0), bar = (cls, t, v) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${v ? (Math.min(1, v / top) * 100).toFixed(1) : 0}%"></i></div><b>${v !== null ? power(v) : "–"}</b></div>`;
   $("inv-eff").innerHTML = eff !== null
     ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - w))}</b></span></div><div class="inv-eff">${bar("dc", "Entra (batterie)", dc)}${bar("ac", "Esce (casa)", w)}</div>` +
-      `<p class="set-note">L'ingresso è quello che la scheda vede dal lato delle batterie (pannelli meno la carica). Con la pala che gira la sua corrente non si vede, e il rendimento esce più alto del vero.</p>`
-    : `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !ok ? "Serve una misura istantanea: il misuratore la manda circa ogni 5 minuti, e per qualche minuto dopo si vede qui." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : "Serve un carico di almeno 50 W."}</p>`;
+      `<p class="set-note">L'ingresso è quello che la scheda vede dal lato delle batterie (pannelli meno la carica). Con la pala che gira la sua corrente non si vede, e il rendimento esce più alto del vero.</p>` + invLearnTxt()
+    : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !ok ? "Serve una misura istantanea: il misuratore la manda circa ogni 5 minuti, e per qualche minuto dopo si vede qui." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : "Serve un carico di almeno 50 W."}</p>`;
   // ---- ultimi minuti
   drawInvRun(now);
   // ---- interruttore e misuratore
@@ -6279,6 +6309,13 @@ function drawInv(k){
       row("Tensione e potenza", a.t6 ? "misurate alle " + new Date(a.t6 * 1000).toLocaleTimeString("it-IT") : "non ancora arrivate", a.t6 && now - a.t6 > 900 ? "bad" : "") +
       (fin(a.wa) && a.wat ? row("Potenza media dai kWh", `${power(a.wa)} su ${nf(Math.max(1, a.wdt / 60), 0)} min, alle ${hm(a.wat)}`, "") : "") +
       row("Letture", `${nf(a.n || 0, 0)} buone · ${nf(a.bad || 0, 0)} sbagliate · una ogni 20 s`, "") : "") + `</dl>`;
+}
+// quello che la app ha imparato sull'inverter dalle ore con l'uscita misurata (learn → M.acFit): ingresso = a × uscita + b
+function invLearnTxt(){
+  const f = model && model.acFit; if (!f || !(f.n >= 3)) return "";
+  const at = w => w / (f.a * w + f.b);
+  return `<p class="set-note">Imparato su <b>${f.n}</b> ore con la casa sulle batterie: a 1 kW in uscita prende dalle batterie circa <b>${power(f.a * 1000 + f.b)}</b> ` +
+    `(rendimento <b>${nf(at(1000) * 100, 0)}%</b>; a 3 kW ${nf(at(3000) * 100, 0)}%), e <b>${power(f.b)}</b> se ne vanno comunque, inverter a vuoto e impianto.</p>`;
 }
 function drawInvRun(now){
   const svg = $("inv-run"); if (!svg) return;
