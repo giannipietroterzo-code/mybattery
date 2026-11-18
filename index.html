@@ -1714,7 +1714,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
         <div id="inv-head"></div>
       </section>
       <section class="panel" aria-labelledby="h-inv-eff">
-        <h2 id="h-inv-eff">Rendimento adesso</h2>
+        <h2 id="h-inv-eff">Rendimento, ultimo minuto</h2>
         <div id="inv-eff"></div>
       </section>
       <section class="panel" aria-labelledby="h-inv-run">
@@ -1997,7 +1997,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.46"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.47"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3475,7 +3475,7 @@ function drawFlow(k){
   if (wOn) {
     const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
     set("ft-wnd", w === null ? "–" : power(w));
-    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.src === "min" ? " · ultimo min" : ""));
+    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
     $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
     flow("ff-wnd", w, false);
     const sp = shown.sp;
@@ -4630,7 +4630,8 @@ function learn(rows){
      le misure, si impara come l'inverter passa da uscita a ingresso, DC = a × AC + b (a = 1 / rendimento, b = a vuoto più l'impianto); nelle
      ore con l'uscita misurata il consumo diventa a × AC + b, che non sente la pala. Senza ancora la taratura (meno di 3 ore) lo si fa solo
      nelle ore con la pala accesa, con a = 1,1 e b = l'impianto */
-  { const P = H.filter(o => o.acW !== null && o.load !== null && !o.wnd && o.acW > 150 && o.load > o.acW * .8);
+  { const calmH = t => (v => !!v && fin(v.ms) && v.ms < 1.5)(windAt(t + HOUR / 2));   // un'ora di calma vale come un'ora a pala ferma (2.47)
+    const P = H.filter(o => o.acW !== null && o.load !== null && (!o.wnd || calmH(o.t)) && o.acW > 150 && o.load > o.acW * .8);
     const p0 = fin(M.plantW) ? M.plantW : 48; let fit = null;
     if (P.length >= 3) {
       const xs = P.map(o => o.acW), span = Math.max(...xs) - Math.min(...xs);
@@ -6056,10 +6057,29 @@ function wndCurve(hours){
     return pts[pts.length - 1].w; } };
 }
 // la pala adesso: solo con la casa su Enel
+/* la pala con la casa sulle batterie (2.47, richiesta dell'utente). Col misuratore dopo lo Shelly in tempo reale (firmware 0.72) si sa quanto
+   esce dall'inverter verso la casa, e quindi quanto l'inverter prende dalle batterie: ingresso = a × uscita + b (a = watt presi per ogni watt
+   dato, b = a vuoto più l'impianto). Allora  pala ≈ batterie − pannelli + a × uscita + b  (senza pala le batterie darebbero proprio a × uscita
+   + b − pannelli). a e b sono quelli imparati dal registro (learn → acFit, ore senza pala o di calma); finché non ci sono, a = 1,17, misurato
+   in diretta il 19/11/2026 alle 00:16 (2,9–3,0 kW dalle batterie per 2,4–2,6 kW alla casa, pannelli fermi), e b = le perdite a pala ferma con
+   l'inverter acceso: è una taratura provvisoria, perché quella notte la pala non era ferma di sicuro.
+   Batterie e uscita sono lette in istanti diversi e l'1% di errore su a vale 25–30 W a 2,5 kW: si fa la media dell'ultimo minuto e sotto
+   WND_NOISE_B la stima conta zero */
+const WND_NOISE_B = 150, WND_A0 = 1.17; let wbRing = [];
+function wndBat(k, pv){
+  const ac = acNow(); if (ac === null) return null;
+  const f = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null, a = f ? f.a : WND_A0, b = f ? f.b : -wndHours().loss(1, pv), now = nowOf(data), t = data.ac.t6;
+  if (!wbRing.length || wbRing[wbRing.length - 1].t !== t) wbRing.push({ t, w: k.p - pv + a * ac + b });
+  wbRing = wbRing.filter(x => x.t >= now - 60);
+  return { raw: wbRing.reduce((q, x) => q + x.w, 0) / wbRing.length, prov: !f };
+}
 function wndNow(){
   if (!data || !Array.isArray(data.batteries)) return { ok: false, why: "dati" };
-  if (houseNow()) return { ok: false, why: "casa" };
   const k = bank(data.batteries), pv = (data.pv || []).reduce((a, g) => a + (g.online !== false && fin(g.out_w) ? g.out_w : 0), 0);
+  if (houseNow()) {
+    const B = k.on && fin(k.p) && wndOn(nowOf(data)) ? wndBat(k, pv) : null;
+    return B ? { ok: true, w: Math.max(0, B.raw), raw: B.raw, pv, v: k.v, st: 1, bat: true, prov: B.prov } : { ok: false, why: "casa" };
+  }
   if (!k.on || !fin(k.p)) return { ok: false, why: "dati" };
   if (!wndOn(nowOf(data))) return { ok: false, why: "spenta" };
   // inverter acceso adesso = lo Shelly risponde (con la casa su Enel e l'inverter in STOP non risponde)
@@ -6091,7 +6111,7 @@ function w1Add(nw){
   w1Seen = data.time;
   const m = Math.floor(now / 60) * 60; let r = W1.find(x => x[0] === m);
   if (!r) { r = [m, 0, 0, 0, 0]; W1.push(r); }
-  if (nw.ok) { r[1] += nw.raw; r[2]++; r[3] += nw.v; } else if (nw.why === "casa") r[4]++;
+  if (nw.ok && !nw.bat) { r[1] += nw.raw; r[2]++; r[3] += nw.v; } else if (nw.bat || nw.why === "casa") r[4]++;
   W1 = W1.filter(x => x[0] > m - HOUR).sort((a, b) => a[0] - b[0]); lsSet(W1_KEY, W1);
 }
 /* il picco della pala per quarto d'ora (firmware 0.63): sulla scheda gli ultimi 2 giorni, [quarto d'ora, W batterie − pannelli del minuto più alto,
@@ -6249,6 +6269,8 @@ function rotStep(){
    media del minuto). Rotore: un giro ogni 8 s al minimo, sempre più svelto fino a un giro ogni 0,35 s sopra i 3 kW */
 function wndShown(nw){
   if (!nw || !nw.ok) return { w: null, src: null, sp: 0 };
+  // con la casa sulle batterie nw.w è già la media dell'ultimo minuto, e la soglia è più alta
+  if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8), bat: true } : { w: 0, src: "ora", sp: 0, bat: true };
   if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8) };
   const now = nowOf(data), H = wndHours(), rows = Array.isArray(data.m1) ? data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 120 && r[4] > 0 && fin(r[1])) : [];
   const ws = rows.map(r => Math.max(0, r[1] - (r[2] || 0) - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)));
@@ -6266,7 +6288,7 @@ function wndShown(nw){
 const INV_KEY = "mybattery.invday", AC_ERR = { "-1": "in attesa della prima lettura", 1: "non si riesce a mandare la domanda", 2: "non risponde all'accordo della chiave (chiave sbagliata?)",
   3: "la chiave non torna", 4: "non risponde alla domanda (chiave sbagliata?)", 5: "risposta non leggibile", 6: "vuole un altro tipo di domanda", 7: "versione del protocollo non gestita",
   10: "connessione rifiutata", 20: "ha chiuso il collegamento", 21: "muto da più di 35 secondi", 11: "non si sente in rete: è senza corrente o fuori dal WiFi", 12: "risposta senza dati", 13: "non trovato in rete, neanche indirizzo per indirizzo" };
-let invRun = [], invDay = null;
+let invRun = [], invDay = null, invEffR = [];
 function drawInv(k){
   const head = $("inv-head"); if (!head) return;
   const a = data && data.ac, cb = data && data.cb, now = nowOf(data), L = houseLive(k);
@@ -6304,12 +6326,18 @@ function drawInv(k){
   head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
     `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", linked && fin(a.pf) ? nf(a.pf, 2) : six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
   // ---- rendimento
-  const dc = L.on && fin(L.dc) ? L.dc : null, eff = ok && dc && dc > 150 && w > 50 ? w / dc : null;
-  const top = Math.max(500, dc || 0, w || 0), bar = (cls, t, v) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${v ? (Math.min(1, v / top) * 100).toFixed(1) : 0}%"></i></div><b>${v !== null ? power(v) : "–"}</b></div>`;
+  /* media dell'ultimo minuto (2.47, richiesta dell'utente): batterie e misuratore sono letti in istanti diversi, e quando parte o si ferma un
+     carico grosso la differenza dell'istante schizza (perdite «da 800 W» che non esistono). Si mediano ingresso e uscita sulle stesse letture */
+  const dcI = L.on && fin(L.dc) ? L.dc : null;
+  if (ok && dcI !== null && (!invEffR.length || invEffR[invEffR.length - 1].t !== a.t6)) invEffR.push({ t: a.t6, dc: dcI, w: a.w });
+  invEffR = invEffR.filter(x => x.t >= now - 60);
+  const effN = ok && dcI !== null ? invEffR.length : 0, dc = effN ? invEffR.reduce((q, x) => q + x.dc, 0) / effN : null, wE = effN ? invEffR.reduce((q, x) => q + x.w, 0) / effN : null;
+  const eff = effN >= 3 && dc > 150 && wE > 50 ? wE / dc : null;
+  const top = Math.max(500, dc || 0, wE || 0), bar = (cls, t, v) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${v ? (Math.min(1, v / top) * 100).toFixed(1) : 0}%"></i></div><b>${v !== null ? power(v) : "–"}</b></div>`;
   $("inv-eff").innerHTML = eff !== null
-    ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - w))}</b></span></div><div class="inv-eff">${bar("dc", "Entra (batterie)", dc)}${bar("ac", "Esce (casa)", w)}</div>` +
-      `<p class="set-note">L'ingresso è quello che la scheda vede dal lato delle batterie (pannelli meno la carica). Con la pala che gira la sua corrente non si vede, e il rendimento esce più alto del vero.</p>` + invLearnTxt()
-    : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : !ok ? (a.rt === 1 ? "La scheda ha chiesto il tempo reale al misuratore, ma le misure non arrivano ancora." : "Serve una misura di adesso: con la casa sulle batterie la scheda chiede al misuratore il tempo reale.") : "Serve un carico di almeno 50 W."}</p>`;
+    ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - wE))}</b></span></div><div class="inv-eff">${bar("dc", "Entra (batterie)", dc)}${bar("ac", "Esce (casa)", wE)}</div>` +
+      `<p class="set-note">Media dell'ultimo minuto. L'ingresso è quello che la scheda vede dal lato delle batterie (pannelli meno la carica). Con la pala che gira la sua corrente non si vede, e il rendimento esce più alto del vero.</p>` + invLearnTxt()
+    : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : ok && effN < 3 ? "Sto raccogliendo le misure dell'ultimo minuto." : !ok ? (a.rt === 1 ? "La scheda ha chiesto il tempo reale al misuratore, ma le misure non arrivano ancora." : "Serve una misura di adesso: con la casa sulle batterie la scheda chiede al misuratore il tempo reale.") : "Serve un carico di almeno 50 W."}</p>`;
   // ---- ultimi minuti
   drawInvRun(now);
   // ---- interruttore e misuratore
@@ -6371,7 +6399,7 @@ function drawWind(){
   // la barra va fino ai 3 kW della Zeus 3.0 con la radice quadrata, così anche poche decine di watt si vedono
   const live = shown.src === "ora" && wEst > 0, cls = live ? " now" : shown.src === "min" ? " min" : "", hasV = nw && fin(nw.v) && nw.v > 40;
   const tag = wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
-    : live ? "Adesso" : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${WND_NOISE} W`;
+    : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${shown.bat ? WND_NOISE_B : WND_NOISE} W`;
   const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
   const now1 = `<div class="wnd-live${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
     `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
@@ -6459,7 +6487,8 @@ function drawWind(){
     (gmaxF >= 20 ? ` <b>Raffiche forti:</b> il manuale Tesup dice di frenare la pala sopra i 27 m/s.` : "");
   // ---- come si calcola
   $("wnd-info").innerHTML = `<ul><li>Il regolatore Tesup <b>non comunica</b>: la scheda non legge la pala. La sua corrente però entra nelle batterie, che la scheda legge.</li>` +
-    `<li>Con la casa su Enel: <b>pala ≈ batterie − pannelli + perdite a pala ferma</b>. Con la casa sulle batterie la pala e i consumi della casa finiscono nello stesso numero e non si separano.</li>` +
+    `<li>Con la casa su Enel: <b>pala ≈ batterie − pannelli + perdite a pala ferma</b>.</li>` +
+    ((f => `<li>Con la casa sulle batterie serve il misuratore sull'uscita dell'inverter in tempo reale: <b>pala ≈ batterie − pannelli + quello che l'inverter prende per la casa</b>, cioè ${f ? `<b>${nf(f.a, 2)}</b> W per ogni watt in uscita più ${power(f.b)} fissi, imparati su ${f.n} ore senza pala o di calma` : `<b>${nf(WND_A0, 2).replace(".", ",")}</b> W per ogni watt in uscita: è una taratura <b>provvisoria</b>, che si aggiusta da sola con le ore di calma o con la pala segnata spenta`}. Media dell'ultimo minuto; sotto ${WND_NOISE_B} W conta zero.</li>`)(model && model.acFit && model.acFit.n >= 3 ? model.acFit : null)) +
     ((B => `<li>Perdite a pala ferma, imparate dalle ore ${B[0].by === "spenta" || B[1].by === "spenta" ? "con la <b>pala spenta</b>" : "di calma"}: inverter <b>in STOP</b> ${fin(B[0].n0) ? power(-B[0].n0) : "–"} al buio, ${fin(B[0].a) ? power(-(B[0].a + B[0].b * 1000)) : "–"} con 1 kW di pannelli; inverter <b>acceso</b> ${fin(B[1].n0) ? power(-B[1].n0) : "–"} al buio, ${fin(B[1].a) ? power(-(B[1].a + B[1].b * 1000)) : "–"} con 1 kW. Adesso l'inverter è ${data && data.cb && data.cb.ok !== false ? "acceso" : "fermo"}.</li>`)(hours.base)) +
     `<li>Precisione: ±50–100 W. I BMS non vedono circa 1 A per batteria, e batterie e regolatori sono letti in istanti diversi. Sotto ${WND_NOISE} W la stima conta zero.</li>` +
     `<li>Il vento è quello di Open-Meteo a 10 m dal suolo, non quello sulla pala: la curva lo tiene in conto da sola.</li>` +
