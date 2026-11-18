@@ -1312,7 +1312,7 @@ footer{border-top:0;padding-top:0}
 .wnd-top.now .wnd-big,.wnd-top.now .wnd-a{color:var(--good)}
 .wnd-a{margin-top:4px;font:600 1rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}.wnd-a b{font-weight:700}.wnd-a span{margin-left:4px;font-size:.78rem;font-weight:500;color:var(--muted)}
 [data-mecha] .wnd-a{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
-.wnd-st{margin-top:6px;font-size:.82rem;color:var(--muted);line-height:1.4}.wnd-st b{color:var(--ink);font-weight:600}
+
 .wnd-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 0}
 .wnd-g div{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 .wnd-g dt{font-size:.72rem;color:var(--muted)}.wnd-g dd{margin:3px 0 0;font:700 1.05rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -1931,7 +1931,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.38"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.39"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -6169,15 +6169,11 @@ function drawWind(){
   const big = wEst !== null ? `${wEst >= 1000 ? nf(wEst / 1000, 1) : nf(wEst, 0)}<small>${wEst >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
   const since = wndSince(), onNow = wndOn(now);
   const sw = `<div class="wnd-sw"><span>${onNow ? `Pala <b>accesa</b>${since ? " dal " + alWhen(since) : ""}` : "Pala <b>spenta</b> (freno)"}</span><button type="button" class="set-btn" data-wnd="${onNow ? 0 : 1}">${onNow ? "Segna spenta" : "Segna accesa adesso"}</button></div>`;
-  const st = !nw.ok && nw.why === "spenta" ? "La pala è segnata come spenta: niente da stimare. Quando la accendi, segnalo qui sotto: le ore a pala spenta servono a tarare la stima."
-    : !nw.ok && nw.why === "casa" ? "Con la casa sulle batterie la pala non si separa dai consumi della casa: la stima c'è solo con la casa su Enel."
-    : !nw.ok ? "Mancano i dati delle batterie."
-    : wEst === 0 ? `La pala adesso <b>non dà</b> niente che si possa distinguere (meno di ${WND_NOISE} W).`
-    : shown.src === "min" ? `<b>Media dell'ultimo minuto</b>: vento a raffiche, adesso meno di ${WND_NOISE} W.` : "Stimata dalle batterie, tolti i pannelli e lo zero dell'impianto.";
-  const exp = curve.useful && ms !== null ? curve.at(ms) : null;
+  /* la frase sotto i watt («non dà niente che si possa distinguere», «la curva imparata dice circa …») è tolta (2.39, richiesta dell'utente):
+     cambiando lunghezza spostava i riquadri sotto. Restano watt e ampere, sempre su due righe: «–» quando non c'è la stima */
   const arrow = cur && fin(cur.dir) ? `<svg class="wnd-cmp" viewBox="0 0 16 16" aria-hidden="true"><g transform="rotate(${(cur.dir + 180) % 360} 8 8)"><path d="M8 2 L11 12 L8 10 L5 12Z" fill="var(--wn-w)"/></g></svg>` : "";
   // il rotore non si ridisegna a ogni lettura (ripartirebbe da capo e scatterebbe): si crea una volta e poi si cambiano solo velocità e colore
-  const html = `<div class="wnd-top${shown.src === "ora" && wEst > 0 ? " now" : ""}"><span id="wnd-rotw"></span><div><div class="wnd-big">${big}</div>${wEst !== null && nw.v > 40 ? `<div class="wnd-a"><b>${nf(wEst / nw.v, 1)}</b> A <span>a ${nf(nw.v, 1)} V</span></div>` : ""}<div class="wnd-st">${st}${exp !== null ? ` <br>Col vento di adesso la curva imparata dice circa <b>${power(exp)}</b>.` : ""}</div></div></div>` +
+  const html = `<div class="wnd-top${shown.src === "ora" && wEst > 0 ? " now" : ""}"><span id="wnd-rotw"></span><div><div class="wnd-big">${big}</div><div class="wnd-a">${wEst !== null && nw.v > 40 ? `<b>${nf(wEst / nw.v, 1)}</b> A <span>a ${nf(nw.v, 1)} V</span>` : `<b>–</b> A`}</div></div></div>` +
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
