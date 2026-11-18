@@ -1307,6 +1307,8 @@ footer{border-top:0;padding-top:0}
 @media (prefers-reduced-motion:reduce){.wnd-rot .bl{animation:none;transform:rotate(22deg)}}
 .wnd-big{font-family:var(--num,inherit);font-size:2.3rem;font-weight:700;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
 .wnd-big small{font-size:1rem;margin-left:3px;color:var(--muted);font-weight:600}
+/* 2.36 (richiesta dell'utente): watt e ampere verdi quando sono la misura di adesso, bianchi quando sono la media dell'ultimo minuto */
+.wnd-top.now .wnd-big,.wnd-top.now .wnd-a{color:var(--good)}
 .wnd-a{margin-top:4px;font:600 1rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}.wnd-a b{font-weight:700}.wnd-a span{margin-left:4px;font-size:.78rem;font-weight:500;color:var(--muted)}
 [data-mecha] .wnd-a{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
 .wnd-st{margin-top:6px;font-size:.82rem;color:var(--muted);line-height:1.4}.wnd-st b{color:var(--ink);font-weight:600}
@@ -1927,7 +1929,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.35"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.36"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3401,10 +3403,11 @@ function drawFlow(k){
   const now = nowOf(data), wOn = wndOn(now), g = $("fw-g"); let wTxt = "";
   [g, $("tr-wnd"), $("ff-wnd")].forEach(e => { e.style.display = wOn ? "" : "none"; }); svg.setAttribute("viewBox", "0 9 340 250");   // la casa sta in basso a destra (2.30): l'altezza è sempre quella
   if (wOn) {
-    const nw = wndNow(), w = nw.ok ? (nw.w >= WND_NOISE ? nw.w : 0) : null;
-    set("ft-wnd", w === null ? "–" : power(w)); set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w));
+    const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
+    set("ft-wnd", w === null ? "–" : power(w));
+    $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.src === "min" ? " · ultimo min" : ""));
     flow("ff-wnd", w, false);
-    const sp = w ? clamp(2400 / (w + 200), .35, 6) : 0;
+    const sp = shown.sp;
     g.classList.toggle("still", !sp); g.classList.toggle("dim", w === null); g.style.setProperty("--sp", sp.toFixed(2) + "s");
     wTxt = `, pala ${w === null ? "non stimabile" : power(w)}`;
   }
@@ -6082,14 +6085,26 @@ function w1At(e){ if (!w1G) return; const r = $("wnd-1h").getBoundingClientRect(
   el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { w1I = null; w1Read(); } });
   el.addEventListener("pointerup", e => { if (e.pointerType !== "mouse") { clearTimeout(w1Timer); w1Timer = setTimeout(() => { w1I = null; w1Read(); }, 4000); } });
   el.addEventListener("pointercancel", () => { w1I = null; w1Read(); }); }
+/* la pala da mostrare (2.36, richieste dell'utente): col vento a raffiche la stima di adesso sta quasi sempre sotto la soglia (60 W) e la pala
+   restava ferma a 0 W anche con una media di quasi 1 A nel minuto. Il numero, gli ampere, la linea e il rotore usano lo stesso valore, così non
+   c'è mai una pala che gira con scritto 0 W: la stima di adesso se è sopra la soglia, se no la media dell'ultimo minuto della scheda (m1: quello
+   chiuso e quello in corso, tolte le perdite come nel grafico) se arriva a 15 W, se no zero. src "ora" o "min" (allora sotto c'è scritto che è la
+   media del minuto). Rotore: un giro ogni 8 s al minimo, sempre più svelto fino a un giro ogni 0,35 s sopra i 3 kW */
+function wndShown(nw){
+  if (!nw || !nw.ok) return { w: null, src: null, sp: 0 };
+  if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8) };
+  const now = nowOf(data), H = wndHours(), rows = Array.isArray(data.m1) ? data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 120 && r[4] > 0 && fin(r[1])) : [];
+  const ws = rows.map(r => Math.max(0, r[1] - (r[2] || 0) - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)));
+  const avg = ws.length ? ws.reduce((a, x) => a + x, 0) / ws.length : 0;
+  return avg >= 15 ? { w: avg, src: "min", sp: clamp(2400 / (avg + 200), .35, 8) } : { w: 0, src: "ora", sp: 0 };
+}
 function drawWind(){
   const head = $("wnd-head"); if (!head) return;
   const now = nowOf(data), hours = wndHours(), cur = windAt(now), nw = wndNow(), curve = wndCurve(hours);
   // ---- adesso
-  const ms = cur && fin(cur.ms) ? cur.ms : null, wEst = nw.ok && nw.w >= WND_NOISE ? nw.w : nw.ok ? 0 : null;
-  // il rotore segue la produzione stimata (2.20, richiesta dell'utente), non il vento del meteo: fermo a pala spenta, a zero o quando non si può stimare
-  // (casa sulle batterie: grigio). Un giro ogni 6 s a 60 W, sempre più svelto fino a un giro ogni 0,35 s sopra i 3 kW
-  const sp = wEst !== null && wEst > 0 ? clamp(2400 / (wEst + 200), .35, 6) : 0, dim = wEst === null;
+  const ms = cur && fin(cur.ms) ? cur.ms : null, shown = wndShown(nw), wEst = shown.w;   // vedi wndShown: numero, ampere e rotore dallo stesso valore
+  // il rotore segue la produzione stimata (2.20, richiesta dell'utente), non il vento del meteo; dalla 2.36 anche quella dell'ultimo minuto
+  const sp = shown.sp, dim = wEst === null;
   const rot = `<svg class="wnd-rot${sp ? "" : " still"}${dim ? " dim" : ""}" viewBox="0 0 120 120" style="--sp:${sp.toFixed(2)}s" aria-hidden="true">
     <path d="M57 56 L60 116 L63 56Z" fill="var(--line)"/><rect x="48" y="112" width="24" height="4" fill="var(--line)"/>
     <g class="bl" fill="var(--wn-w)">${[0, 120, 240].map(a => `<path transform="rotate(${a} 60 52)" d="M60 52 C57 40 57 20 60 6 C64 20 64 40 60 52Z"/>`).join("")}</g>
@@ -6100,11 +6115,12 @@ function drawWind(){
   const st = !nw.ok && nw.why === "spenta" ? "La pala è segnata come spenta: niente da stimare. Quando la accendi, segnalo qui sotto: le ore a pala spenta servono a tarare la stima."
     : !nw.ok && nw.why === "casa" ? "Con la casa sulle batterie la pala non si separa dai consumi della casa: la stima c'è solo con la casa su Enel."
     : !nw.ok ? "Mancano i dati delle batterie."
-    : wEst === 0 ? `La pala adesso <b>non dà</b> niente che si possa distinguere (meno di ${WND_NOISE} W).` : "Stimata dalle batterie, tolti i pannelli e lo zero dell'impianto.";
+    : wEst === 0 ? `La pala adesso <b>non dà</b> niente che si possa distinguere (meno di ${WND_NOISE} W).`
+    : shown.src === "min" ? `<b>Media dell'ultimo minuto</b>: vento a raffiche, adesso meno di ${WND_NOISE} W.` : "Stimata dalle batterie, tolti i pannelli e lo zero dell'impianto.";
   const exp = curve.useful && ms !== null ? curve.at(ms) : null;
   const arrow = cur && fin(cur.dir) ? `<svg class="wnd-cmp" viewBox="0 0 16 16" aria-hidden="true"><g transform="rotate(${(cur.dir + 180) % 360} 8 8)"><path d="M8 2 L11 12 L8 10 L5 12Z" fill="var(--wn-w)"/></g></svg>` : "";
   // il rotore non si ridisegna a ogni lettura (ripartirebbe da capo e scatterebbe): si crea una volta e poi si cambiano solo velocità e colore
-  const html = `<div class="wnd-top"><span id="wnd-rotw"></span><div><div class="wnd-big">${big}</div>${wEst !== null && nw.v > 40 ? `<div class="wnd-a"><b>${nf(wEst / nw.v, 1)}</b> A <span>a ${nf(nw.v, 1)} V</span></div>` : ""}<div class="wnd-st">${st}${exp !== null ? ` <br>Col vento di adesso la curva imparata dice circa <b>${power(exp)}</b>.` : ""}</div></div></div>` +
+  const html = `<div class="wnd-top${shown.src === "ora" && wEst > 0 ? " now" : ""}"><span id="wnd-rotw"></span><div><div class="wnd-big">${big}</div>${wEst !== null && nw.v > 40 ? `<div class="wnd-a"><b>${nf(wEst / nw.v, 1)}</b> A <span>a ${nf(nw.v, 1)} V</span></div>` : ""}<div class="wnd-st">${st}${exp !== null ? ` <br>Col vento di adesso la curva imparata dice circa <b>${power(exp)}</b>.` : ""}</div></div></div>` +
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
