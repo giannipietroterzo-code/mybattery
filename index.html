@@ -62,9 +62,9 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
       "strings": 2                   // facoltativo: stringhe in parallelo (la app lo imposta con POST /api/config)
     }],
     "inv": { "v": 48, "cuts": [[1794000000, 48.6, 12.0]] },   // stacco dell'inverter (impostazione) e stacchi veri visti: [t, V, carica]
-    "house": { "on": true, "at": 1794000000, "w": 1830, "by": "mis" },  // casa sulle batterie, da quando, W oltre lo zero; by "cb" = su Enel perché lo Shelly è aperto (o sparito), "mis" = dalle misure
+    "house": { "on": true, "at": 1794000000, "w": 1830, "by": "mis" },  // casa sulle batterie, da quando, W oltre lo zero; by "cb" = su Enel perché lo Shelly è OFF (o sparito), "mis" = dalle misure
     "cb": { "ip": "192.168.0.29", "ok": true, "on": true, "v": 225.7, "t": 47.3, "err": ["lever"], "src": "SHC", "at": 1794000000, "chg": 1793990000, "ver": "2.0.0" },
-                                     // interruttore Shelly Pro 2CB tra inverter e ATS (dalla 0.43, sola lettura): ok = risponde, on = chiuso,
+                                     // interruttore Shelly Pro 2CB tra inverter e ATS (dalla 0.43, sola lettura): ok = risponde, on = ON,
                                      // v = tensione dall'inverter, t = °C interni, chg = ultimo cambio visto. Si spegne con l'inverter.
     "fw": "0.19", "fw_new": "0.20",  // firmware della scheda e quello nuovo pubblicato su GitHub (si installa dalla app o da /diag)
     "fw_trial": true,                // firmware appena installato, non ancora confermato (torna al vecchio se in 10 min non si collega)
@@ -1992,7 +1992,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.41"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.42"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -6219,13 +6219,14 @@ function wndShown(nw){
 }
 /* ---------- pagina Inverter (2.41, richiesta dell'utente) ----------
    Il misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac: v, a, w, kwh, hz, ok, code, ip, ver, at, n, bad, ms) misura l'uscita vera
-   dell'inverter, cioè la casa quando è sulle batterie. Si alimenta dalla stessa linea: con lo Shelly aperto o l'inverter fermo è spento anche lui.
+   dell'inverter, cioè la casa quando è sulle batterie. Si alimenta dalla stessa linea: con lo Shelly OFF o l'inverter fermo è spento anche lui.
+   Nei testi lo Shelly è sempre ON/OFF (regola dell'utente, 18/11/2026); ON non vuol dire casa sulle batterie: l'ATS può tenerla su Enel
    Rendimento: i watt in uscita contro quelli che entrano dal lato delle batterie (pannelli − carica delle batterie, houseLive): con la pala
    accesa l'ingresso è stimato per difetto (la scheda non la vede), quindi il rendimento esce più alto del vero. Ultimi minuti: le letture
    che arrivano mentre la app è aperta (la scheda non le registra ancora). Il contatore di oggi parte dalla prima lettura del giorno */
 const INV_KEY = "mybattery.invday", AC_ERR = { "-1": "in attesa della prima lettura", 1: "non si riesce a mandare la domanda", 2: "non risponde all'accordo della chiave (chiave sbagliata?)",
   3: "la chiave non torna", 4: "non risponde alla domanda (chiave sbagliata?)", 5: "risposta non leggibile", 6: "vuole un altro tipo di domanda", 7: "versione del protocollo non gestita",
-  10: "connessione rifiutata", 11: "non si sente in rete: è senza corrente o fuori dal WiFi", 12: "risposta senza dati", 13: "non trovato in rete, neanche indirizzo per indirizzo" };
+  10: "connessione rifiutata", 20: "ha chiuso il collegamento", 21: "muto da più di 35 secondi", 11: "non si sente in rete: è senza corrente o fuori dal WiFi", 12: "risposta senza dati", 13: "non trovato in rete, neanche indirizzo per indirizzo" };
 let invRun = [], invDay = null;
 function drawInv(k){
   const head = $("inv-head"); if (!head) return;
@@ -6241,7 +6242,7 @@ function drawInv(k){
   const w = ok ? a.w : null, big = w !== null ? `${w >= 1000 ? nf(w / 1000, 2) : nf(w, 0)}<small>${w >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
   const today = ok && invDay && fin(a.kwh) ? a.kwh - invDay.k : null, from = invDay && invDay.t - midnight(now) > 600 ? ` dalle ${hm(invDay.t)}` : "";
   const sub = !a ? "Serve il firmware 0.67 e la chiave del misuratore."
-    : cbOff ? "Lo Shelly è aperto: il misuratore, alimentato dalla stessa linea, è spento."
+    : cbOff ? "Lo Shelly è OFF: il misuratore, alimentato dalla stessa linea, è spento."
     : !ok ? esc(AC_ERR[a.code] || "codice " + a.code)
     : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 1) : "–"}</b> kWh</span>`;
   // anello: la potenza sulla scala dei 6 kW (un inverter da casa), con la radice come la barra della pala
@@ -6263,11 +6264,12 @@ function drawInv(k){
   // ---- interruttore e misuratore
   const row = (t, v, c) => `<div><dt>${t}</dt><dd${c ? ` class="${c}"` : ""}>${v}</dd></div>`, age = a && a.at ? Math.max(0, now - a.at) : null;
   $("inv-dev").innerHTML = `<dl class="inv-dl">` +
-    row("Interruttore Shelly", !cb ? "–" : !cb.ok ? "non risponde" : cb.on ? "chiuso" : "aperto", cb && cb.ok ? (cb.on ? "ok" : "") : "bad") +
+    row("Interruttore Shelly", !cb ? "–" : !cb.ok ? "non risponde" : cb.on ? "ON" : "OFF", cb && cb.ok ? (cb.on ? "ok" : "") : "bad") +
     (cb && cb.ok && fin(cb.t) ? row("Temperatura dello Shelly", nf(cb.t, 0) + " °C", cb.t >= 70 ? "bad" : "") : "") +
     row("Misuratore", !a ? "non collegato" : ok ? (age !== null && age < 5 ? "letto adesso" : age !== null && age < 60 ? `letto ${nf(age, 0)} s fa` : "letto alle " + hm(a.at)) : esc(AC_ERR[a.code] || "codice " + a.code), !a ? "" : ok ? "ok" : "bad") +
     (a ? row("In rete", a.ip ? `${esc(a.ip)}${a.ver ? " · protocollo " + esc(a.ver) : ""}` : "non ancora trovato", "") +
-      row("Letture", `${nf(a.n || 0, 0)} buone · ${nf(a.bad || 0, 0)} sbagliate${fin(a.ms) && a.ms ? ` · ${nf(a.ms, 0)} ms` : ""}`, "") : "") + `</dl>`;
+      (a.t6 ? row("Tensione e potenza", "aggiornate alle " + new Date(a.t6 * 1000).toLocaleTimeString("it-IT"), now - a.t6 > 120 ? "bad" : "") : "") +
+      row("Letture", `${nf(a.n || 0, 0)} buone · ${nf(a.bad || 0, 0)} sbagliate${fin(a.sess) ? ` · ${nf(a.sess, 0)} collegamenti` : ""}`, "") : "") + `</dl>`;
 }
 function drawInvRun(now){
   const svg = $("inv-run"); if (!svg) return;
@@ -7177,8 +7179,8 @@ function simulate(){
   const cb = { ip: "192.168.0.29", ok: true, on: demoCb.on, ...(demoCb.cmd ? { cmd: demoCb.cmd } : {}), v: +(225.5 + Math.sin(now / 97) * 1.2).toFixed(1), t: +(41 + Math.sin(now / 900) * 2).toFixed(1), err: [], src: "SHC", at: Math.round(now), ver: "2.0.0" };
   // il misuratore dopo lo Shelly (firmware 0.67): la casa vista dal lato delle batterie, col rendimento dell'inverter
   const pvOut = offDemo.reduce((s, g) => s + (g.out_w || 0), 0), acW = demoCb.on ? Math.max(0, Math.round((pvOut - total * 52.8) * .92)) : 0, acV = +(229.4 + Math.sin(now / 61) * .8).toFixed(1);
-  const ac = demoCb.on ? { ip: "192.168.0.33", ver: "3.4", ok: true, code: 0, at: Math.round(now), v: acV, a: +(acW / acV / .97).toFixed(3), w: acW, kwh: +(812.4 + now % 86400 / 86400 * 9).toFixed(2), hz: 50, n: 1200, bad: 3, ms: 240 }
-    : { ip: "192.168.0.33", ver: "3.4", ok: false, code: 11, n: 1200, bad: 40, ms: 0 };
+  const ac = demoCb.on ? { ip: "192.168.0.33", ver: "3.5", ok: true, code: 0, at: Math.round(now), t6: Math.round(now), sess: 2, v: acV, a: +(acW / acV / .97).toFixed(3), w: acW, kwh: +(812.4 + now % 86400 / 86400 * 9).toFixed(2), hz: 50, n: 1200, bad: 3 }
+    : { ip: "192.168.0.33", ver: "3.5", ok: false, code: 11, n: 1200, bad: 40, sess: 2 };
   return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo, cb, ac,
     limits: { bal_start: 3400, bal_diff: 30, cell_ov: 3650, cell_uv: 2500, low_soc: 10 },
     batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})),
