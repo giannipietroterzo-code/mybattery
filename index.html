@@ -591,10 +591,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .flow #fb-lvl{transition:fill .3s}
 /* la pala in «Energia adesso» (2.29): le pale girano alla velocità della produzione stimata, come nella pagina Vento; grigia quando non si stima */
 .flow #fw-g{cursor:pointer}
-.flow .fw-bl{transform-box:fill-box;transform-origin:center;animation:wndSpin var(--sp,0s) linear infinite}
-.flow #fw-g.still .fw-bl{animation:none;transform:rotate(22deg)}   /* ferma: pale un po' girate, se no con una pala in su sembra un aereo (richiesta dell'utente) */
 .flow #fw-g.dim .nd,.flow #fw-g.dim .ic,.flow #fg-g.dim .nd,.flow #fg-g.dim .ic{opacity:.4}
-@media (prefers-reduced-motion:reduce){.flow .fw-bl{animation:none;transform:rotate(22deg)}}
 .flow .fv{font-size:16px;font-weight:700;fill:var(--ink);font-variant-numeric:tabular-nums}
 .flow .fa{font-size:11px;font-weight:600;fill:var(--muted);font-variant-numeric:tabular-nums}
 .flow .fn{font-size:9.5px;font-weight:700;letter-spacing:.09em;fill:var(--muted);text-transform:uppercase}
@@ -1299,12 +1296,8 @@ footer{border-top:0;padding-top:0}
 .legend i.wn-na{background:repeating-linear-gradient(-45deg,var(--line) 0 2px,transparent 2px 4px);border:1px solid var(--line)}
 .wnd-top{display:grid;grid-template-columns:118px 1fr;gap:6px 14px;align-items:center;margin-top:6px}
 .wnd-rot{width:118px;height:118px}
-.wnd-rot .bl{transform-origin:60px 52px;animation:wndSpin var(--sp,0s) linear infinite}
-.wnd-rot.still .bl{animation:none;transform:rotate(22deg)}
 .wnd-rot.dim .bl,.wnd-rot.dim circle{opacity:.35}
 .wnd-rot .bl{transition:opacity .3s}
-@keyframes wndSpin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.wnd-rot .bl{animation:none;transform:rotate(22deg)}}
 .wnd-big{font-family:var(--num,inherit);font-size:2.3rem;font-weight:700;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
 .wnd-big small{font-size:1rem;margin-left:3px;color:var(--muted);font-weight:600}
 /* 2.36 (richiesta dell'utente): watt e ampere verdi quando sono la misura di adesso, bianchi quando sono la media dell'ultimo minuto */
@@ -1929,7 +1922,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.36"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.37"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3405,10 +3398,12 @@ function drawFlow(k){
   if (wOn) {
     const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
     set("ft-wnd", w === null ? "–" : power(w));
-    $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.src === "min" ? " · ultimo min" : ""));
+    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.src === "min" ? " · ultimo min" : ""));
+    $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
     flow("ff-wnd", w, false);
     const sp = shown.sp;
-    g.classList.toggle("still", !sp); g.classList.toggle("dim", w === null); g.style.setProperty("--sp", sp.toFixed(2) + "s");
+    g.classList.toggle("still", !sp); g.classList.toggle("dim", w === null);
+    rotorSet(g.querySelector(".fw-bl"), sp, 12, 10);   // come la pagina Vento: la velocità cambia in modo morbido (2.37)
     wTxt = `, pala ${w === null ? "non stimabile" : power(w)}`;
   }
   svg.setAttribute("aria-label", `Pannelli ${prod === null ? "non letti" : power(prod)}${wTxt}${onBank ? "" : ", casa su Enel"}, batterie ${bat === null ? "–" : (bat >= 0 ? "in carica " : "in scarica ") + power(bat)}, casa ${!onBank ? "su Enel" : home === null ? "non nota" : power(home)}`);
@@ -6085,6 +6080,36 @@ function w1At(e){ if (!w1G) return; const r = $("wnd-1h").getBoundingClientRect(
   el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") { w1I = null; w1Read(); } });
   el.addEventListener("pointerup", e => { if (e.pointerType !== "mouse") { clearTimeout(w1Timer); w1Timer = setTimeout(() => { w1I = null; w1Read(); }, 4000); } });
   el.addEventListener("pointercancel", () => { w1I = null; w1Read(); }); }
+/* la rotazione delle pale (2.37, richiesta dell'utente): non più un'animazione CSS, che a ogni cambio di velocità ripartiva da capo, ma un angolo
+   portato avanti a ogni fotogramma con una velocità che va verso quella nuova in modo morbido (costante di tempo 1,5 s), anche quando rallenta
+   fino a fermarsi. Sotto i 25 °/s la pala si ferma con dolcezza sulla posizione con le pale girate di 22° (una pala dritta in su sembra un
+   aereo). rotorSet(gruppo delle pale, secondi per giro o 0, centro): pagina Vento e Dashboard. Con «riduci movimento» le pale stanno ferme a 22° */
+const ROT = new Map(); let rotRaf = 0, rotT = 0;
+function rotorSet(el, sp, cx, cy){
+  if (!el) return;
+  let r = ROT.get(el);
+  if (!r) { r = { a: 22, v: 0, g: null, cx, cy }; ROT.set(el, r); el.setAttribute("transform", `rotate(22 ${cx} ${cy})`); }
+  r.t = sp > 0 ? 360 / sp : 0;
+  if (!rotRaf) { rotT = 0; rotRaf = requestAnimationFrame(rotStep); }
+}
+function rotStep(ts){
+  const dt = rotT ? Math.min(.1, (ts - rotT) / 1000) : 0, calm = matchMedia("(prefers-reduced-motion: reduce)").matches; rotT = ts;
+  let busy = false;
+  ROT.forEach((r, el) => {
+    if (!el.isConnected) { ROT.delete(el); return; }
+    if (calm) { r.a = 22; r.v = 0; r.g = null; }
+    else if (r.t > 0 || r.v > 25) { r.g = null; r.v += (r.t - r.v) * (1 - Math.exp(-dt / 1.5)); r.a += r.v * dt; }
+    else if (r.v > 0) {                                  // fermata dolce: arriva alla prossima posizione a 22° (le tre pale si ripetono ogni 120°)
+      if (r.g === null) r.g = r.a + ((22 - r.a) % 120 + 120) % 120;
+      r.v = Math.max(6, Math.min(r.v, (r.g - r.a) * 1.5)); r.a += r.v * dt;
+      if (r.a >= r.g) { r.a = r.g; r.v = 0; r.g = null; }
+    }
+    if (r.a >= 360) { r.a -= 360; if (r.g !== null) r.g -= 360; }
+    el.setAttribute("transform", `rotate(${r.a.toFixed(2)} ${r.cx} ${r.cy})`);
+    if (r.v > 0 || r.t > 0) busy = true;
+  });
+  rotRaf = busy && !calm ? requestAnimationFrame(rotStep) : 0;
+}
 /* la pala da mostrare (2.36, richieste dell'utente): col vento a raffiche la stima di adesso sta quasi sempre sotto la soglia (60 W) e la pala
    restava ferma a 0 W anche con una media di quasi 1 A nel minuto. Il numero, gli ampere, la linea e il rotore usano lo stesso valore, così non
    c'è mai una pala che gira con scritto 0 W: la stima di adesso se è sopra la soglia, se no la media dell'ultimo minuto della scheda (m1: quello
@@ -6105,7 +6130,7 @@ function drawWind(){
   const ms = cur && fin(cur.ms) ? cur.ms : null, shown = wndShown(nw), wEst = shown.w;   // vedi wndShown: numero, ampere e rotore dallo stesso valore
   // il rotore segue la produzione stimata (2.20, richiesta dell'utente), non il vento del meteo; dalla 2.36 anche quella dell'ultimo minuto
   const sp = shown.sp, dim = wEst === null;
-  const rot = `<svg class="wnd-rot${sp ? "" : " still"}${dim ? " dim" : ""}" viewBox="0 0 120 120" style="--sp:${sp.toFixed(2)}s" aria-hidden="true">
+  const rot = `<svg class="wnd-rot${sp ? "" : " still"}${dim ? " dim" : ""}" viewBox="0 0 120 120" aria-hidden="true">
     <path d="M57 56 L60 116 L63 56Z" fill="var(--line)"/><rect x="48" y="112" width="24" height="4" fill="var(--line)"/>
     <g class="bl" fill="var(--wn-w)">${[0, 120, 240].map(a => `<path transform="rotate(${a} 60 52)" d="M60 52 C57 40 57 20 60 6 C64 20 64 40 60 52Z"/>`).join("")}</g>
     <circle cx="60" cy="52" r="5" fill="var(--surface)" stroke="var(--wn-w)" stroke-width="2.5"/></svg>`;
@@ -6128,7 +6153,8 @@ function drawWind(){
   const keep = $("wnd-rotw") && $("wnd-rotw").firstElementChild;
   if (head.dataset.h !== html) { head.dataset.h = html; head.innerHTML = html; if (keep) $("wnd-rotw").append(keep); }
   if (!$("wnd-rotw").firstElementChild) $("wnd-rotw").innerHTML = rot;
-  const rEl = $("wnd-rotw").firstElementChild; rEl.setAttribute("class", "wnd-rot" + (sp ? "" : " still") + (dim ? " dim" : "")); rEl.style.setProperty("--sp", sp.toFixed(2) + "s");
+  const rEl = $("wnd-rotw").firstElementChild; rEl.setAttribute("class", "wnd-rot" + (sp ? "" : " still") + (dim ? " dim" : ""));
+  rotorSet(rEl.querySelector(".bl"), sp, 60, 52);   // la velocità cambia in modo morbido, senza ripartire (2.37)
   // ---- ultima ora, al minuto
   drawW1(nw, hours);
   // ---- ultime 48 ore
