@@ -1997,8 +1997,18 @@ html.mon-open,html.mon-open body{overflow:hidden}
 (function(){
 "use strict";
 const API = "/api/status";
+/* ogni domanda alla scheda passa da qui (2.49): il tempo massimo copre tutta la risposta, corpo compreso. Con fetch da sola, se la scheda si
+   riavvia a metà risposta il telefono aspetta il resto per sempre (non manda niente, quindi non si accorge che la connessione è morta) e il
+   giro di lettura resta occupato: il 19/11/2026 il Monitor è rimasto fermo all'ora del riavvio delle 04:30. Rende una risposta già letta. */
+async function bFetch(url, opt, ms){
+  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), ms || 20000);
+  try {
+    const r = await fetch(url, Object.assign({}, opt, { signal: ctrl.signal })), b = await r.arrayBuffer();
+    return new Response(r.status === 204 || r.status === 205 || r.status === 304 ? null : b, { status: r.status, statusText: r.statusText, headers: r.headers });
+  } finally { clearTimeout(t); }
+}
 const DAY = 86400;
-const APP_VERSION = "2.48"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.49"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2194,7 +2204,7 @@ function vocTake(b){
 }
 async function vocPull(at){
   if (vocBusy) return;
-  try { const b = await (await fetch("/api/voc", { cache: "no-store" })).json(); vocSeen = at; if (vocTake(b) && data) render(mode); } catch (e) {}
+  try { const b = await (await bFetch("/api/voc", { cache: "no-store" })).json(); vocSeen = at; if (vocTake(b) && data) render(mode); } catch (e) {}
 }
 const midnight = t => { const d = new Date(t * 1000); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; };
 const dayAdd = (m, n) => { const d = new Date(m * 1000); d.setDate(d.getDate() + n); return d.getTime() / 1000; };
@@ -2671,7 +2681,7 @@ async function swSync(j){
   if (j.sw_at === swAtSeen) return;
   swAtSeen = j.sw_at;
   try {
-    const r = await (await fetch("/api/switch", { cache: "no-store" })).json();
+    const r = await (await bFetch("/api/switch", { cache: "no-store" })).json();
     if (!Array.isArray(r.rows)) return;
     const changed = r.rows.length !== SW.rows.length || JSON.stringify(r.rows[r.rows.length - 1]) !== JSON.stringify(SW.rows[SW.rows.length - 1]);
     SW.rows = r.rows;
@@ -2759,7 +2769,7 @@ function cbCtlInit(){
     cbSent = { on: want, t: Date.now(), base: c.cmd && fin(c.cmd.at) ? c.cmd.at : 0, st: "send", msg: "" }; cbLoop(); drawCbCtl();
     try {
       if (mode === "live") {
-        const r = await fetch("/api/cb", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ on: want }) });
+        const r = await bFetch("/api/cb", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ on: want }) });
         const j = await r.json().catch(() => ({})); if (!r.ok || !j.ok) throw new Error(j.msg || "la scheda non risponde");
       } else if (mode === "remote") await remCmd("cb", { on: want });
       else if (!isReal()) { const at = Math.round(Date.now() / 1000) + 1; demoCb.cmd = { st: 1, on: want, at, msg: "" };
@@ -3233,7 +3243,7 @@ async function stMerge(rows){ if (rows && rows.length) await db.put(rows, "st", 
 async function stSync(at){
   if (stBusy) return; stBusy = true;
   try { let from = STRESS.length ? STRESS[STRESS.length - 1][0] + 1 : 0; const got = [];
-    for (let g = 0; g < 60; g++) { const j = await (await fetch(`/api/stress?from=${from}`, { cache: "no-store" })).json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(stOk); if (!rows.length) break; got.push(...rows); from = rows[rows.length - 1][0] + 1; if (!j.more) break; }
+    for (let g = 0; g < 60; g++) { const j = await (await bFetch(`/api/stress?from=${from}`, { cache: "no-store" })).json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(stOk); if (!rows.length) break; got.push(...rows); from = rows[rows.length - 1][0] + 1; if (!j.more) break; }
     await stMerge(got); await boardAlarms(); stSeen = at;
   } catch (e) {} finally { stBusy = false; }
 }
@@ -3516,7 +3526,7 @@ function pushShared(auto = false){
 async function pullShared(){
   if (cfgPushT && !cfgAuto) return; // una modifica fatta qui dall'utente sta per partire: vince quella (una automatica no: si legge prima la scheda)
   try {
-    const j = await (await fetch("/api/config", {cache: "no-store"})).json();
+    const j = await (await bFetch("/api/config", {cache: "no-store"})).json();
     if (!j || (cfgPushT && !cfgAuto)) return;
     if (!j.app) { remSet = !!S.rem; cfgFull = true; pushShared(); return; } // scheda nuova: prende tutte le impostazioni di questo telefono
     let raw = {}; try { raw = JSON.parse(localStorage.getItem(SKEY) || "{}") || {}; } catch (e) {}
@@ -3733,7 +3743,7 @@ async function mqAck(u8){
 // scrive sulla scheda: in casa con POST /api/config, da fuori casa col comando cifrato. Altrove non fa niente
 async function boardCfg(d){
   if (mode === "live") {
-    const r = await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify(d) });
+    const r = await bFetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify(d) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) throw new Error(j.msg || "Scheda non raggiungibile");
     return j;
@@ -3775,7 +3785,7 @@ $("fw-chip").addEventListener("click", async () => {
   fwAsk = 0; fwSent = Date.now(); drawFw();
   try {
     if (mode === "live") {
-      const r = await fetch("/api/fw/update", { method: "POST", headers: { "X-MyBattery": "1" } });
+      const r = await bFetch("/api/fw/update", { method: "POST", headers: { "X-MyBattery": "1" } });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) throw new Error(j.msg || "scheda non raggiungibile");
     } else {
@@ -3877,7 +3887,7 @@ function remSt(){
 // se la scheda ha già un canale si usa quello: un canale nuovo staccherebbe tutti i telefoni già collegati
 async function remOn(){
   let cur = null;
-  if (mode === "live") try { const j = await (await fetch("/api/config", { cache: "no-store" })).json(); cur = j && j.app && j.app.rem; } catch (e) { toast("Scheda non raggiungibile: riprova"); return; }
+  if (mode === "live") try { const j = await (await bFetch("/api/config", { cache: "no-store" })).json(); cur = j && j.app && j.app.rem; } catch (e) { toast("Scheda non raggiungibile: riprova"); return; }
   if (cur && cur.t && cur.k) { S.rem = cur; toast("La scheda ha già un canale: uso quello"); }
   else { S.rem = remNew(); remSet = true; }
   saveSettings(); fillRem();
@@ -3893,10 +3903,7 @@ async function poll(){
   if (DEMO_ONLY) { if (S.rem) { if (await remHome()) return; remotePoll(); } else offline(); return; }
   busy = true;
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 4000);
-    const r = await fetch(API, {cache:"no-store", signal:ctrl.signal});
-    clearTimeout(t);
+    const r = await bFetch(API, {cache:"no-store"}, 4000);
     if (!r.ok) throw new Error(r.status);
     const j = await r.json();
     if (!j || !Array.isArray(j.batteries)) throw new Error("formato");
@@ -4406,7 +4413,7 @@ async function syncLog(){
   const added = [];
   try {
     for (let guard = 0; guard < 100; guard++) {
-      const r = await fetch(`${LOG_API}?from=${from}`, {cache: "no-store"});
+      const r = await bFetch(`${LOG_API}?from=${from}`, {cache: "no-store"});
       if (!r.ok) break;
       const j = await r.json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(validRow);
       if (!rows.length) break;
@@ -4424,7 +4431,7 @@ async function syncLog(){
 let boardEv = null;
 async function boardAlarms(){
   try {
-    const j = await (await fetch("/api/alarms", {cache: "no-store"})).json();
+    const j = await (await bFetch("/api/alarms", {cache: "no-store"})).json();
     if (!j || !Array.isArray(j.ev)) return;
     boardEv = mapEv(j.ev); ievFromBoard();
   } catch (e) {}
@@ -4971,7 +4978,7 @@ async function saveSnapshot(det){
 let fcSeen = null, fcCap = false, fcBusy = false, fcTry = 0;
 const fcOk = r => r && fin(r.t0) && Array.isArray(r.s) && Array.isArray(r.p) && Array.isArray(r.l);
 async function fcPost(rows){
-  const r = await fetch("/api/fc", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ rows }) });
+  const r = await bFetch("/api/fc", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify({ rows }) });
   if (!r.ok) throw new Error(r.status);
 }
 async function fcSync(at){
@@ -4979,14 +4986,14 @@ async function fcSync(at){
   fcBusy = true; fcTry = Date.now();
   try {
     await realLog();
-    const idx = await (await fetch("/api/fc?idx=1", { cache: "no-store" })).json();
+    const idx = await (await bFetch("/api/fc?idx=1", { cache: "no-store" })).json();
     if (!idx || !Array.isArray(idx.t)) return;
     const board = new Set(idx.t), have = new Set(fcArchive.map(r => r.t0)), miss = idx.t.filter(t => !have.has(t));
     let got = 0;
     if (miss.length) {
       let from = Math.min(...miss);
       for (let g = 0; g < 40; g++) {
-        const j = await (await fetch(`/api/fc?from=${from}`, { cache: "no-store" })).json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(fcOk);
+        const j = await (await bFetch(`/api/fc?from=${from}`, { cache: "no-store" })).json(), rows = (j && Array.isArray(j.rows) ? j.rows : []).filter(fcOk);
         if (!rows.length) break;
         const fresh = rows.filter(r => !have.has(r.t0));
         if (fresh.length) { await db.put(fresh, "fc", r => r.t0); fresh.forEach(r => { have.add(r.t0); fcArchive.push(r); }); got += fresh.length; }
@@ -5503,8 +5510,8 @@ async function ntfyTest(urg){
   }
   if (mode === "live") {
     try {
-      let r = await fetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) });
-      if (r.status === 409) { await new Promise(w => setTimeout(w, 2500)); r = await fetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) }); }
+      let r = await bFetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) });
+      if (r.status === 409) { await new Promise(w => setTimeout(w, 2500)); r = await bFetch("/api/ntfy/test", { method: "POST", headers: { "X-MyBattery": "1" }, body: new URLSearchParams({ urgent: urg ? "1" : "0" }) }); }
       const j = await r.json().catch(() => ({}));
       toast(!r.ok ? "La scheda non ha ancora il canale: riprova tra poco" : j.net ? "Prova inviata dalla scheda" : "Prova in coda: parte quando la scheda raggiunge internet");
     } catch (e) { toast("Scheda non raggiungibile"); }
@@ -6152,7 +6159,7 @@ function wpkTake(rows){
 async function wpkPull(){
   if (wpkBusy || mode !== "live" || !data || !("wpk_at" in data) || data.wpk_at === wpkSeen) return;
   wpkBusy = true;
-  try { const j = await (await fetch("/api/wpk", { cache: "no-store" })).json(); wpkSeen = data.wpk_at; wpkTake(j.rows); } catch (e) {}
+  try { const j = await (await bFetch("/api/wpk", { cache: "no-store" })).json(); wpkSeen = data.wpk_at; wpkTake(j.rows); } catch (e) {}
   wpkBusy = false;
 }
 function w1Merge(){                                   // i minuti della scheda: tiene la riga con più letture (il minuto in corso cresce)
