@@ -1298,6 +1298,7 @@ footer{border-top:0;padding-top:0}
 .wnd-1h{touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
 .legend i.wn-pk{background:linear-gradient(var(--wn-w),var(--wn-w)) center/1.5px 100% no-repeat;opacity:.8}
 .legend i.wn-gap{background:transparent;border:0;border-bottom:2px solid var(--line);border-radius:0}
+.legend i.wn-bat{background:linear-gradient(var(--wn-w),var(--wn-w)) top/100% 60% no-repeat;border:0;border-bottom:2px solid var(--ink);border-radius:0;opacity:.85}
 .legend i.wn-na{background:repeating-linear-gradient(-45deg,var(--line) 0 2px,transparent 2px 4px);border:1px solid var(--line)}
 .wnd-top{display:grid;grid-template-columns:118px 1fr;gap:6px 14px;align-items:center;margin-top:6px}
 .wnd-rot{position:relative;display:block;width:118px;height:118px}
@@ -1679,7 +1680,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
       <section class="panel" aria-labelledby="h-wnd1">
         <h2 id="h-wnd1">Ultima ora</h2>
         <svg class="wnd-svg wnd-1h" id="wnd-1h" viewBox="0 0 340 150" role="img" aria-label="Potenza e corrente stimate della pala minuto per minuto nell'ultima ora"></svg>
-        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala, media del minuto</span><span><i class="wn-pk"></i>Picco istantaneo</span><span><i class="wn-na"></i>Casa sulle batterie</span><span><i class="wn-gap"></i>Nessuna lettura</span></p>
+        <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala, media del minuto</span><span><i class="wn-pk"></i>Picco istantaneo</span><span><i class="wn-bat"></i>Casa sulle batterie</span><span><i class="wn-na"></i>Non stimabile</span><span><i class="wn-gap"></i>Nessuna lettura</span></p>
         <p class="hist-read" id="wnd-1hr"></p>
       </section>
       <section class="panel" aria-labelledby="h-wnd48">
@@ -1997,7 +1998,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 "use strict";
 const API = "/api/status";
 const DAY = 86400;
-const APP_VERSION = "2.47"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.48"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2413,6 +2414,8 @@ function vocPick(e, tap){
 }
 document.addEventListener("pointerdown", e => vocPick(e, true));
 document.addEventListener("pointermove", e => { if (e.buttons && e.pointerType !== "touch") vocPick(e, false); });
+// accanto a un'ora: niente per oggi, se no il giorno della settimana corto («ven»). «domani» tagliato a tre lettere si leggeva «domenica» (2.48)
+const dayTag = t => dkey(t) === dkey(nowOf(data)) ? "" : `<small> ${new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "")}</small>`;
 const dayWord = t => { const d = dkey(t) - dkey(nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
 const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d === dkey(nowOf(data)) ? o : null; };
 const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
@@ -2696,8 +2699,11 @@ function drawSw(){
   $("q-one").classList.toggle("cut", cut); $("q-one").classList.toggle("on", on);
   const hdc = h && fin(h.w) ? h.w + plantW() : null, fit = hcalFit(), hl = houseLive();   // hdc: la media della scheda, per tarare; hl.w: la casa adesso, come in «Energia adesso»
   $("q-state").textContent = on ? `Sulle batterie${hl.w === null ? "" : hl.meas ? ` · ${power(hl.w)} misurati` : ` · circa ${power(hl.w)}${hl.ac === null ? " dalle batterie" : ""}`}` : "Su Enel";
-  const cal = $("q-cal"), calH = (on && hdc > 100 ? `<form class="loc-f" autocomplete="off"><input type="number" inputmode="decimal" min="50" step="1" placeholder="W che segna l'inverter adesso" aria-label="Watt che segna l'inverter adesso"><button class="set-btn pri" type="submit">Tara</button></form>` : "") +
-    ((t => t ? `<p class="set-note">${t}</p>` : "")(fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}. I watt della casa sono quelli dell'inverter. <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
+  // col misuratore sull'uscita dell'inverter i watt della casa sono misurati: la taratura a mano resta solo di riserva (2.48)
+  const meter = !!(data && data.ac && data.ac.ok);
+  const cal = $("q-cal"), calH = (meter ? `<p class="set-note">I watt della casa li <b>misura</b> il misuratore sull'uscita dell'inverter${hl.meas ? "" : " quando è in tempo reale (con la casa sulle batterie)"}. La taratura a mano serve solo se il misuratore non risponde.</p>` : "") +
+    (on && hdc > 100 && !meter ? `<form class="loc-f" autocomplete="off"><input type="number" inputmode="decimal" min="50" step="1" placeholder="W che segna l'inverter adesso" aria-label="Watt che segna l'inverter adesso"><button class="set-btn pri" type="submit">Tara</button></form>` : "") +
+    ((t => t ? `<p class="set-note">${t}</p>` : "")(fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}.${meter ? "" : " I watt della casa sono quelli dell'inverter."} <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
       : ""));
   if (cal.dataset.h !== calH && !cal.contains(document.activeElement)) { cal.dataset.h = calH; cal.innerHTML = calH; }
   $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
@@ -2706,7 +2712,7 @@ function drawSw(){
   last.innerHTML = r ? `<span>Il ${alWhen(swT(r))} è passata ${r[1] & 1 ? "sulle batterie" : "su Enel"}${fin(r[3]) && Math.abs(r[3]) >= 50 ? ` · ${r[1] & 1 ? "+" : "−"}${power(Math.abs(r[3]))}` : ""}</span>` : SW.board ? "" : "<span>Senza la scheda la casa si considera sulle batterie.</span>";
   drawCb();
   const chip = $("q-chip");
-  chip.innerHTML = `<i></i><span>Casa <b>${on ? "sulle batterie" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && hl.w !== null ? ` <small>· ~${power(hl.w)}</small>` : ""}</span><small>Casa ›</small>`;
+  chip.innerHTML = `<i></i><span>Casa <b>${on ? "sulle batterie" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && hl.w !== null ? ` <small>· ${hl.meas ? "" : "~"}${power(hl.w)}</small>` : ""}</span><small>Casa ›</small>`;
   chip.classList.toggle("off", !on);
   drawSwLog();
 }
@@ -3177,9 +3183,9 @@ function drawSolar(k, f){
         : fin(first) ? `Meglio lasciarla su Enel: sulle batterie ${first === aoAt ? "la scheda la riporterebbe su Enel" : "l'inverter staccherebbe"} ${ora(first)}${first - now > DAY ? ", e i pannelli non bastano a recuperare" : ""}.`
         : `Meglio lasciarla su Enel: sulle batterie scenderesti verso ${ilP(Math.max(mn ?? ev.min, 0))}, sotto la soglia (${guardTxt()}).`}</div>` : "";
   const T = [];
-  if (lim) T.push(["Scheda stacca", fin(aoAt) ? hm(q15(aoAt)) + (dayWord(aoAt) === "oggi" ? "" : `<small> ${dayWord(aoAt).slice(0, 3)}</small>`) : aoLive ? "no" : "ferma", fin(aoAt) ? "w" : ""]);
-  T.push(["Inverter", fin(cutAt) ? hm(q15(cutAt)) + (dayWord(cutAt) === "oggi" ? "" : `<small> ${dayWord(cutAt).slice(0, 3)}</small>`) : "non stacca", fin(cutAt) ? "a" : ""]);
-  T.push(fin(sunAt) ? ["Sole ricarica", hm(q15(sunAt)) + (dayWord(sunAt) === "oggi" ? "" : `<small> ${dayWord(sunAt).slice(0, 3)}</small>`), "s"] : ["Minimo", fin(mn) ? nf(mn, 0) + "%" : "–"]);
+  if (lim) T.push(["Scheda stacca", fin(aoAt) ? hm(q15(aoAt)) + dayTag(aoAt) : aoLive ? "no" : "ferma", fin(aoAt) ? "w" : ""]);
+  T.push(["Inverter", fin(cutAt) ? hm(q15(cutAt)) + dayTag(cutAt) : "non stacca", fin(cutAt) ? "a" : ""]);
+  T.push(fin(sunAt) ? ["Sole ricarica", hm(q15(sunAt)) + dayTag(sunAt), "s"] : ["Minimo", fin(mn) ? nf(mn, 0) + "%" : "–"]);
   // senza automatico il terzo riquadro è la soglia degli avvisi: a che ora le batterie ci arrivano (prima, senza sole in vista, «Minimo» usciva due volte)
   if (T.length < 3) T.splice(lim ? T.length : 0, 0, ev && fin(ev.marAt) && ev.marAt > now ? ["Sotto la soglia", hm(q15(ev.marAt)) + (dayWord(ev.marAt) === "oggi" ? "" : `<small> ${dayWord(ev.marAt).slice(0, 3)}</small>`), "w"]
     : T.some(x => x[0] === "Minimo") ? ["Carica adesso", nf(k.soc, 0) + "%"] : ["Minimo", fin(mn) ? nf(mn, 0) + "%" : "–"]);
@@ -3475,7 +3481,7 @@ function drawFlow(k){
   if (wOn) {
     const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
     set("ft-wnd", w === null ? "–" : power(w));
-    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
+    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
     $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
     flow("ff-wnd", w, false);
     const sp = shown.sp;
@@ -4312,7 +4318,9 @@ function histSummary(){
   const k = step / 3600 / 1000;
   const when = mi === n - 1 ? "adesso" : "alle " + hm(tNow - (n - 1 - mi) * step);
   return `Entrati <b class="in">${nf(ein * k, 1)} kWh</b>, usciti <b class="out">${nf(eout * k, 1)} kWh</b>.<br>` +
-    `Carica minima <b>${nf(soc[mi], 0)}%</b> ${when}.`;
+    `Carica minima <b>${nf(soc[mi], 0)}%</b> ${when}.` +
+    // il grafico delle 24 ore lo tiene la scheda con la carica dei BMS: se quella vera è diversa lo si dice (2.48: 68 % qui e 60 % in Dashboard)
+    ((b => b && fin(b.soc_t) && fin(soc[n - 1]) && Math.abs(soc[n - 1] - b.soc_t) >= 3 ? `<br>Questa è la carica letta dai BMS: quella vera adesso è <b>${nf(b.soc_t, 0)}%</b>.` : "")(data && data.bank));
 }
 
 function updateScrub(){
@@ -5346,7 +5354,9 @@ function appAlerts(bs, k, f){
   let nightTold = false;
   const na = S.alFc ? nightAdvice(k, f) : null;
   if (na && !na.wait && !na.off && na.st !== "ok") {          // con la casa su Enel non c'è niente da avvisare: il riquadro dice come andrebbe sulle batterie
-    const n = na.cur, resT = n.resume === null ? "" : `, verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera.";
+    // quando i pannelli tornano a caricare: se non è oggi si dice il giorno (2.48: «stacca verso le 09:00 … prima che tornino a caricare,
+    // verso le 08:30» sembrava un controsenso: le 08:30 erano quelle del giorno dopo, in una giornata di temporali)
+    const n = na.cur, resT = n.resume === null ? "" : `, ${dayWord(n.resume) === "oggi" ? "" : dayWord(n.resume) + " "}verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera.";
     // l'ora e chi stacca: gli stessi di «Batterie su solare» (con l'automatico acceso è la scheda, prima dell'inverter)
     const P = solarPlan(k, f), soon = P && fin(P.first) && (n.resume === null || P.first < n.resume), byAo = !!(soon && P.byAo && P.aoLive), at = soon ? P.first : n.at;
     // l'automatico fermerebbe le batterie alla sua soglia prima dell'inverter: se nel caso normale la notte passa, conta il caso prudente (1 su 5)
@@ -6064,14 +6074,22 @@ function wndCurve(hours){
    in diretta il 19/11/2026 alle 00:16 (2,9–3,0 kW dalle batterie per 2,4–2,6 kW alla casa, pannelli fermi), e b = le perdite a pala ferma con
    l'inverter acceso: è una taratura provvisoria, perché quella notte la pala non era ferma di sicuro.
    Batterie e uscita sono lette in istanti diversi e l'1% di errore su a vale 25–30 W a 2,5 kW: si fa la media dell'ultimo minuto e sotto
-   WND_NOISE_B la stima conta zero */
-const WND_NOISE_B = 150, WND_A0 = 1.17; let wbRing = [];
+   WND_NOISE_B la stima è «incerta» (si mostra lo stesso, in bianco: richiesta dell'utente), sotto WND_LOW_B conta zero */
+const WND_NOISE_B = 150, WND_LOW_B = 50, WND_A0 = 1.17; let wbRing = [];
+// a e b: dal registro (acFit); se no dalla taratura fatta a mano coi watt dell'inverter (hcalFit: uscita = a × ingresso + b, qui girata);
+// se no la provvisoria. Il 19/11 alle 00:35 la taratura a mano (90 %, 186 W fissi) e le misure in diretta davano lo stesso ingresso entro 30 W.
+// Li usano «adesso» (wndBat) e i minuti dell'ultima ora (drawW1): la stessa pala con gli stessi numeri
+function wndAB(pv, H){
+  const f = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null, h = f ? null : hcalFit();
+  return { a: f ? f.a : h ? 1 / h.a : WND_A0, b: f ? f.b : h ? h.loss : -(H || wndHours()).loss(1, pv), prov: !f };
+}
 function wndBat(k, pv){
   const ac = acNow(); if (ac === null) return null;
-  const f = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null, a = f ? f.a : WND_A0, b = f ? f.b : -wndHours().loss(1, pv), now = nowOf(data), t = data.ac.t6;
-  if (!wbRing.length || wbRing[wbRing.length - 1].t !== t) wbRing.push({ t, w: k.p - pv + a * ac + b });
+  const { a, b, prov } = wndAB(pv), now = nowOf(data), t = data.ac.t6;
+  // batterie e uscita devono essere dello stesso momento: vale solo una misura dell'inverter di al massimo 6 secondi fa
+  if (now - t <= 6 && (!wbRing.length || wbRing[wbRing.length - 1].t !== t)) wbRing.push({ t, w: k.p - pv + a * ac + b });
   wbRing = wbRing.filter(x => x.t >= now - 60);
-  return { raw: wbRing.reduce((q, x) => q + x.w, 0) / wbRing.length, prov: !f };
+  return wbRing.length >= 3 ? { raw: wbRing.reduce((q, x) => q + x.w, 0) / wbRing.length, prov } : null;
 }
 function wndNow(){
   if (!data || !Array.isArray(data.batteries)) return { ok: false, why: "dati" };
@@ -6101,9 +6119,13 @@ const compass = d => fin(d) ? ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][Math.
    tutta l'ora in /api/status e nel pacchetto, gli ultimi minuti nella diretta): la app li unisce in localStorage (mybattery.wnd1b) e ci toglie
    pannelli e perdite a pala ferma (wndHours), come «adesso». La barra è la media del minuto (quanto rende), lo stelo sopra il picco (quanto picchia):
    col vento a raffiche la pala dà colpi da 10 A di pochi secondi e la media resta di qualche watt (2.28, richiesta dell'utente il 17/11).
+   Dal firmware 0.73 (app 2.48) i minuti con la casa sulle batterie e il misuratore dell'inverter in tempo reale portano in coda [letture,
+   W batterie, W pannelli, W in uscita dall'inverter], medie sulle stesse letture: la pala esce come in «adesso» (pala ≈ batterie − pannelli
+   + a × uscita + b, wndAB). Servono almeno W1_NA letture nel minuto; la soglia è quella della casa sulle batterie (WND_NOISE_B), senza picco
+   (l'uscita dell'inverter arriva ogni 2 s, un colpo di pochi secondi non si separa). Sotto la barra una riga segna quei minuti.
    Con un firmware più vecchio li registra il telefono a ogni lettura mentre la app è aperta (mybattery.wnd1m: [minuto, somma W, letture, somma V,
    letture con la casa sulle batterie]). Vale prima la scheda */
-const W1_KEY = "mybattery.wnd1m", W1B_KEY = "mybattery.wnd1b";
+const W1_KEY = "mybattery.wnd1m", W1B_KEY = "mybattery.wnd1b", W1_NA = 5;
 let W1 = null, W1B = null, w1Seen = 0, w1I = null, w1Timer = 0, w1G = null;
 function w1Add(nw){
   if (!data || !isReal() || !fin(data.time) || data.time === w1Seen || !wndOn(nowOf(data)) || Array.isArray(data.m1)) return;
@@ -6148,10 +6170,17 @@ function drawW1(nw, H){
   const now = nowOf(data), m1 = Math.floor(now / 60) * 60, m0 = m1 - 59 * 60, W = 340, top = 12, base = 120, cw = W / 60;
   const mins = Array.from({ length: 60 }, (_, i) => { const t = m0 + i * 60, b = W1B[t], r = W1.find(x => x[0] === t);
     if (!wndOn(t + 30)) return { t, k: "off" };
-    if (b) { if (b[4]) { const st = b[6] * 2 >= b[4] ? 1 : 0, ls = H.loss(st, b[2]);
-      return { t, k: "w", w: Math.max(0, b[1] - b[2] - ls), pk: fin(b[7]) ? Math.max(0, b[7] - ls) : null, v: b[3] / 100, n: b[4], sch: 1 }; } return { t, k: b[5] ? "na" : "gap" }; }
-    return !r ? { t, k: "gap" } : r[2] ? { t, k: "w", w: Math.max(0, r[1] / r[2]), pk: null, v: r[3] / r[2], n: r[2] } : r[4] ? { t, k: "na" } : { t, k: "gap" }; });
-  const ws = mins.filter(x => x.k === "w"), vAvg = ws.length ? ws.reduce((a, x) => a + x.v, 0) / ws.length : (nw.ok ? nw.v : 52);
+    // un minuto a cavallo di un passaggio ha letture di tutti e due i tipi: vale il tipo che ne ha di più
+    if (b) { const nA = fin(b[8]) && fin(b[9]) && fin(b[10]) && fin(b[11]) ? b[8] : 0;
+      if (b[4] && b[4] >= nA) { const st = b[6] * 2 >= b[4] ? 1 : 0, ls = H.loss(st, b[2]);
+        return { t, k: "w", w: Math.max(0, b[1] - b[2] - ls), pk: fin(b[7]) ? Math.max(0, b[7] - ls) : null, v: b[3] / 100, n: b[4], sch: 1, nz: WND_NOISE }; }
+      if (nA >= W1_NA) { const q = wndAB(b[10], H);
+        return { t, k: "w", w: Math.max(0, b[9] - b[10] + q.a * b[11] + q.b), pk: null, v: null, n: nA, sch: 1, nz: WND_NOISE_B, bat: true, ac: b[11], prov: q.prov }; }
+      return { t, k: b[5] ? "na" : "gap" }; }
+    return !r ? { t, k: "gap" } : r[2] ? { t, k: "w", w: Math.max(0, r[1] / r[2]), pk: null, v: r[3] / r[2], n: r[2], nz: WND_NOISE } : r[4] ? { t, k: "na" } : { t, k: "gap" }; });
+  const ws = mins.filter(x => x.k === "w"), wv = ws.filter(x => x.v !== null), kb = bank(data.batteries);
+  const vAvg = wv.length ? wv.reduce((a, x) => a + x.v, 0) / wv.length : nw.ok ? nw.v : fin(kb.v) ? kb.v : 52;
+  ws.forEach(x => { if (x.v === null) x.v = vAvg; });    // con la casa sulle batterie la scheda non tiene la tensione del minuto: per gli ampere basta quella dell'ora
   const top0 = Math.max(200, ...ws.map(x => Math.max(x.w, x.pk || 0))), wmax = Math.ceil(top0 / (top0 > 1000 ? 500 : 100)) * (top0 > 1000 ? 500 : 100), Y = w => base - w / wmax * (base - top);
   let g = "";
   [.5, 1].forEach(f => { const y = Y(wmax * f); g += `<line x1="0" x2="${W}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-dasharray="2 3"/>` +
@@ -6165,11 +6194,12 @@ function drawW1(nw, H){
     if (x.k === "off") return;
     if (x.k === "na") bars += `<rect x="${bx}" y="${top}" width="${bw}" height="${base - top}" fill="url(#wn1-na)" opacity=".7"/>`;
     else if (x.k === "gap") bars += `<rect x="${bx}" y="${base - 2}" width="${bw}" height="2" fill="var(--line)"/>`;
-    else { const h = Math.max(x.w >= WND_NOISE ? 1.5 : 0, base - Y(x.w)), cx = ((i + .5) * cw).toFixed(1);
+    else { const h = Math.max(x.w >= x.nz ? 1.5 : 0, base - Y(x.w)), cx = ((i + .5) * cw).toFixed(1);
+      if (x.bat) bars += `<rect x="${bx}" y="${base + 1.5}" width="${bw}" height="1.6" fill="var(--ink)" opacity=".7"/>`;   // casa sulle batterie: riga chiara sotto la barra
       // il picco istantaneo: stelo sottile dalla barra alla punta, solo se si distingue dal rumore e dalla media
       if (x.pk !== null && x.pk >= WND_NOISE && x.pk > x.w * 1.15) { const yp = Y(x.pk).toFixed(1);
         bars += `<line x1="${cx}" x2="${cx}" y1="${(base - h).toFixed(1)}" y2="${yp}" stroke="var(--wn-w)" stroke-width="1" opacity=".5"/><circle cx="${cx}" cy="${yp}" r="1.6" fill="var(--surface)" stroke="var(--wn-w)" stroke-width="1.1"/>`; }
-      if (h > 0) bars += `<rect x="${bx}" y="${(base - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="var(--wn-w)" opacity="${x.w >= WND_NOISE ? 1 : .35}"/>`; } });
+      if (h > 0) bars += `<rect x="${bx}" y="${(base - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" fill="var(--wn-w)" opacity="${x.w >= x.nz ? 1 : .35}"/>`; } });
   svg.innerHTML = `<defs><pattern id="wn1-na" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="5" fill="var(--line)"/></pattern></defs>` + g +
     `<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>` + bars + `<text x="${W}" y="${base + 13}" text-anchor="end" font-size="9" fill="var(--muted)">ora</text>` +
     `<g id="w1-cur" visibility="hidden"><rect id="w1-cb" y="${top - 4}" height="${base - top + 4}" fill="var(--ink)" opacity=".1"/><line id="w1-cl" y1="${top - 4}" y2="${base}" stroke="var(--ink)" stroke-width="1"/></g>`;
@@ -6181,25 +6211,27 @@ function w1Read(){
   const { mins, cw, ws } = w1G, cur = $("w1-cur");
   if (w1I === null) {
     if (cur) cur.setAttribute("visibility", "hidden");
-    const nNa = mins.filter(x => x.k === "na").length, wh = ws.reduce((a, x) => a + (x.w >= WND_NOISE ? x.w : 0), 0) / 60, pk = ws.reduce((a, x) => !a || x.w > a.w ? x : a, null);
+    const nNa = mins.filter(x => x.k === "na").length, nB = ws.filter(x => x.bat).length, wh = ws.reduce((a, x) => a + (x.w >= x.nz ? x.w : 0), 0) / 60;
+    const pk = ws.reduce((a, x) => x.w >= x.nz && (!a || x.w > a.w) ? x : a, null), m = n => n === 1 ? "minuto" : "minuti";
     const wp = ws.filter(x => x.pk !== null), ip = wp.reduce((a, x) => !a || x.pk > a.pk ? x : a, null), n5 = wp.filter(x => x.pk / x.v >= 5).length;
     // picchi della scheda (0.65): quanto picchia la pala, e quanti minuti con colpi oltre 5 A. Se la media è bassa e i colpi tanti, il vento è a raffiche
     const pkTxt = !ip || ip.pk < WND_NOISE ? "" : ` Picco istantaneo <b>${power(ip.pk)}</b> (<b>${nf(ip.pk / ip.v, 1)} A</b>) alle ${hm(ip.t)}` +
       (n5 ? `; ${n5} ${n5 === 1 ? "minuto" : "minuti"} con colpi oltre 5 A` : "") + (ip.pk >= 250 && wh < ip.pk / 60 * 5 ? ": vento a raffiche, la pala picchia ma rende poco." : ".");
     el.innerHTML = !wndOn(nowOf(data)) ? "La pala è segnata come spenta: non registro niente."
       : !isReal() ? "In prova non c'è niente da registrare: i minuti li segna il telefono collegato alla scheda."
-      : !ws.length ? (nNa ? "In quest'ora la casa è stata sulle batterie: la pala non si separa dai consumi." : data && Array.isArray(data.m1) ? "La scheda sta raccogliendo i minuti: tra un minuto compare la prima barra." : "I minuti li registra questo telefono mentre la app è aperta (col firmware 0.63 li tiene la scheda): tra un minuto compare la prima barra.")
-      : `Nell'ultima ora (${ws.length} ${ws.length === 1 ? "minuto stimato" : "minuti stimati"}${nNa ? `, ${nNa} con la casa sulle batterie` : ""}) la pala ha dato circa <b>${nf(wh, 0)} Wh</b>` +
-        (pk && pk.w >= WND_NOISE ? `, al massimo <b>${power(pk.w)}</b> (${nf(pk.w / pk.v, 1)} A) di media in un minuto alle ${hm(pk.t)}.` : ": di media sempre sotto i " + WND_NOISE + " W.") + pkTxt + " <small>Tocca il grafico per i singoli minuti.</small>";
+      : !ws.length ? (nNa ? "In quest'ora la casa è stata sulle batterie senza l'uscita dell'inverter in tempo reale: minuto per minuto la pala non si separa dai consumi." : data && Array.isArray(data.m1) ? "La scheda sta raccogliendo i minuti: tra un minuto compare la prima barra." : "I minuti li registra questo telefono mentre la app è aperta (col firmware 0.63 li tiene la scheda): tra un minuto compare la prima barra.")
+      : `Nell'ultima ora (${ws.length} ${ws.length === 1 ? "minuto stimato" : "minuti stimati"}${nB ? `, ${nB} con la casa sulle batterie` : ""}${nNa ? `; ${nNa} ${m(nNa)} non ${nNa === 1 ? "stimabile" : "stimabili"}` : ""}) la pala ha dato circa <b>${nf(wh, 0)} Wh</b>` +
+        (pk ? `, al massimo <b>${power(pk.w)}</b> (${nf(pk.w / pk.v, 1)} A) di media in un minuto alle ${hm(pk.t)}.` : ": di media sempre sotto la soglia.") + pkTxt +
+        (nB ? ` <small>Con la casa sulle batterie la pala esce dall'uscita misurata dell'inverter${ws.some(x => x.bat && x.prov) ? " (taratura ancora provvisoria)" : ""} e conta da ${WND_NOISE_B} W in su.</small>` : "") + " <small>Tocca il grafico per i singoli minuti.</small>";
     return;
   }
   const x = mins[w1I]; if (!x) return;
   cur.setAttribute("visibility", "visible");
   $("w1-cb").setAttribute("x", (w1I * cw).toFixed(1)); $("w1-cb").setAttribute("width", cw.toFixed(1));
   $("w1-cl").setAttribute("x1", ((w1I + .5) * cw).toFixed(1)); $("w1-cl").setAttribute("x2", ((w1I + .5) * cw).toFixed(1));
-  el.innerHTML = `<b>${w1I === 59 ? "Questo minuto" : "Alle " + hm(x.t)}</b><br>` + (x.k === "w" ? `Pala <b>${power(x.w)}</b> · <b>${nf(x.w / x.v, 1)} A</b> di media a ${nf(x.v, 1)} V` + (x.w < WND_NOISE ? " (sotto la soglia: conta zero)" : "") +
-      (x.pk !== null ? `<br>Picco <b>${power(x.pk)}</b> · <b>${nf(x.pk / x.v, 1)} A</b>` : "") + ` <small>(${x.n} letture${x.sch ? " della scheda" : " del telefono"})</small>`
-    : x.k === "na" ? "Casa sulle batterie: non stimabile" : x.k === "off" ? "Pala segnata spenta" : data && Array.isArray(data.m1) ? "Nessuna lettura: la scheda era spenta o senza batterie lette" : "Nessuna lettura: la app era chiusa");
+  el.innerHTML = `<b>${w1I === 59 ? "Questo minuto" : "Alle " + hm(x.t)}</b><br>` + (x.k === "w" ? `Pala <b>${power(x.w)}</b> · <b>${nf(x.w / x.v, 1)} A</b> di media` + (x.bat ? "" : ` a ${nf(x.v, 1)} V`) + (x.w < x.nz ? ` (sotto i ${x.nz} W: conta zero)` : "") +
+      (x.pk !== null ? `<br>Picco <b>${power(x.pk)}</b> · <b>${nf(x.pk / x.v, 1)} A</b>` : "") + (x.bat ? `<br>Casa sulle batterie: l'inverter le dava <b>${power(x.ac)}</b>` : "") + ` <small>(${x.n} letture${x.sch ? " della scheda" : " del telefono"})</small>`
+    : x.k === "na" ? "Casa sulle batterie senza l'uscita dell'inverter in tempo reale: non stimabile" : x.k === "off" ? "Pala segnata spenta" : data && Array.isArray(data.m1) ? "Nessuna lettura: la scheda era spenta o senza batterie lette" : "Nessuna lettura: la app era chiusa");
 }
 function w1At(e){ if (!w1G) return; const r = $("wnd-1h").getBoundingClientRect(); w1I = clamp(Math.floor((e.clientX - r.left) / r.width * 60), 0, 59); w1Read(); }
 { const el = $("wnd-1h");
@@ -6270,7 +6302,8 @@ function rotStep(){
 function wndShown(nw){
   if (!nw || !nw.ok) return { w: null, src: null, sp: 0 };
   // con la casa sulle batterie nw.w è già la media dell'ultimo minuto, e la soglia è più alta
-  if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8), bat: true } : { w: 0, src: "ora", sp: 0, bat: true };
+  if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8), bat: true }
+    : nw.w >= WND_LOW_B ? { w: nw.w, src: "min", sp: clamp(2400 / (nw.w + 200), .35, 8), bat: true, low: true } : { w: 0, src: "ora", sp: 0, bat: true };
   if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8) };
   const now = nowOf(data), H = wndHours(), rows = Array.isArray(data.m1) ? data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 120 && r[4] > 0 && fin(r[1])) : [];
   const ws = rows.map(r => Math.max(0, r[1] - (r[2] || 0) - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)));
@@ -6296,10 +6329,11 @@ function drawInv(k){
   // ferme dalle 19:16 con 1,7 kW sul suo display): numeri vecchi non si mostrano come se fossero di adesso
   // avg = la potenza media dai kWh (firmware 0.70: wa W sugli ultimi wdt s, fino a wat), buona per un quarto d'ora; t6 recente = istantanea
   const cbOff = cb && cb.ok && cb.on === false, linked = !!(a && a.ok), ok = linked && fin(a.w) && !!a.t6 && now - a.t6 <= 120;
-  const avg = linked && fin(a.wa) && a.wat && now - a.wat <= 900 ? a.wa : null, six = linked && a.t6 && now - a.t6 <= 600;
+  const avg = linked && fin(a.wa) && a.wat && a.wdt >= 240 && now - a.wat <= 900 ? a.wa : null, six = linked && a.t6 && now - a.t6 <= 600;
   const pt = ok ? { t: a.t6, w: a.w } : avg !== null ? { t: a.wat, w: a.wa } : null;
   if (pt && pt.t >= (invRun.length ? invRun[invRun.length - 1].t : 0) + 5) {       // in tempo reale un punto ogni 5 s basta
-    invRun.push(pt); invRun.sort((x, y) => x.t - y.t); invRun = invRun.filter(x => x.t >= now - 3600);
+    invRun.push(pt); invRun.sort((x, y) => x.t - y.t); invRun = invRun.filter(x => x.t >= now - 3600); }
+  if (linked) {
     if (fin(a.kwh)) { if (!invDay) invDay = lsGet(INV_KEY); if (!invDay || invDay.d !== dkey(now) || a.kwh < invDay.k) { invDay = { d: dkey(now), k: a.kwh, t: now }; lsSet(INV_KEY, invDay); } }
   }
   // ---- adesso
@@ -6307,7 +6341,7 @@ function drawInv(k){
   const st = !a ? ["", "Misuratore da collegare"] : cbOff ? ["", "Shelly OFF"] : L.on ? [ok ? " now" : " min", ok ? "Casa sulle batterie" : "Casa sulle batterie · media"]
     : cb && cb.ok && cb.on ? [" min", "Shelly ON, casa su Enel"] : ["", "Inverter senza tensione"];
   const w = ok ? a.w : avg !== null ? Math.round(avg) : null, big = w !== null ? `${w >= 1000 ? nf(w / 1000, 2) : nf(w, 0)}<small>${w >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
-  const today = ok && invDay && fin(a.kwh) ? a.kwh - invDay.k : null, from = invDay && invDay.t - midnight(now) > 600 ? ` dalle ${hm(invDay.t)}` : "";
+  const today = linked && invDay && fin(a.kwh) ? a.kwh - invDay.k : null, from = invDay && invDay.t - midnight(now) > 600 ? ` dalle ${hm(invDay.t)}` : "";
   const sub = !a ? "Serve il firmware 0.67 e la chiave del misuratore."
     : cbOff ? "Lo Shelly è OFF: il misuratore, alimentato dalla stessa linea, è spento."
     : !linked ? esc(AC_ERR[a.code] || "codice " + a.code)
@@ -6335,8 +6369,8 @@ function drawInv(k){
   const eff = effN >= 3 && dc > 150 && wE > 50 ? wE / dc : null;
   const top = Math.max(500, dc || 0, wE || 0), bar = (cls, t, v) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${v ? (Math.min(1, v / top) * 100).toFixed(1) : 0}%"></i></div><b>${v !== null ? power(v) : "–"}</b></div>`;
   $("inv-eff").innerHTML = eff !== null
-    ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - wE))}</b></span></div><div class="inv-eff">${bar("dc", "Entra (batterie)", dc)}${bar("ac", "Esce (casa)", wE)}</div>` +
-      `<p class="set-note">Media dell'ultimo minuto. L'ingresso è quello che la scheda vede dal lato delle batterie (pannelli meno la carica). Con la pala che gira la sua corrente non si vede, e il rendimento esce più alto del vero.</p>` + invLearnTxt()
+    ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - wE))}</b></span></div><div class="inv-eff">${bar("dc", "Entra", dc)}${bar("ac", "Esce (casa)", wE)}</div>` +
+      `<p class="set-note">Media dell'ultimo minuto. «Entra» è quello che danno insieme batterie e pannelli. Se la pala sta producendo, anche la sua corrente va all'inverter ma la scheda non la misura: in quel caso le perdite vere sono più alte di quelle scritte qui.</p>` + invLearnTxt()
     : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : ok && effN < 3 ? "Sto raccogliendo le misure dell'ultimo minuto." : !ok ? (a.rt === 1 ? "La scheda ha chiesto il tempo reale al misuratore, ma le misure non arrivano ancora." : "Serve una misura di adesso: con la casa sulle batterie la scheda chiede al misuratore il tempo reale.") : "Serve un carico di almeno 50 W."}</p>`;
   // ---- ultimi minuti
   drawInvRun(now);
@@ -6349,7 +6383,7 @@ function drawInv(k){
     (a ? row("In rete", a.ip ? `${esc(a.ip)}${a.ver ? " · protocollo " + esc(a.ver) : ""}` : "non ancora trovato", "") +
       ("rt" in a ? row("Tempo reale", a.rt === 2 ? "attivo · una misura ogni 2 s" : a.rt === 1 ? "chiesto, le misure non arrivano" + (a.note ? ` (${esc(a.note)})` : "") : a.rtoff ? "spento dalle impostazioni" : "a riposo: parte con la casa sulle batterie", a.rt === 2 ? "ok" : a.rt === 1 ? "bad" : "") : "") +
       row("Tensione e potenza", a.rt === 2 ? "in tempo reale" : a.t6 ? "misurate alle " + new Date(a.t6 * 1000).toLocaleTimeString("it-IT") : "non ancora arrivate", a.rt !== 2 && a.t6 && now - a.t6 > 900 ? "bad" : "") +
-      (fin(a.wa) && a.wat ? row("Potenza media dai kWh", `${power(a.wa)} su ${nf(Math.max(1, a.wdt / 60), 0)} min, alle ${hm(a.wat)}`, "") : "") +
+      (fin(a.wa) && a.wat && a.wdt >= 240 ? row("Potenza media dai kWh", `${power(a.wa)} su ${nf(Math.max(1, a.wdt / 60), 0)} min, alle ${hm(a.wat)}`, "") : "") +
       row("Letture", `${nf(a.n || 0, 0)} buone · ${nf(a.bad || 0, 0)} fallite${fin(a.rf) ? ` · ${nf(a.rf, 0)} refresh` : ""}`, "") : "") + `</dl>`;
 }
 // quello che la app ha imparato sull'inverter dalle ore con l'uscita misurata (learn → M.acFit): ingresso = a × uscita + b
@@ -6399,7 +6433,7 @@ function drawWind(){
   // la barra va fino ai 3 kW della Zeus 3.0 con la radice quadrata, così anche poche decine di watt si vedono
   const live = shown.src === "ora" && wEst > 0, cls = live ? " now" : shown.src === "min" ? " min" : "", hasV = nw && fin(nw.v) && nw.v > 40;
   const tag = wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
-    : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${shown.bat ? WND_NOISE_B : WND_NOISE} W`;
+    : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.low ? "Stima incerta" : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${shown.bat ? WND_LOW_B : WND_NOISE} W`;
   const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
   const now1 = `<div class="wnd-live${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
     `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
@@ -6488,7 +6522,7 @@ function drawWind(){
   // ---- come si calcola
   $("wnd-info").innerHTML = `<ul><li>Il regolatore Tesup <b>non comunica</b>: la scheda non legge la pala. La sua corrente però entra nelle batterie, che la scheda legge.</li>` +
     `<li>Con la casa su Enel: <b>pala ≈ batterie − pannelli + perdite a pala ferma</b>.</li>` +
-    ((f => `<li>Con la casa sulle batterie serve il misuratore sull'uscita dell'inverter in tempo reale: <b>pala ≈ batterie − pannelli + quello che l'inverter prende per la casa</b>, cioè ${f ? `<b>${nf(f.a, 2)}</b> W per ogni watt in uscita più ${power(f.b)} fissi, imparati su ${f.n} ore senza pala o di calma` : `<b>${nf(WND_A0, 2).replace(".", ",")}</b> W per ogni watt in uscita: è una taratura <b>provvisoria</b>, che si aggiusta da sola con le ore di calma o con la pala segnata spenta`}. Media dell'ultimo minuto; sotto ${WND_NOISE_B} W conta zero.</li>`)(model && model.acFit && model.acFit.n >= 3 ? model.acFit : null)) +
+    ((f => `<li>Con la casa sulle batterie serve il misuratore sull'uscita dell'inverter in tempo reale: <b>pala ≈ batterie − pannelli + quello che l'inverter prende per la casa</b>, cioè ${f ? `<b>${nf(f.a, 2)}</b> W per ogni watt in uscita più ${power(f.b)} fissi, imparati su ${f.n} ore senza pala o di calma` : `<b>${nf(WND_A0, 2).replace(".", ",")}</b> W per ogni watt in uscita: è una taratura <b>provvisoria</b>, che si aggiusta da sola con le ore di calma o con la pala segnata spenta`}. Media dell'ultimo minuto; sotto ${WND_NOISE_B} W la stima è incerta, sotto ${WND_LOW_B} W conta zero.</li>`)(model && model.acFit && model.acFit.n >= 3 ? model.acFit : null)) +
     ((B => `<li>Perdite a pala ferma, imparate dalle ore ${B[0].by === "spenta" || B[1].by === "spenta" ? "con la <b>pala spenta</b>" : "di calma"}: inverter <b>in STOP</b> ${fin(B[0].n0) ? power(-B[0].n0) : "–"} al buio, ${fin(B[0].a) ? power(-(B[0].a + B[0].b * 1000)) : "–"} con 1 kW di pannelli; inverter <b>acceso</b> ${fin(B[1].n0) ? power(-B[1].n0) : "–"} al buio, ${fin(B[1].a) ? power(-(B[1].a + B[1].b * 1000)) : "–"} con 1 kW. Adesso l'inverter è ${data && data.cb && data.cb.ok !== false ? "acceso" : "fermo"}.</li>`)(hours.base)) +
     `<li>Precisione: ±50–100 W. I BMS non vedono circa 1 A per batteria, e batterie e regolatori sono letti in istanti diversi. Sotto ${WND_NOISE} W la stima conta zero.</li>` +
     `<li>Il vento è quello di Open-Meteo a 10 m dal suolo, non quello sulla pala: la curva lo tiene in conto da sola.</li>` +
