@@ -1306,6 +1306,15 @@ footer{border-top:0;padding-top:0}
 .wnd-rot .rot-bl{transform-origin:50% 43.333%;transition:opacity .3s}
 .wnd-rot.dim .rot-bl{opacity:.35}
 .rot-bl{will-change:transform;transform:rotate(22deg)}
+.rot-bl>svg{opacity:calc(1 - .5*var(--rb,0));transition:opacity .25s linear}
+.rot-disc{position:absolute;border-radius:50%;pointer-events:none;opacity:var(--rb,0);transition:opacity .25s linear;
+  background:repeating-conic-gradient(from -80deg,transparent 0deg,color-mix(in srgb,var(--wn-w) 55%,transparent) 80deg,transparent 80.5deg 120deg);
+  -webkit-mask:radial-gradient(closest-side,transparent 9%,#000 22%,#000 90%,transparent 100%);mask:radial-gradient(closest-side,transparent 9%,#000 22%,#000 90%,transparent 100%)}
+.wnd-rot.free,.fw-rot.free{--wn-w:var(--muted)}
+.wnd-rot .rot-disc{left:11.67%;top:5%;width:76.67%;height:76.67%}
+.fw-rot .rot-disc{left:0;top:0;width:100%;height:100%}
+.wnd-rpm{grid-column:1;text-align:center;font:700 .86rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums;margin-top:-2px}
+.wnd-rpm small{display:block;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 /* la pala della Dashboard: sopra il disegno dei flussi, nello stesso punto del cerchio (centro 52,173 nel viewBox 0 9 340 250) */
 .flow-in{position:relative}
 .fw-rot{position:absolute;left:12.706%;top:62.08%;width:5.176%;height:7.04%;pointer-events:none;transition:opacity .3s}
@@ -2008,7 +2017,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.49"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.50"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3491,11 +3500,11 @@ function drawFlow(k){
   if (wOn) {
     const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
     set("ft-wnd", w === null ? "–" : power(w));
-    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
+    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.free ? " · a vuoto" : shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
     $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
     flow("ff-wnd", w, false);
     const sp = shown.sp;
-    g.classList.toggle("dim", w === null); $("fw-rot").classList.toggle("dim", w === null);
+    g.classList.toggle("dim", w === null); $("fw-rot").classList.toggle("dim", w === null); $("fw-rot").classList.toggle("free", shown.free > 0);
     rotorSet($("fw-rot").firstElementChild, sp);   // come la pagina Vento: la velocità cambia in modo morbido, sul compositore (2.38)
     wTxt = `, pala ${w === null ? "non stimabile" : power(w)}`;
   }
@@ -6108,8 +6117,11 @@ function wndNow(){
   if (!k.on || !fin(k.p)) return { ok: false, why: "dati" };
   if (!wndOn(nowOf(data))) return { ok: false, why: "spenta" };
   // inverter acceso adesso = lo Shelly risponde (con la casa su Enel e l'inverter in STOP non risponde)
-  const st = data.cb && data.cb.ok !== false ? 1 : 0, H = wndHours(), w = k.p - pv - H.loss(st, pv);
-  return { ok: true, w: Math.max(0, w), raw: w, pv, v: k.v, st };
+  /* tutti i BMS a 0 A esatti (2.50): sotto circa 1 A per batteria leggono zero, quindi «0 W» vuol dire «meno di qualche centinaio di watt», e
+     togliendo le perdite imparate (negative) usciva una pala finta: 137 W la mattina del 19/11/2026 con le batterie ferme. Allora vale zero. */
+  const st = data.cb && data.cb.ok !== false ? 1 : 0, H = wndHours(), dead = data.batteries.every(b => b.online === false || b.i === 0);
+  const w = dead ? 0 : k.p - pv - H.loss(st, pv);
+  return { ok: true, w: Math.max(0, w), raw: w, pv, v: k.v, st, dead };
 }
 // la pala era accesa all'ora t? (S.wnd: periodi [da, a|null])
 const wndOn = t => (Array.isArray(S.wnd) ? S.wnd : []).some(([a, b]) => t >= a && (b === null || t < b));
@@ -6253,13 +6265,18 @@ function w1At(e){ if (!w1G) return; const r = $("wnd-1h").getBoundingClientRect(
    decimo di secondo, le pale continuano a girare lisce. JavaScript cambia solo la velocità (updatePlaybackRate, dieci volte al secondo mentre
    accelera o rallenta, così il giro non perde il punto). Sotto i 25 °/s la pala si ferma con dolcezza sulla posizione con le pale girate di 22°
    (una pala dritta in su sembra un aereo). rotorSet(elemento .rot-bl, secondi per giro o 0): pagina Vento e Dashboard. Con «riduci movimento»
-   le pale stanno ferme a 22° */
+   le pale stanno ferme a 22°.
+   Dalla 2.50 i secondi per giro sono quelli veri (wndSp), cioè centinaia di giri al minuto. Uno schermo a 60 fotogrammi non li può mostrare
+   tali e quali: tre pale che avanzano di 60° a fotogramma sembrano ferme, oltre sembrano girare al contrario. Quindi, come a occhio nudo: fino a
+   ROT_CAP le pale girano alla velocità vera, oltre restano a quella e sfumano in un disco con la scia dietro ogni pala (.rot-disc, --rb da 0 a 1
+   fra ROT_B0 e ROT_B1 giri/min), sempre più pieno. */
+const ROT_CAP = 300 * 6, ROT_B0 = 100, ROT_B1 = 700;     // gradi al secondo massimi sullo schermo (300 giri/min); giri/min fra cui nasce il disco
 const ROT = new Map(), ROT_MS = 1000;                  // l'animazione fa un giro in 1 s a velocità 1: playbackRate = gradi al secondo / 360
 let rotTimer = 0, rotT = 0;
 function rotorSet(el, sp){
   if (!el) return;
   let r = ROT.get(el);
-  if (!r) { r = { a: 22, v: 0, t: 0, run: null, stop: null }; ROT.set(el, r); }
+  if (!r) { r = { a: 22, v: 0, t: 0, run: null, stop: null, rb: 0 }; ROT.set(el, r); if (!el.querySelector(".rot-disc")) el.insertAdjacentHTML("afterbegin", '<i class="rot-disc"></i>'); }
   r.t = sp > 0 ? 360 / sp : 0;
   if (!rotTimer) { rotT = performance.now(); rotTimer = setInterval(rotStep, 100); rotStep(); }
 }
@@ -6269,8 +6286,9 @@ function rotAngle(r){                                  // l'angolo di adesso, le
 }
 function rotHalt(el, r, a){                            // ferma tutto su un angolo fisso
   if (r.run) { r.run.cancel(); r.run = null; } if (r.stop) { r.stop.cancel(); r.stop = null; }
-  r.a = a % 360; r.v = 0; el.style.transform = `rotate(${r.a.toFixed(2)}deg)`;
+  r.a = a % 360; r.v = 0; el.style.transform = `rotate(${r.a.toFixed(2)}deg)`; rotBlur(el, r, 0);
 }
+function rotBlur(el, r, b){ if (Math.abs(b - r.rb) > .015 || (!b && r.rb)) { r.rb = b; el.style.setProperty("--rb", b.toFixed(3)); } }
 function rotStep(){
   const ts = performance.now(), dt = Math.min(.5, (ts - rotT) / 1000), calm = matchMedia("(prefers-reduced-motion: reduce)").matches; rotT = ts;
   let busy = false;
@@ -6282,7 +6300,8 @@ function rotStep(){
         r.a = (Math.atan2(m.b, m.a) * 180 / Math.PI + 360) % 360; }
       r.v += (r.t - r.v) * (1 - Math.exp(-dt / 1.5));
       if (Math.abs(r.v - r.t) < Math.max(.5, r.t * .005)) r.v = r.t;
-      const rate = Math.max(.001, r.v / 360);
+      const rate = Math.max(.001, Math.min(r.v, ROT_CAP) / 360);
+      rotBlur(el, r, clamp((r.v / 6 - ROT_B0) / (ROT_B1 - ROT_B0), 0, 1));
       if (!r.run) {
         r.a0 = r.a;
         r.run = el.animate([{ transform: `rotate(${r.a}deg)` }, { transform: `rotate(${r.a + 360}deg)` }], { duration: ROT_MS, iterations: Infinity });
@@ -6290,8 +6309,8 @@ function rotStep(){
       } else if (Math.abs(rate - r.rate) > r.rate * .004) { r.run.updatePlaybackRate(rate); r.rate = rate; }
       busy = busy || r.v !== r.t;
     } else if (r.run) {                                // fermata dolce: rallenta fino alla prossima posizione a 22° (le tre pale si ripetono ogni 120°)
-      const a = rotAngle(r), d = ((22 - a) % 120 + 120) % 120 || 120, v = Math.max(6, r.v);
-      r.run.cancel(); r.run = null; r.sg = a + d; r.a = r.sg % 360; r.v = 0;
+      const a = rotAngle(r), d = ((22 - a) % 120 + 120) % 120 || 120, v = Math.max(6, Math.min(r.v, ROT_CAP));
+      r.run.cancel(); r.run = null; r.sg = a + d; r.a = r.sg % 360; r.v = 0; rotBlur(el, r, 0);
       // con la curva (.25,.5,.5,1) la velocità iniziale è il doppio della media: la durata 2·d/v la fa partire alla velocità che aveva
       r.stop = el.animate([{ transform: `rotate(${a}deg)` }, { transform: `rotate(${r.sg}deg)` }], { duration: Math.min(8000, 2 * d / v * 1000), easing: "cubic-bezier(.25,.5,.5,1)", fill: "forwards" });
       const st = r.stop; st.onfinish = () => { if (r.stop === st) { el.style.transform = `rotate(${r.a.toFixed(2)}deg)`; st.cancel(); r.stop = null; } };
@@ -6305,17 +6324,33 @@ function rotStep(){
    restava ferma a 0 W anche con una media di quasi 1 A nel minuto. Il numero, gli ampere, la linea e il rotore usano lo stesso valore, così non
    c'è mai una pala che gira con scritto 0 W: la stima di adesso se è sopra la soglia, se no la media dell'ultimo minuto della scheda (m1: quello
    chiuso e quello in corso, tolte le perdite come nel grafico) se arriva a 15 W, se no zero. src "ora" o "min" (allora sotto c'è scritto che è la
-   media del minuto). Rotore: un giro ogni 8 s al minimo, sempre più svelto fino a un giro ogni 0,35 s sopra i 3 kW */
+   media del minuto).
+   Rotore (2.50, richiesta dell'utente: «più aderente possibile alla realtà»): i giri veri non si misurano, si stimano dai watt. Il manuale
+   della Zeus 3.0 dà 1200 giri/min al massimo e 3 kW di targa; la potenza di una pala va col cubo dei giri, quindi
+   giri = 1200 × (W / 3000)^(1/3): circa 200 a 15 W, 390 a 100 W, 830 a 1 kW. È una stima (non conosce il vento né il carico vero). */
+const WND_RPM_MAX = 1200, WND_W_MAX = 3000;
+function wndRpm(w){ return fin(w) && w > 0 ? Math.min(WND_RPM_MAX, WND_RPM_MAX * Math.cbrt(w / WND_W_MAX)) : 0; }
+function wndSp(w){ const g = wndRpm(w); return g > 0 ? 60 / g : 0; }   // secondi per giro, per rotorSet
+/* a vuoto (2.50, idea accettata dall'utente il 19/11/2026: la mattina la pala girava forte senza caricare). Quando la stima è 0 W ma la pala è
+   accesa e il meteo dà vento da WND_START in su (il vento di avvio del manuale), il rotore gira in grigio ai giri che il vento le farebbe fare
+   senza carico: WND_FREE giri/min per ogni m/s (rotore di circa 1,9 m con la punta sei volte più veloce del vento), mai oltre il massimo.
+   Resta scritto 0 W: il grigio e «a vuoto» dicono che gira senza dare corrente. Il vento è quello del meteo, non quello sul palo. */
+const WND_START = 2, WND_FREE = 60;
+function wndFree(){
+  const now = nowOf(data), c = wndOn(now) ? windAt(now) : null;
+  return c && fin(c.ms) && c.ms >= WND_START ? Math.min(WND_RPM_MAX, WND_FREE * c.ms) : 0;
+}
+const wndIdle = bat => { const g = wndFree(); return Object.assign({ w: 0, src: "ora", sp: g ? 60 / g : 0, free: g }, bat ? { bat: true } : null); };
 function wndShown(nw){
   if (!nw || !nw.ok) return { w: null, src: null, sp: 0 };
   // con la casa sulle batterie nw.w è già la media dell'ultimo minuto, e la soglia è più alta
-  if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8), bat: true }
-    : nw.w >= WND_LOW_B ? { w: nw.w, src: "min", sp: clamp(2400 / (nw.w + 200), .35, 8), bat: true, low: true } : { w: 0, src: "ora", sp: 0, bat: true };
-  if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: clamp(2400 / (nw.w + 200), .35, 8) };
+  if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: wndSp(nw.w), bat: true }
+    : nw.w >= WND_LOW_B ? { w: nw.w, src: "min", sp: wndSp(nw.w), bat: true, low: true } : wndIdle(true);
+  if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: wndSp(nw.w) };
   const now = nowOf(data), H = wndHours(), rows = Array.isArray(data.m1) ? data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 120 && r[4] > 0 && fin(r[1])) : [];
   const ws = rows.map(r => Math.max(0, r[1] - (r[2] || 0) - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)));
   const avg = ws.length ? ws.reduce((a, x) => a + x, 0) / ws.length : 0;
-  return avg >= 15 ? { w: avg, src: "min", sp: clamp(2400 / (avg + 200), .35, 8) } : { w: 0, src: "ora", sp: 0 };
+  return avg >= 15 ? { w: avg, src: "min", sp: wndSp(avg) } : wndIdle(false);
 }
 /* ---------- pagina Inverter (2.41, richiesta dell'utente) ----------
    Il misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac: v, a, w, kwh, hz, ok, code, ip, ver, at, n, bad, ms) misura l'uscita vera
@@ -6425,7 +6460,7 @@ function drawWind(){
   // ---- adesso
   const ms = cur && fin(cur.ms) ? cur.ms : null, shown = wndShown(nw), wEst = shown.w;   // vedi wndShown: numero, ampere e rotore dallo stesso valore
   // il rotore segue la produzione stimata (2.20, richiesta dell'utente), non il vento del meteo; dalla 2.36 anche quella dell'ultimo minuto
-  const sp = shown.sp, dim = wEst === null;
+  const sp = shown.sp, dim = wEst === null, free = shown.free > 0;
   const rot = `<span class="wnd-rot${dim ? " dim" : ""}" aria-hidden="true"><svg viewBox="0 0 120 120">
     <path d="M57 56 L60 116 L63 56Z" fill="var(--line)"/><rect x="48" y="112" width="24" height="4" fill="var(--line)"/></svg>
     <span class="rot-bl"><svg viewBox="0 0 120 120"><g fill="var(--wn-w)">${[0, 120, 240].map(a => `<path transform="rotate(${a} 60 52)" d="M60 52 C57 40 57 20 60 6 C64 20 64 40 60 52Z"/>`).join("")}</g>
@@ -6440,12 +6475,13 @@ function drawWind(){
   // la barra va fino ai 3 kW della Zeus 3.0 con la radice quadrata, così anche poche decine di watt si vedono
   const live = shown.src === "ora" && wEst > 0, cls = live ? " now" : shown.src === "min" ? " min" : "", hasV = nw && fin(nw.v) && nw.v > 40;
   const tag = wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
-    : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.low ? "Stima incerta" : shown.src === "min" ? "Media ultimo minuto" : `Sotto ${shown.bat ? WND_LOW_B : WND_NOISE} W`;
+    : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.low ? "Stima incerta" : shown.src === "min" ? "Media ultimo minuto" : free ? "Gira a vuoto" : `Sotto ${shown.bat ? WND_LOW_B : WND_NOISE} W`;
   const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
   const now1 = `<div class="wnd-live${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
     `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
     `<div class="wnd-av"><span><em>Corrente</em>${wEst !== null && hasV ? nf(wEst / nw.v, 1) : "–"}<small>A</small></span><span><em>Batterie</em>${hasV ? nf(nw.v, 1) : "–"}<small>V</small></span></div></div>`;
-  const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}</div>` +
+  const rpm = free ? Math.round(shown.free / 10) * 10 : wEst > 0 ? Math.round(wndRpm(wEst) / 10) * 10 : wEst === 0 ? 0 : null;   // i giri stimati, a decine: dai watt, o dal vento se gira a vuoto
+  const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}<span class="wnd-rpm">${rpm === null ? "–" : rpm ? "≈ " + nf(rpm, 0) : "ferma"}<small>${free ? "giri/min a vuoto" : "giri/min stimati"}</small></span></div>` +
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
@@ -6453,7 +6489,7 @@ function drawWind(){
   const keep = $("wnd-rotw") && $("wnd-rotw").firstElementChild;
   if (head.dataset.h !== html) { head.dataset.h = html; head.innerHTML = html; if (keep) $("wnd-rotw").append(keep); }
   if (!$("wnd-rotw").firstElementChild) $("wnd-rotw").innerHTML = rot;
-  const rEl = $("wnd-rotw").firstElementChild; rEl.classList.toggle("dim", dim);
+  const rEl = $("wnd-rotw").firstElementChild; rEl.classList.toggle("dim", dim); rEl.classList.toggle("free", free);
   rotorSet(rEl.querySelector(".rot-bl"), sp);   // la velocità cambia in modo morbido, senza ripartire, sul compositore (2.38)
   // ---- ultima ora, al minuto
   drawW1(nw, hours);
