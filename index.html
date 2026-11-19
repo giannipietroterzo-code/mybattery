@@ -1348,6 +1348,9 @@ footer{border-top:0;padding-top:0}
 .wnd-bar i{position:absolute;left:0;top:0;bottom:0;width:var(--f,0%);background:var(--wn-w);border-radius:3px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
 .wnd-live.now .wnd-bar i{background:var(--good)}
 .wnd-sc{display:flex;justify-content:space-between;margin-top:3px;font-size:.62rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.wnd-sc .wnd-pm{font-weight:700;color:var(--ink);letter-spacing:.02em}
+.wnd-bar u{position:absolute;top:0;bottom:0;text-decoration:none;transition:left .6s cubic-bezier(.2,.8,.2,1),width .6s cubic-bezier(.2,.8,.2,1);
+  background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--ink) 70%,transparent) 0 1.5px,color-mix(in srgb,var(--bg) 55%,transparent) 1.5px 4px)}
 .wnd-av{display:flex;align-items:baseline;gap:0;font:700 1.02rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}
 .wnd-av span{flex:1;min-width:0}.wnd-av span+span{padding-left:12px;margin-left:12px;border-left:1px solid var(--line)}
 .wnd-av small{margin-left:3px;font-size:.74rem;font-weight:600;color:var(--muted)}
@@ -2028,7 +2031,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.51"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.52"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3514,7 +3517,7 @@ function drawFlow(k){
     const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
     const wl = w === null ? 0 : wndLvl(shown.free > 0 ? shown.free : wndRpm(w));   // vicina al massimo dei giri: arancio, al massimo: rosso (2.51)
     set("ft-wnd", w === null ? "–" : power(w));
-    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (wl ? " · giri alti" : shown.free ? " · a vuoto" : shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
+    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (wl ? " · giri alti" : shown.free ? " · a vuoto" : shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : " · ±" + nf(shown.err, 0) + " W"));
     $("ft-wnd").style.fill = $("fa-wnd").style.fill = wl === 2 ? "var(--alert)" : wl ? "var(--warn)" : shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
     flow("ff-wnd", w, false);
     const sp = shown.sp;
@@ -6075,15 +6078,19 @@ function wndHours(){
     const n0 = night.length >= 3 ? quant(night, .5) : null; let a = null, b = 0;
     if (day.length >= need) { const n = day.length, mx = day.reduce((q, h) => q + h.pv, 0) / n, my = day.reduce((q, h) => q + h.r, 0) / n, sxx = day.reduce((q, h) => q + (h.pv - mx) ** 2, 0);
       b = n >= 12 && sxx > 0 ? clamp(day.reduce((q, h) => q + (h.pv - mx) * (h.r - my), 0) / sxx, -.25, .05) : 0; a = b ? my - b * mx : quant(day.map(h => h.r), .5); }
-    return { n0, a, b, nN: night.length, nD: day.length }; };
+    // lo scarto che resta a pala ferma è l'errore della stima (2.52): mezza distanza fra il 16° e l'84° centile, di notte e di giorno
+    const half = v => v.length >= 6 ? (quant(v, .84) - quant(v, .16)) / 2 : null;
+    return { n0, a, b, nN: night.length, nD: day.length, sN: half(night), sD: a === null ? null : half(day.map(h => h.r - a - b * h.pv)) }; };
   const calm = h => (v => v && fin(v.ms) && v.ms < 1.5)(windAt(h.t + HOUR / 2));
   const base = [0, 1].map(st => { const hs = raw.filter(h => h.r !== null && h.on === st);
     const off = fit(hs.filter(h => !wndOn(h.t) && !wndOn(h.t + HOUR - 1)), 8), cm = fit(hs.filter(h => wndOn(h.t) && calm(h)), 4);
-    return { n0: off.n0 ?? cm.n0, a: off.a ?? cm.a, b: off.a !== null ? off.b : cm.b, nN: off.n0 !== null ? off.nN : cm.nN, nD: off.a !== null ? off.nD : cm.nD, by: off.n0 !== null || off.a !== null ? "spenta" : "calma" }; });
+    return { n0: off.n0 ?? cm.n0, a: off.a ?? cm.a, b: off.a !== null ? off.b : cm.b, nN: off.n0 !== null ? off.nN : cm.nN, nD: off.a !== null ? off.nD : cm.nD, sN: off.n0 !== null ? off.sN : cm.sN, sD: off.a !== null ? off.sD : cm.sD, by: off.n0 !== null || off.a !== null ? "spenta" : "calma" }; });
   // senza dati per uno stato: le perdite dell'altro stato (meglio di niente) o, al limite, lo zero della scheda
   const lossAt = (st, pv) => { const B = base[st], O = base[1 - st]; if (pv > 30) return B.a ?? O.a ?? -wndZero(pv); return B.n0 ?? O.n0 ?? -wndZero(0); };
   const v = raw.map(h => ({ t: h.t, w: h.r === null ? null : wndOn(h.t + HOUR / 2) ? Math.max(0, h.r - lossAt(h.on, h.pv) - (h.pv > 30 ? base[h.on].b * h.pv : 0)) : 0, off: !wndOn(h.t + HOUR / 2), bank: h.bank, on: h.on }));
   v.base = base; v.loss = (st, pv) => lossAt(st, pv) + (pv > 30 ? base[st].b * pv : 0);
+  // il margine della stima, in watt: lo scarto imparato (se manca: 40 W di notte, 100 di giorno) più il 2 % dei pannelli (precisione dei regolatori)
+  v.err = (st, pv) => { const B = base[st], O = base[1 - st]; return Math.hypot(pv > 30 ? B.sD ?? O.sD ?? 100 : B.sN ?? O.sN ?? 40, .02 * pv); };
   wndC = { key, v }; return v;
 }
 // la curva: per ogni m/s la mediana dei watt stimati (almeno 3 ore), mai in discesa
@@ -6361,14 +6368,21 @@ function wndFree(){
 const wndIdle = bat => { const g = wndFree(); return Object.assign({ w: 0, src: "ora", sp: g ? 60 / g : 0, free: g }, bat ? { bat: true } : null); };
 function wndShown(nw){
   if (!nw || !nw.ok) return { w: null, src: null, sp: 0 };
-  // con la casa sulle batterie nw.w è già la media dell'ultimo minuto, e la soglia è più alta
-  if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: wndSp(nw.w), bat: true }
-    : nw.w >= WND_LOW_B ? { w: nw.w, src: "min", sp: wndSp(nw.w), bat: true, low: true } : wndIdle(true);
-  if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: wndSp(nw.w) };
-  const now = nowOf(data), H = wndHours(), rows = Array.isArray(data.m1) ? data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 120 && r[4] > 0 && fin(r[1])) : [];
-  const ws = rows.map(r => Math.max(0, r[1] - (r[2] || 0) - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)));
-  const avg = ws.length ? ws.reduce((a, x) => a + x, 0) / ws.length : 0;
-  return avg >= 15 ? { w: avg, src: "min", sp: wndSp(avg) } : wndIdle(false);
+  /* il margine (2.52, richiesta dell'utente): quanto può sbagliare il numero mostrato, a decine di watt e mai meno di 30. Su Enel è lo scarto
+     imparato a pala ferma; con la casa sulle batterie si aggiungono il 3 % dell'uscita dell'inverter e 100 W finché la taratura è provvisoria */
+  const H = wndHours(), ac = nw.bat ? acNow() || 0 : 0;
+  const err = Math.max(30, Math.round(Math.hypot(H.err(nw.bat ? 1 : nw.st, nw.pv || 0), .03 * ac, nw.prov ? 100 : 0) / 10) * 10);
+  const pick = () => {
+    // con la casa sulle batterie nw.w è già la media dell'ultimo minuto, e la soglia è più alta
+    if (nw.bat) return nw.w >= WND_NOISE_B ? { w: nw.w, src: "ora", sp: wndSp(nw.w), bat: true }
+      : nw.w >= WND_LOW_B ? { w: nw.w, src: "min", sp: wndSp(nw.w), bat: true, low: true } : wndIdle(true);
+    if (nw.w >= WND_NOISE) return { w: nw.w, src: "ora", sp: wndSp(nw.w) };
+    const now = nowOf(data), rows = Array.isArray(data.m1) ? data.m1.filter(r => Array.isArray(r) && fin(r[0]) && r[0] >= now - 120 && r[4] > 0 && fin(r[1])) : [];
+    const ws = rows.map(r => Math.max(0, r[1] - (r[2] || 0) - H.loss(r[6] * 2 >= r[4] ? 1 : 0, r[2] || 0)));
+    const avg = ws.length ? ws.reduce((q, x) => q + x, 0) / ws.length : 0;
+    return avg >= 15 ? { w: avg, src: "min", sp: wndSp(avg) } : wndIdle(false);
+  };
+  return Object.assign(pick(), { err });
 }
 /* ---------- pagina Inverter (2.41, richiesta dell'utente) ----------
    Il misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac: v, a, w, kwh, hz, ok, code, ip, ver, at, n, bad, ms) misura l'uscita vera
@@ -6496,9 +6510,11 @@ function drawWind(){
   const live = shown.src === "ora" && wEst > 0, cls = (live ? " now" : shown.src === "min" ? " min" : "") + (lvl ? " fast" + lvl : ""), hasV = nw && fin(nw.v) && nw.v > 40;
   const tag = lvl === 2 ? "Al massimo dei giri" : lvl ? "Vicina al massimo" : wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
     : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.low ? "Stima incerta" : shown.src === "min" ? "Media ultimo minuto" : free ? "Gira a vuoto" : `Sotto ${shown.bat ? WND_LOW_B : WND_NOISE} W`;
-  const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
+  const bx = w => Math.sqrt(Math.min(1, Math.max(0, w) / 3000)) * 100, fill = wEst ? bx(wEst) : 0, err = wEst !== null ? shown.err : null;
+  // la fascia tratteggiata sulla barra è il margine: la pala sta lì dentro (2.52)
+  const band = err ? `<u style="left:${bx(wEst - err).toFixed(1)}%;width:${(bx(wEst + err) - bx(wEst - err)).toFixed(1)}%"></u>` : "";
   const now1 = `<div class="wnd-live${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
-    `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
+    `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i>${band}</div><div class="wnd-sc"><span>0</span><span class="wnd-pm"${err ? ` title="Margine della stima" aria-label="più o meno ${err} watt"` : ""}>${err ? "± " + nf(err, 0) + " W" : ""}</span><span>3 kW</span></div></div>` +
     `<div class="wnd-av"><span><em>Corrente</em>${wEst !== null && hasV ? nf(wEst / nw.v, 1) : "–"}<small>A</small></span><span><em>Batterie</em>${hasV ? nf(nw.v, 1) : "–"}<small>V</small></span></div></div>`;
   // sotto il rotore: i giri, e una barretta fino al massimo con la tacca dove la scheda avvisa
   const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}<span class="wnd-rpm${lvl ? " l" + lvl : free ? " free" : ""}">${rpm === null ? "–" : rpm ? "≈ " + nf(rpm, 0) : "ferma"}<small>${free ? "giri/min a vuoto" : "giri/min stimati"}</small>` +
