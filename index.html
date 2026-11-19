@@ -33,6 +33,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
     "voc_at": 1794000000,            // cambia quando cambiano taratura della Voc e albe sulla scheda: GET /api/voc (firmware 0.26)
     "log_min": 15,                   // minuti tra le righe del registro (fisso a 15 dalla 0.33): GET /api/log, GET /api/stress
     "bank": { "soc_t": 13.3, "src": 2, "ih": -1.06, "a_t": 1794780000, "full_t": 0 },   // carica vera (0.58): src 0 BMS 1 conto 2 curva 3 pieno, ih A nascosti
+    "wnd": { "w": 1900, "rpm": 1031, "at": 1795100000, "on": true, "fast": true },   // la pala nell'ultimo minuto stimabile secondo la scheda (0.76): watt, giri stimati, avviso WIND_FAST
     "crash": { "t": 1794780000, "task": "loopTask", "fw": "0.58", "pc": "0x4200…", "bt": ["0x4200…"] },   // ultimo errore grave (0.58)
     "batteries": [{
       "addr": 0, "name": "Master", "online": true,
@@ -1314,6 +1315,16 @@ footer{border-top:0;padding-top:0}
 .wnd-rot .rot-disc{left:11.67%;top:5%;width:76.67%;height:76.67%}
 .fw-rot .rot-disc{left:0;top:0;width:100%;height:100%}
 .wnd-rpm{grid-column:1;text-align:center;font:700 .86rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums;margin-top:-2px}
+.wnd-rpm.l1{color:var(--warn)}.wnd-rpm.l2{color:var(--alert)}
+.wnd-rg{display:block;position:relative;height:6px;margin:6px 6px 0;border-radius:3px;background:var(--bg);border:1px solid var(--line)}
+.wnd-rg i{position:absolute;left:0;top:0;bottom:0;width:var(--f,0%);background:var(--wn-w);border-radius:2px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.wnd-rg b{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:var(--warn)}
+.wnd-rpm.free .wnd-rg i{background:var(--muted)}.wnd-rpm.l1 .wnd-rg i{background:var(--warn)}.wnd-rpm.l2 .wnd-rg i{background:var(--alert)}
+.wnd-rpm small.wnd-rl{display:flex;justify-content:space-between;margin:3px 6px 0;font-size:.52rem;letter-spacing:.02em;text-transform:none;font-variant-numeric:tabular-nums}
+.wnd-top .wnd-live.fast1 .wnd-tag,.wnd-top .wnd-live.fast1 .wnd-big{color:var(--warn)}.wnd-top .wnd-live.fast1 .wnd-tag{border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.wnd-top .wnd-live.fast1 .wnd-tag i,.wnd-top .wnd-live.fast1 .wnd-bar i{background:var(--warn);--lith-tint:color-mix(in srgb,var(--warn) 45%,transparent)}
+.wnd-top .wnd-live.fast2 .wnd-tag,.wnd-top .wnd-live.fast2 .wnd-big{color:var(--alert)}.wnd-top .wnd-live.fast2 .wnd-tag{border-color:color-mix(in srgb,var(--alert) 50%,transparent)}
+.wnd-top .wnd-live.fast2 .wnd-tag i,.wnd-top .wnd-live.fast2 .wnd-bar i{background:var(--alert);--lith-tint:color-mix(in srgb,var(--alert) 45%,transparent)}
 .wnd-rpm small{display:block;font-size:.6rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 /* la pala della Dashboard: sopra il disegno dei flussi, nello stesso punto del cerchio (centro 52,173 nel viewBox 0 9 340 250) */
 .flow-in{position:relative}
@@ -2017,7 +2028,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.50"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.51"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2056,6 +2067,8 @@ const MSG = {
     return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano ${fin(a.vs) ? `a ${nf(a.vs, 1)} V (circa ${ilP(a.soc)})` : alP(a.soc)} tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
   HOUSE_SELF:  () => ["La casa è passata sulle batterie da sola", "Nessun comando all'interruttore nei 15 minuti prima: forse è mancata Enel e l'ATS ha scelto l'inverter." + (data && data.ao && data.ao.on ? " Lo spegnimento automatico resta attivo." : " Se non la vuoi lì, spegni l'uscita dell'inverter.")],
+  WIND_FAST:   () => { const sh = data ? wndShown(wndNow()) : null, g = sh && sh.w > 0 ? Math.round(wndRpm(sh.w) / 10) * 10 : 0;
+    return ["La pala gira vicino al massimo", `In un minuto ha dato abbastanza da stimare più di ${nf(Math.round(WND_FAST * WND_RPM_MAX), 0)} giri/min, l'${Math.round(WND_FAST * 100)}% dei ${nf(WND_RPM_MAX, 0)} del massimo${g ? `; adesso circa ${nf(g, 0)}` : ""}. Nelle raffiche va più veloce della media. Se il vento rinforza ancora, inserisci il freno sul regolatore Tesup.`]; },
   IDLE_DRAIN:  () => ["Le batterie scendono anche su Enel", "L'inverter acceso a vuoto le scarica" + (data && data.batteries && data.batteries.length ? `: adesso ${nf(bank(data.batteries).v, 2)} V` : "") + ". Mettilo in STOP (o spegnilo) finché il sole non le ricarica."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
@@ -3499,9 +3512,10 @@ function drawFlow(k){
   [g, $("tr-wnd"), $("ff-wnd")].forEach(e => { e.style.display = wOn ? "" : "none"; }); $("fw-rot").hidden = !wOn; svg.setAttribute("viewBox", "0 9 340 250");   // la casa sta in basso a destra (2.30): l'altezza è sempre quella
   if (wOn) {
     const nw = wndNow(), shown = wndShown(nw), w = shown.w;   // come la pagina Vento: numero, ampere, linea e pale dallo stesso valore
+    const wl = w === null ? 0 : wndLvl(shown.free > 0 ? shown.free : wndRpm(w));   // vicina al massimo dei giri: arancio, al massimo: rosso (2.51)
     set("ft-wnd", w === null ? "–" : power(w));
-    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (shown.free ? " · a vuoto" : shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
-    $("ft-wnd").style.fill = $("fa-wnd").style.fill = shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
+    set("fa-wnd", w === null ? (nw.why === "casa" ? "casa su batterie" : "") : amp(w) + (wl ? " · giri alti" : shown.free ? " · a vuoto" : shown.low ? " · incerta" : shown.src === "min" ? " · ultimo min" : shown.bat ? " · stimata" : ""));
+    $("ft-wnd").style.fill = $("fa-wnd").style.fill = wl === 2 ? "var(--alert)" : wl ? "var(--warn)" : shown.src === "ora" && w > 0 ? "var(--good)" : shown.src === "min" ? "var(--ink)" : "";   // verde = adesso, bianco = media del minuto
     flow("ff-wnd", w, false);
     const sp = shown.sp;
     g.classList.toggle("dim", w === null); $("fw-rot").classList.toggle("dim", w === null); $("fw-rot").classList.toggle("free", shown.free > 0);
@@ -5323,7 +5337,7 @@ function alSinceKeep(){
   const now = nowOf(data); Object.keys(alStart).forEach(x => { if (now - alStart[x][1] > 2 * DAY) delete alStart[x]; });
   if (isReal() && Date.now() - alStartSaved > 6e4) { alStartSaved = Date.now(); lsSet(AL_SINCE_KEY, alStart); }
 }
-const whoName = (who, bs) => who < 0 ? "Batterie" : who === 20 ? "Interruttore" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
+const whoName = (who, bs) => who < 0 ? "Batterie" : who === 20 ? "Interruttore" : who === 21 ? "Pala" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
 // senza scheda: le stesse regole della scheda (evTick, invTick, pvHiTick), con lo stesso formato di data.open
 function localOpen(bs, k){
   const o = [], add = (code, sev, who) => o.push([code, sev, who, alSince("o" + code + who)]);
@@ -6328,7 +6342,11 @@ function rotStep(){
    Rotore (2.50, richiesta dell'utente: «più aderente possibile alla realtà»): i giri veri non si misurano, si stimano dai watt. Il manuale
    della Zeus 3.0 dà 1200 giri/min al massimo e 3 kW di targa; la potenza di una pala va col cubo dei giri, quindi
    giri = 1200 × (W / 3000)^(1/3): circa 200 a 15 W, 390 a 100 W, 830 a 1 kW. È una stima (non conosce il vento né il carico vero). */
-const WND_RPM_MAX = 1200, WND_W_MAX = 3000;
+const WND_RPM_MAX = 1200, WND_W_MAX = 3000, WND_FAST = .85;   // WND_FAST: da qui la scheda avvisa (firmware 0.76, WIND_FAST), sulla media di un minuto
+/* quanto è vicina al massimo (2.51, richiesta dell'utente): 0 tranquilla, 1 dall'85 % dei giri (o con l'avviso WIND_FAST della scheda aperto, che
+   guarda la media del minuto e può esserci anche quando la stima di adesso è scesa), 2 al massimo. Vale anche a vuoto, dal vento del meteo. */
+const wndBoardFast = () => !!(data && Array.isArray(data.open) && data.open.some(r => r[0] === "WIND_FAST"));
+const wndLvl = g => g >= WND_RPM_MAX ? 2 : g >= WND_FAST * WND_RPM_MAX || wndBoardFast() ? 1 : 0;
 function wndRpm(w){ return fin(w) && w > 0 ? Math.min(WND_RPM_MAX, WND_RPM_MAX * Math.cbrt(w / WND_W_MAX)) : 0; }
 function wndSp(w){ const g = wndRpm(w); return g > 0 ? 60 / g : 0; }   // secondi per giro, per rotorSet
 /* a vuoto (2.50, idea accettata dall'utente il 19/11/2026: la mattina la pala girava forte senza caricare). Quando la stima è 0 W ma la pala è
@@ -6473,15 +6491,19 @@ function drawWind(){
   const arrow = cur && fin(cur.dir) ? `<svg class="wnd-cmp" viewBox="0 0 16 16" aria-hidden="true"><g transform="rotate(${(cur.dir + 180) % 360} 8 8)"><path d="M8 2 L11 12 L8 10 L5 12Z" fill="var(--wn-w)"/></g></svg>` : "";
   // il rotore non si ridisegna a ogni lettura (ripartirebbe da capo e scatterebbe): si crea una volta e poi si cambiano solo velocità e colore
   // la barra va fino ai 3 kW della Zeus 3.0 con la radice quadrata, così anche poche decine di watt si vedono
-  const live = shown.src === "ora" && wEst > 0, cls = live ? " now" : shown.src === "min" ? " min" : "", hasV = nw && fin(nw.v) && nw.v > 40;
-  const tag = wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
+  const rpm = free ? Math.round(shown.free / 10) * 10 : wEst > 0 ? Math.round(wndRpm(wEst) / 10) * 10 : wEst === 0 ? 0 : null;   // i giri stimati, a decine: dai watt, o dal vento se gira a vuoto
+  const lvl = rpm === null ? 0 : wndLvl(free ? shown.free : wndRpm(wEst)), lim = Math.round(WND_FAST * WND_RPM_MAX);
+  const live = shown.src === "ora" && wEst > 0, cls = (live ? " now" : shown.src === "min" ? " min" : "") + (lvl ? " fast" + lvl : ""), hasV = nw && fin(nw.v) && nw.v > 40;
+  const tag = lvl === 2 ? "Al massimo dei giri" : lvl ? "Vicina al massimo" : wEst === null ? (nw.why === "casa" ? "Casa su batterie" : nw.why === "spenta" ? "Segnata spenta" : "Senza dati")
     : live ? (shown.bat ? "Adesso · su batterie" : "Adesso") : shown.low ? "Stima incerta" : shown.src === "min" ? "Media ultimo minuto" : free ? "Gira a vuoto" : `Sotto ${shown.bat ? WND_LOW_B : WND_NOISE} W`;
   const fill = wEst ? Math.sqrt(Math.min(1, wEst / 3000)) * 100 : 0;
   const now1 = `<div class="wnd-live${cls}"><span class="wnd-tag"><i></i>${tag}</span><div class="wnd-big">${big}</div>` +
     `<div><div class="wnd-bar"><i style="--f:${fill.toFixed(1)}%"></i></div><div class="wnd-sc"><span>0</span><span>3 kW</span></div></div>` +
     `<div class="wnd-av"><span><em>Corrente</em>${wEst !== null && hasV ? nf(wEst / nw.v, 1) : "–"}<small>A</small></span><span><em>Batterie</em>${hasV ? nf(nw.v, 1) : "–"}<small>V</small></span></div></div>`;
-  const rpm = free ? Math.round(shown.free / 10) * 10 : wEst > 0 ? Math.round(wndRpm(wEst) / 10) * 10 : wEst === 0 ? 0 : null;   // i giri stimati, a decine: dai watt, o dal vento se gira a vuoto
-  const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}<span class="wnd-rpm">${rpm === null ? "–" : rpm ? "≈ " + nf(rpm, 0) : "ferma"}<small>${free ? "giri/min a vuoto" : "giri/min stimati"}</small></span></div>` +
+  // sotto il rotore: i giri, e una barretta fino al massimo con la tacca dove la scheda avvisa
+  const html = `<div class="wnd-top"><span id="wnd-rotw"></span>${now1}<span class="wnd-rpm${lvl ? " l" + lvl : free ? " free" : ""}">${rpm === null ? "–" : rpm ? "≈ " + nf(rpm, 0) : "ferma"}<small>${free ? "giri/min a vuoto" : "giri/min stimati"}</small>` +
+    `<span class="wnd-rg" role="img" aria-label="${rpm ? `${rpm} giri al minuto su ${WND_RPM_MAX}, avviso a ${lim}` : `avviso a ${lim} giri al minuto`}"><i style="--f:${(rpm ? Math.min(1, rpm / WND_RPM_MAX) * 100 : 0).toFixed(1)}%"></i><b style="left:${WND_FAST * 100}%"></b></span>` +
+    `<small class="wnd-rl"><span>0</span><span>avviso ${nf(lim, 0)}</span><span>${nf(WND_RPM_MAX, 0)}</span></small></span></div>` +
     `<dl class="wnd-g"><div><dt>Vento</dt><dd>${ms !== null ? nf(ms, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Raffiche</dt><dd>${cur && fin(cur.gust) ? nf(cur.gust, 1) + "<small>m/s</small>" : "–"}</dd></div>` +
     `<div><dt>Da</dt><dd>${arrow}${cur && fin(cur.dir) ? compass(cur.dir) + `<small>${Math.round(cur.dir)}°</small>` : "–"}</dd></div></dl>` +
