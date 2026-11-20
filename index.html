@@ -70,10 +70,15 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
                                      // interruttore Shelly Pro 2CB tra inverter e ATS (dalla 0.43, sola lettura): ok = risponde, on = ON,
                                      // v = tensione dall'inverter, t = °C interni, chg = ultimo cambio visto. Si spegne con l'inverter.
     "ac": { "ip": "192.168.0.27", "ver": "3.5", "ok": true, "code": 0, "at": 1794000000, "v": 220.2, "a": 13.24, "w": 2880, "t6": 1794000000,
-            "pf": 0.987, "kwh": 5.29, "hz": 50, "wa": 2733, "wat": 1794000000, "wdt": 302, "rt": 2, "n": 95, "bad": 4, "sess": 1, "rf": 12 },
-                                     // misuratore Tuya sull'uscita dell'inverter, dopo lo Shelly (dalla 0.67): v, a, w misurati a t6 (dalla 0.72 in
-                                     // tempo reale, ogni 2 s, con la casa sulle batterie: rt 2 = attivo, 1 = chiesto ma non arriva, 0 = a riposo;
-                                     // se no col giro dei 5 minuti), pf = fattore di potenza, wa = potenza media dai kWh su wdt secondi fino a wat
+            "pf": 0.987, "kwh": 5.29, "hz": 50, "wa": 2733, "wat": 1794000000, "wdt": 302, "n": 95, "bad": 4 },
+                                     // misuratore Tuya sull'uscita dell'inverter, dopo lo Shelly (dalla 0.67), sola lettura: v, a, w misurati a t6
+                                     // (col giro dei 5 minuti: il «refresh» che dava il tempo reale è stato tolto con la 0.79), pf = fattore di
+                                     // potenza, wa = potenza media dai kWh su wdt secondi fino a wat. Di riserva e di confronto allo Shelly EM
+    "em": { "ip": "192.168.0.31", "ok": true, "code": 200, "at": 1794000000, "w": 2874.5, "var": 310.2, "v": 221.4, "pf": 0.99, "kwh": 12.345,
+            "ver": "20230913-114150/v1.14.0-gcb84623", "n": 4100, "bad": 3, "cmp": [1793900000, 3.214, 3.18] },
+                                     // misuratore Shelly EM sull'uscita dell'inverter (dalla 0.79, sola lettura): una lettura ogni 2 s, sempre.
+                                     // Quando risponde (ok) è lui la misura dell'uscita, il Tuya resta di riserva; rev = pinza al contrario
+                                     // (w è già il valore assoluto); cmp = [da quando, kWh contati dallo Shelly EM, kWh contati dal Tuya]
     "fw": "0.19", "fw_new": "0.20",  // firmware della scheda e quello nuovo pubblicato su GitHub (si installa dalla app o da /diag)
     "fw_trial": true,                // firmware appena installato, non ancora confermato (torna al vecchio se in 10 min non si collega)
     "fw_upd": { "st": 2, "pct": 45, "v": "0.20", "msg": "" },   // installazione in corso: st 1 controllo, 2 scarico, 3 fatto, 4 errore
@@ -1377,7 +1382,7 @@ footer{border-top:0;padding-top:0}
 [data-mecha] .wnd-av{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
 :is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.wnd-tag,.wnd-bar,.wnd-bar i){border-radius:0}
 
-/* pagina Inverter (2.41): uscita misurata dal misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac), rendimento DC → AC, ultimi minuti, stato */
+/* pagina Inverter (2.41): uscita misurata dopo lo Shelly (dallo Shelly EM, firmware 0.79, o dal misuratore Tuya, 0.67: outM), rendimento DC → AC, ultimi minuti, stato */
 .inv-top{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:6px 12px;margin-top:6px}
 .inv-top .wnd-live{gap:8px}
 .inv-sub{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.45;min-height:2.9em}.inv-sub span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.inv-sub b{color:var(--ink);font-weight:600}
@@ -1395,7 +1400,7 @@ footer{border-top:0;padding-top:0}
 .inv-big{display:flex;align-items:baseline;gap:10px;margin-top:2px}
 .inv-big>b{font:700 1.9rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}.inv-big span{font-size:.8rem;color:var(--muted)}.inv-big span b{color:var(--ink);font-weight:700}
 .inv-dl{display:grid;gap:0;margin:2px 0 0}
-.inv-dl div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:.82rem}
+.inv-dl div{display:grid;grid-template-columns:fit-content(44%) minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:.82rem}
 .inv-dl div:first-child{border-top:0}
 .inv-dl dt{color:var(--muted)}.inv-dl dd{margin:0;text-align:right;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .inv-dl dd.bad{color:var(--warn)}.inv-dl dd.ok{color:var(--good)}
@@ -2054,7 +2059,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.53"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.54"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2689,7 +2694,15 @@ const houseAC = dc => { const f = hcalFit(); return f && fin(dc) ? Math.max(0, f
    0.72: meas), se no quelli dell'inverter se è tarata a mano, se no quelli dal lato delle batterie senza l'impianto.
    La media al minuto della scheda (house.w) serve a lei per decidere dove sta la casa, e alla taratura con l'inverter */
 // i watt in uscita dall'inverter misurati adesso dal misuratore dopo lo Shelly: null se la misura ha più di 30 secondi
-const acNow = () => { const a = data && data.ac; return a && a.ok && fin(a.w) && a.t6 && nowOf(data) - a.t6 <= 30 ? a.w : null; };
+/* l'uscita dell'inverter (2.54): la misura lo Shelly EM (data.em, firmware 0.79: una lettura ogni 2 s, sempre) e, quando lui non risponde, il
+   misuratore Tuya (data.ac), che resta di riserva e di confronto. outM le dà nella stessa forma, quella di data.ac, più src «em» o «ty» */
+function outM(){
+  const e = data && data.em, a = data && data.ac || null;
+  if (!(e && e.ok && fin(e.w))) return a ? Object.assign({ src: "ty" }, a) : e ? { src: "em", ok: false, code: e.code, ip: e.ip, at: e.at } : null;
+  return { src: "em", ok: true, code: 200, ip: e.ip, at: e.at, t6: e.at, w: Math.round(e.w), v: e.v, a: fin(e.v) && e.v > 50 ? Math.hypot(e.w, e.var || 0) / e.v : null,
+    pf: e.pf, kwh: e.kwh, hz: a && a.ok && fin(a.hz) ? a.hz : null };
+}
+const acNow = () => { const a = outM(); return a && a.ok && fin(a.w) && a.t6 && nowOf(data) - a.t6 <= 30 ? a.w : null; };
 function houseLive(k){
   const pv = data && Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [], prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null;
   k = k || bank((data && data.batteries) || []);
@@ -2760,8 +2773,8 @@ function drawSw(){
   const hdc = h && fin(h.w) ? h.w + plantW() : null, fit = hcalFit(), hl = houseLive();   // hdc: la media della scheda, per tarare; hl.w: la casa adesso, come in «Energia adesso»
   $("q-state").textContent = on ? `Sulle batterie${hl.w === null ? "" : hl.meas ? ` · ${power(hl.w)} misurati` : ` · circa ${power(hl.w)}${hl.ac === null ? " dalle batterie" : ""}`}` : "Su Enel";
   // col misuratore sull'uscita dell'inverter i watt della casa sono misurati: la taratura a mano resta solo di riserva (2.48)
-  const meter = !!(data && data.ac && data.ac.ok);
-  const cal = $("q-cal"), calH = (meter ? `<p class="set-note">I watt della casa li <b>misura</b> il misuratore sull'uscita dell'inverter${hl.meas ? "" : " quando è in tempo reale (con la casa sulle batterie)"}. La taratura a mano serve solo se il misuratore non risponde.</p>` : "") +
+  const meter = (m => !!(m && m.ok))(outM());
+  const cal = $("q-cal"), calH = (meter ? `<p class="set-note">I watt della casa li <b>misura</b> il misuratore sull'uscita dell'inverter${hl.meas ? "" : " (lo Shelly EM, quando risponde)"}. La taratura a mano serve solo se il misuratore non risponde.</p>` : "") +
     (on && hdc > 100 && !meter ? `<form class="loc-f" autocomplete="off"><input type="number" inputmode="decimal" min="50" step="1" placeholder="W che segna l'inverter adesso" aria-label="Watt che segna l'inverter adesso"><button class="set-btn pri" type="submit">Tara</button></form>` : "") +
     ((t => t ? `<p class="set-note">${t}</p>` : "")(fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}.${meter ? "" : " I watt della casa sono quelli dell'inverter."} <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
       : ""));
@@ -6331,7 +6344,7 @@ function wndAB(pv, H){
 }
 function wndBat(k, pv){
   const ac = acNow(); if (ac === null) return null;
-  const { a, b, prov } = wndAB(pv), now = nowOf(data), t = data.ac.t6;
+  const { a, b, prov } = wndAB(pv), now = nowOf(data), t = outM().t6;
   // batterie e uscita devono essere dello stesso momento: vale solo una misura dell'inverter di al massimo 6 secondi fa
   if (now - t <= 6 && (!wbRing.length || wbRing[wbRing.length - 1].t !== t)) wbRing.push({ t, w: k.p - pv + a * ac + b });
   wbRing = wbRing.filter(x => x.t >= now - 60);
@@ -6597,17 +6610,20 @@ function wndShown(nw){
    Il misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac: v, a, w, kwh, hz, ok, code, ip, ver, at, n, bad, ms) misura l'uscita vera
    dell'inverter, cioè la casa quando è sulle batterie. Si alimenta dalla stessa linea: con lo Shelly OFF o l'inverter fermo è spento anche lui.
    Nei testi lo Shelly è sempre ON/OFF (regola dell'utente, 18/11/2026); ON non vuol dire casa sulle batterie: l'ATS può tenerla su Enel
-   Dalla 0.72, con la casa sulle batterie, la scheda tiene il misuratore in tempo reale (un «refresh» ogni 50 s: una misura ogni 2 s; rt 2).
+   Dalla 0.72 alla 0.78, con la casa sulle batterie, la scheda teneva il Tuya in tempo reale con un «refresh» ogni 50 s: tolto con la 0.79.
    Rendimento: i watt in uscita contro quelli che entrano dal lato delle batterie (pannelli − carica delle batterie, houseLive): con la pala
    accesa l'ingresso è stimato per difetto (la scheda non la vede), quindi il rendimento esce più alto del vero. Ultimi minuti: le letture
-   che arrivano mentre la app è aperta (la scheda non le registra ancora). Il contatore di oggi parte dalla prima lettura del giorno */
+   che arrivano mentre la app è aperta (la scheda non le registra ancora). Il contatore di oggi parte dalla prima lettura del giorno.
+   Dalla 2.54 (firmware 0.79) la misura principale è lo Shelly EM montato nello stesso punto (data.em, una lettura ogni 2 s senza chiederla):
+   tutta la pagina legge outM(), che dà lo Shelly EM quando risponde e se no il Tuya (sola lettura, medie ogni 5 minuti). In fondo lo stato di tutti e due e il confronto fra i
+   kWh contati da quando la scheda li ha visti insieme (em.cmp). Il contatore di oggi è tenuto per misuratore (invDay.s) */
 const INV_KEY = "mybattery.invday", AC_ERR = { "-1": "in attesa della prima lettura", 1: "non si riesce a mandare la domanda", 2: "non risponde all'accordo della chiave (chiave sbagliata?)",
   3: "la chiave non torna", 4: "non risponde alla domanda (chiave sbagliata?)", 5: "risposta non leggibile", 6: "vuole un altro tipo di domanda", 7: "versione del protocollo non gestita",
   10: "connessione rifiutata", 20: "ha chiuso il collegamento", 21: "muto da più di 35 secondi", 11: "non si sente in rete: è senza corrente o fuori dal WiFi", 12: "risposta senza dati", 13: "non trovato in rete, neanche indirizzo per indirizzo" };
 let invRun = [], invDay = null, invEffR = [];
 function drawInv(k){
   const head = $("inv-head"); if (!head) return;
-  const a = data && data.ac, cb = data && data.cb, now = nowOf(data), L = houseLive(k);
+  const a = outM(), ty = data && data.ac, em = data && data.em, cb = data && data.cb, now = nowOf(data), L = houseLive(k);
   // ok = il misuratore risponde; fresh = tensione, corrente e potenza (dato 6) recenti. Il D52-2066 le manda di rado (alle 19:44 del 18/11 erano
   // ferme dalle 19:16 con 1,7 kW sul suo display): numeri vecchi non si mostrano come se fossero di adesso
   // avg = la potenza media dai kWh (firmware 0.70: wa W sugli ultimi wdt s, fino a wat), buona per un quarto d'ora; t6 recente = istantanea
@@ -6616,18 +6632,20 @@ function drawInv(k){
   const pt = ok ? { t: a.t6, w: a.w } : avg !== null ? { t: a.wat, w: a.wa } : null;
   if (pt && pt.t >= (invRun.length ? invRun[invRun.length - 1].t : 0) + 5) {       // in tempo reale un punto ogni 5 s basta
     invRun.push(pt); invRun.sort((x, y) => x.t - y.t); invRun = invRun.filter(x => x.t >= now - 3600); }
-  if (linked) {
-    if (fin(a.kwh)) { if (!invDay) invDay = lsGet(INV_KEY); if (!invDay || invDay.d !== dkey(now) || a.kwh < invDay.k) { invDay = { d: dkey(now), k: a.kwh, t: now }; lsSet(INV_KEY, invDay); } }
+  if (linked && fin(a.kwh)) {
+    if (!invDay) invDay = lsGet(INV_KEY); if (!invDay || invDay.d !== dkey(now) || !invDay.s) invDay = { d: dkey(now), s: {} };
+    const q = invDay.s[a.src]; if (!q || a.kwh < q.k) { invDay.s[a.src] = { k: a.kwh, t: now }; lsSet(INV_KEY, invDay); }
   }
+  const day = a && invDay && invDay.s && invDay.d === dkey(now) ? invDay.s[a.src] : null;
   // ---- adesso
   // dove sta la casa lo dice la scheda (house), non i watt del misuratore; lo Shelly si scrive ON/OFF
   const st = !a ? ["", "Misuratore da collegare"] : cbOff ? ["", "Shelly OFF"] : L.on ? [ok ? " now" : " min", ok ? "Casa sulle batterie" : "Casa sulle batterie · media"]
     : cb && cb.ok && cb.on ? [" min", "Shelly ON, casa su Enel"] : ["", "Inverter senza tensione"];
   const w = ok ? a.w : avg !== null ? Math.round(avg) : null, big = w !== null ? `${w >= 1000 ? nf(w / 1000, 2) : nf(w, 0)}<small>${w >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
-  const today = linked && invDay && fin(a.kwh) ? a.kwh - invDay.k : null, from = invDay && invDay.t - midnight(now) > 600 ? ` dalle ${hm(invDay.t)}` : "";
-  const sub = !a ? "Serve il firmware 0.67 e la chiave del misuratore."
+  const today = linked && day && fin(a.kwh) ? a.kwh - day.k : null, from = day && day.t - midnight(now) > 600 ? ` dalle ${hm(day.t)}` : "";
+  const sub = !a ? "Serve uno Shelly EM dopo lo Shelly (firmware 0.79), o il misuratore Tuya con la sua chiave."
     : cbOff ? "Lo Shelly è OFF: il misuratore, alimentato dalla stessa linea, è spento."
-    : !linked ? esc(AC_ERR[a.code] || "codice " + a.code)
+    : !linked ? (a.src === "em" ? "Lo Shelly EM non risponde: è senza corrente o fuori dal WiFi." : esc(AC_ERR[a.code] || "codice " + a.code))
     : !ok && avg !== null ? `<span>Media di <b>${nf(Math.max(1, a.wdt / 60), 0)}</b> min fino alle ${hm(a.wat)}, dai kWh</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 2) : "–"}</b> kWh${today !== null ? ` · oggi <b>${nf(today, 2)}</b>` : ""}</span>`
     : !ok ? `<span>In attesa delle misure${a.t6 ? ": le ultime alle " + hm(a.t6) : ""}.</span><span>Il misuratore le manda circa ogni 5 minuti.</span>`
     : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 1) : "–"}</b> kWh</span>`;
@@ -6654,20 +6672,30 @@ function drawInv(k){
   $("inv-eff").innerHTML = eff !== null
     ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - wE))}</b></span></div><div class="inv-eff">${bar("dc", "Entra", dc)}${bar("ac", "Esce (casa)", wE)}</div>` +
       `<p class="set-note">Media dell'ultimo minuto. «Entra» è quello che danno insieme batterie e pannelli. Se la pala sta producendo, anche la sua corrente va all'inverter ma la scheda non la misura: in quel caso le perdite vere sono più alte di quelle scritte qui.</p>` + invLearnTxt()
-    : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : ok && effN < 3 ? "Sto raccogliendo le misure dell'ultimo minuto." : !ok ? (a.rt === 1 ? "La scheda ha chiesto il tempo reale al misuratore, ma le misure non arrivano ancora." : "Serve una misura di adesso: con la casa sulle batterie la scheda chiede al misuratore il tempo reale.") : "Serve un carico di almeno 50 W."}</p>`;
+    : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : ok && effN < 3 ? "Sto raccogliendo le misure dell'ultimo minuto." : !ok ? "Serve una misura di adesso, cioè lo Shelly EM: il misuratore Tuya dà solo medie ogni 5 minuti." : "Serve un carico di almeno 50 W."}</p>`;
   // ---- ultimi minuti
   drawInvRun(now);
   // ---- interruttore e misuratore
-  const row = (t, v, c) => `<div><dt>${t}</dt><dd${c ? ` class="${c}"` : ""}>${v}</dd></div>`, age = a && a.at ? Math.max(0, now - a.at) : null;
+  const row = (t, v, c) => `<div><dt>${t}</dt><dd${c ? ` class="${c}"` : ""}>${v}</dd></div>`;
+  const seen = x => { const g = Math.max(0, now - x.at); return g < 5 ? "letto adesso" : g < 60 ? `letto ${nf(g, 0)} s fa` : "letto alle " + hm(x.at); };
+  const tyOk = !!(ty && ty.ok), emV = em && em.ver ? (/v[\d.]+/.exec(em.ver) || [em.ver])[0] : "";
+  // il confronto vale da mezzo kWh in su: il Tuya conta a centesimi di kWh e li aggiorna ogni 5 minuti
+  const cmp = em && em.cmp && em.cmp[1] >= .5 && em.cmp[2] >= .5 ? em.cmp : null, cmpD = cmp ? (cmp[2] / cmp[1] - 1) * 100 : 0;
   $("inv-dev").innerHTML = `<dl class="inv-dl">` +
     row("Interruttore Shelly", !cb ? "–" : !cb.ok ? "non risponde" : cb.on ? "ON" : "OFF", cb && cb.ok ? (cb.on ? "ok" : "") : "bad") +
     (cb && cb.ok && fin(cb.t) ? row("Temperatura dello Shelly", nf(cb.t, 0) + " °C", cb.t >= 70 ? "bad" : "") : "") +
-    row("Misuratore", !a ? "non collegato" : linked ? (age !== null && age < 5 ? "letto adesso" : age !== null && age < 60 ? `letto ${nf(age, 0)} s fa` : "letto alle " + hm(a.at)) : esc(AC_ERR[a.code] || "codice " + a.code), !a ? "" : linked ? "ok" : "bad") +
-    (a ? row("In rete", a.ip ? `${esc(a.ip)}${a.ver ? " · protocollo " + esc(a.ver) : ""}` : "non ancora trovato", "") +
-      ("rt" in a ? row("Tempo reale", a.rt === 2 ? "attivo · una misura ogni 2 s" : a.rt === 1 ? "chiesto, le misure non arrivano" + (a.note ? ` (${esc(a.note)})` : "") : a.rtoff ? "spento dalle impostazioni" : "a riposo: parte con la casa sulle batterie", a.rt === 2 ? "ok" : a.rt === 1 ? "bad" : "") : "") +
-      row("Tensione e potenza", a.rt === 2 ? "in tempo reale" : a.t6 ? "misurate alle " + new Date(a.t6 * 1000).toLocaleTimeString("it-IT") : "non ancora arrivate", a.rt !== 2 && a.t6 && now - a.t6 > 900 ? "bad" : "") +
-      (fin(a.wa) && a.wat && a.wdt >= 240 ? row("Potenza media dai kWh", `${power(a.wa)} su ${nf(Math.max(1, a.wdt / 60), 0)} min, alle ${hm(a.wat)}`, "") : "") +
-      row("Letture", `${nf(a.n || 0, 0)} buone · ${nf(a.bad || 0, 0)} fallite${fin(a.rf) ? ` · ${nf(a.rf, 0)} refresh` : ""}`, "") : "") + `</dl>`;
+    (em ? row("Shelly EM", em.ok ? seen(em) + " · la misura è la sua" : em.at ? "non risponde dalle " + hm(em.at) : "non risponde", em.ok ? "ok" : "bad") +
+      row("Shelly EM in rete", em.ip ? esc(em.ip) + (emV ? " · firmware " + esc(emV) : "") : "lo sto cercando", "") +
+      (em.rev ? row("Pinza dello Shelly EM", "montata al contrario: i watt li conto lo stesso", "") : "") +
+      row("Letture dello Shelly EM", `${nf(em.n || 0, 0)} buone · ${nf(em.bad || 0, 0)} fallite`, "") : "") +
+    row(em ? "Tuya · riserva" : "Misuratore", !ty ? "non collegato" : tyOk ? seen(ty) : esc(AC_ERR[ty.code] || "codice " + ty.code), !ty ? "" : tyOk ? "ok" : "bad") +
+    (ty ? row(em ? "Tuya in rete" : "In rete", ty.ip ? `${esc(ty.ip)}${ty.ver ? " · protocollo " + esc(ty.ver) : ""}` : "non ancora trovato", "") +
+      row("Tensione e potenza" + (em ? " del Tuya" : ""), ty.t6 ? "misurate alle " + hm(ty.t6) + " · ogni 5 minuti" : "non ancora arrivate", !em && ty.t6 && now - ty.t6 > 900 ? "bad" : "") +
+      (fin(ty.wa) && ty.wat && ty.wdt >= 240 ? row("Potenza media dai kWh", `${power(ty.wa)} su ${nf(Math.max(1, ty.wdt / 60), 0)} min, alle ${hm(ty.wat)}`, "") : "") +
+      row("Letture" + (em ? " del Tuya" : ""), `${nf(ty.n || 0, 0)} buone · ${nf(ty.bad || 0, 0)} fallite`, "") : "") +
+    (cmp ? row("Confronto dal " + new Date(cmp[0] * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" }),
+        `Shelly EM <b>${nf(cmp[1], 2)}</b> · Tuya <b>${nf(cmp[2], 2)}</b> kWh <small>(${Math.abs(cmpD) < .5 ? "uguali" : (cmpD > 0 ? "+" : "−") + nf(Math.abs(cmpD), 0) + " %"})</small>`, Math.abs(cmpD) > 5 ? "bad" : "ok")
+      : em && ty ? row("Confronto", "da mezzo kWh contato da tutti e due", "") : "") + `</dl>`;
 }
 // quello che la app ha imparato sull'inverter dalle ore con l'uscita misurata (learn → M.acFit): ingresso = a × uscita + b
 function invLearnTxt(){
