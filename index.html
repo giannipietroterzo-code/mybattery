@@ -29,6 +29,8 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
     "time": 1793460000,              // epoch secondi UTC (RTC della scheda); se l'RTC non è impostato
                                      // (valore < 1600000000) la pagina usa l'ora del telefono
     "rssi": -58,                     // segnale WiFi dBm
+    "full_at": 1795180000,           // cambia quando cambia l'archivio dei pieni sulla scheda: GET /api/full (firmware 0.78)
+    "spare": { "full": 1795180000, "kwh": 8.4, "k": 0.82 },   // il sole in più di oggi secondo la scheda (0.78): pieno previsto, kWh che restano dopo, resa imparata
     "fc_last": 1794000000,           // ora dell'ultima previsione archiviata sulla scheda: GET /api/fc (firmware 0.27)
     "voc_at": 1794000000,            // cambia quando cambiano taratura della Voc e albe sulla scheda: GET /api/voc (firmware 0.26)
     "log_min": 15,                   // minuti tra le righe del registro (fisso a 15 dalla 0.33): GET /api/log, GET /api/stress
@@ -199,6 +201,23 @@ body{height:100%;overflow:hidden}
 .voc-leg .vl.hot{background:var(--warn-tint)} .voc-leg .vl.hot b{color:var(--warn)}
 .voc-leg .vl.danger{background:var(--alert-tint)} .voc-leg .vl.danger b{color:var(--alert)}
 .voc-foot{margin-top:8px !important}
+.lost{margin:0 2px;padding:14px 14px 10px;border-radius:16px;background:var(--surface)}
+.lost-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:0 0 8px}
+.lost-h b{white-space:nowrap;font-family:var(--num);font-size:1.5rem;font-weight:700;color:var(--warn);font-variant-numeric:tabular-nums}.lost-h b.zero{color:var(--good)}
+.lost-h span{font-size:.78rem;color:var(--muted);text-align:right}
+.lost svg{display:block;width:100%;height:auto}.lost .lm{fill:var(--lith)}.lost .ll{fill:url(#lost-hatch);stroke:var(--warn);stroke-width:.8}.lost .lx{fill:var(--muted);font-size:9px}
+.lost .lv{fill:var(--warn);font-size:9px;font-weight:700;font-family:var(--num)}.lost .lb{stroke:var(--line);stroke-width:1}.lost .lx.now{fill:var(--ink);font-weight:700}
+.lost-k{display:flex;gap:14px;margin:6px 0 0;font-size:.72rem;color:var(--muted)}.lost-k i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:var(--lith)}
+.lost-k i.h{background:repeating-linear-gradient(135deg,var(--warn) 0 2px,transparent 2px 4px);outline:1px solid var(--warn);outline-offset:-1px}
+.lost-tip{margin:10px 0 2px;padding:9px 11px;border-radius:12px;background:var(--sun-tint);font-size:.82rem}.lost-tip b{font-family:var(--num)}
+.ch-list{margin:0 2px;border-radius:16px;background:var(--surface);overflow:hidden}
+.ch-row{display:grid;grid-template-columns:minmax(0,1fr) 112px auto;align-items:center;gap:4px 10px;padding:10px 12px}.ch-row+.ch-row{border-top:1px solid var(--line)}
+.ch-row b{font-size:.88rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-row small{grid-column:1/-1;font-size:.72rem;color:var(--muted)}
+.ch-row svg{display:block;width:112px;height:30px}.ch-row svg rect{fill:var(--lith)}.ch-row svg rect.w{fill:var(--warn)}.ch-row svg rect.n{fill:var(--line)}.ch-row svg line{stroke:var(--warn);stroke-width:.8;stroke-dasharray:2 2;opacity:.7}
+.ch-v{font-family:var(--num);font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.ch-v.warn{color:var(--warn)}
+.ch-row small .up{color:var(--warn);font-weight:600}.ch-row small .dn{color:var(--good);font-weight:600}
+#cellh h3{margin:22px 2px 4px;font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}#cellh .note{margin:0 2px 10px;font-size:.8rem;color:var(--muted)}
+.pv-tab small.ok{color:var(--good);font-weight:600}.pv-tab small.near{color:var(--warn);font-weight:600}
 .vocw-empty{margin:0 2px;padding:14px;border-radius:16px;background:var(--surface);font-size:.85rem;color:var(--muted)}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}}
 :root[data-theme="dark"] .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}
@@ -1669,6 +1688,10 @@ html.mon-open,html.mon-open body{overflow:hidden}
           <div><dt>Temp. max</dt><dd id="k-t">–</dd><small class="k-sub" id="k-t2"></small></div>
         </dl>
       </section>
+      <section class="panel plain" aria-labelledby="h-cellh">
+        <h2 id="h-cellh">Salute delle celle</h2>
+        <div id="cellh"></div>
+      </section>
     </div>
     <div class="page" id="pg-2" role="tabpanel" aria-labelledby="tab-2">
       <section aria-labelledby="h-pv">
@@ -2031,7 +2054,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.52"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.53"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2069,6 +2092,8 @@ const MSG = {
     if (a && a.ew === 1 && m !== null && nm(a.wk)) return ["La scheda sta per staccare il solare", `La più debole è la ${nm(a.wk)}, ${alP(a.ws)}: al consumo degli ultimi 15 minuti arriva ${alP(a.soc)} tra circa ${dur(m / 60)}, e lì le sue celle cedono: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni qualche carico.`];
     return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano ${fin(a.vs) ? `a ${nf(a.vs, 1)} V (circa ${ilP(a.soc)})` : alP(a.soc)} tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
+  FULL_GRID:   () => { const c = data && data.cb; return ["Batterie piene e casa su Enel", "I pannelli non hanno dove mettere l'energia e la casa la paga a Enel. " +
+    (c && c.ok === false ? "Lo Shelly non risponde: l'inverter è spento o in STOP, riaccendilo." : c && c.on === false ? "Lo Shelly è OFF: mettilo su ON dalla pagina Pannelli." : "Lo Shelly è ON ma l'ATS tiene la casa su Enel: guarda inverter e ATS.")]; },
   HOUSE_SELF:  () => ["La casa è passata sulle batterie da sola", "Nessun comando all'interruttore nei 15 minuti prima: forse è mancata Enel e l'ATS ha scelto l'inverter." + (data && data.ao && data.ao.on ? " Lo spegnimento automatico resta attivo." : " Se non la vuoi lì, spegni l'uscita dell'inverter.")],
   WIND_FAST:   () => { const sh = data ? wndShown(wndNow()) : null, g = sh && sh.w > 0 ? Math.round(wndRpm(sh.w) / 10) * 10 : 0;
     return ["La pala gira vicino al massimo", `In un minuto ha dato abbastanza da stimare più di ${nf(Math.round(WND_FAST * WND_RPM_MAX), 0)} giri/min, l'${Math.round(WND_FAST * 100)}% dei ${nf(WND_RPM_MAX, 0)} del massimo${g ? `; adesso circa ${nf(g, 0)}` : ""}. Nelle raffiche va più veloce della media. Se il vento rinforza ancora, inserisci il freno sul regolatore Tesup.`]; },
@@ -3689,6 +3714,7 @@ async function remApply(b, fresh){
   if (fin(b.s.mute_until)) muteUntil = b.s.mute_until;
   remCfgTake(b);
   if (b.voc && !(fin(b.t) && b.t < remCmdAt)) vocTake(b.voc);
+  if (Array.isArray(b.full)) fullTake(b.full);   // l'archivio dei pieni (firmware 0.78)
   if (Array.isArray(b.wpk)) wpkTake(b.wpk);   // il picco della pala per quarto d'ora (firmware 0.63)
   fcCap = fin(b.s.fc_last);
   if (fresh && Array.isArray(b.log)) { const rows = b.log.filter(validRow); if (rows.length) await db.put(rows); logSrc = ""; await realLog(); relearn(); }
@@ -4227,6 +4253,7 @@ function render(m){
   $("k-t2").className = "k-sub" + (k.tspread >= 5 ? " warn" : "");
 
   drawPv(data.pv, k);
+  try { drawCellH(); } catch (e) { console.error(e); }
   drawSw();
   drawLearn();
   drawFlow(k);
@@ -4656,7 +4683,7 @@ function learn(rows){
     o.cwh += chg; o.dwh += dsg; o.nmin += m; o.soc = soc; prev = soc;
   });
   const H = [...hours.values()].map(o => ({ t: o.t, soc0: o.soc0, soc: o.soc, load: o.lmin >= 15 ? o.lwh / (o.lmin / 60) : null,
-    pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, chg: o.nmin ? o.cwh / (o.nmin / 60) : 0, dsg: o.nmin ? o.dwh / (o.nmin / 60) : 0,
+    pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, pwh: o.pwh, chg: o.nmin ? o.cwh / (o.nmin / 60) : 0, dsg: o.nmin ? o.dwh / (o.nmin / 60) : 0,
     acW: o.amin >= 45 ? o.awh / (o.amin / 60) : null, wnd: o.wnd }));
   H.forEach(o => o.net = o.chg - o.dsg);
   const Hmap = new Map(H.map(o => [o.t, o]));
@@ -5423,7 +5450,9 @@ function appAlerts(bs, k, f){
   if (f && S.alTip && k.i > 0.5) {
     const t = crossAt(f.mid, s => s >= 99.5, 99.5);
     if (t !== null && t > .5) { const at = f.t[0] + t * HOUR; if (new Date(at * 1000).getHours() < 14)
-      push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: "Dopo c'è energia in più: buon momento per lavatrice, forno o scaldabagno." }); }
+      { const sp = spareOf(f, now);   // quanto sole resta dopo il pieno (2.53): lo stesso numero del riquadro «Sole non usato»
+        push({ id: "tip" + dkey(now), sev: "tip", t: `Pieno verso le ${hm(q15(at))}`, d: (sp && sp.kwh >= 1 ? `Dopo restano circa ${nf(sp.kwh, sp.kwh < 10 ? 1 : 0)} kWh di sole che i pannelli non potranno dare` : "Dopo c'è energia in più") +
+          ": buon momento per lavatrice, forno o scaldabagno." + (houseNow() ? "" : " La casa è su Enel: portala sulle batterie per usarli.") }); } }
   }
   // pannelli: la prossima alba col modello e la previsione del grafico, le albe anomale e la resa di oggi
   vocSeries().forEach(s => {
@@ -5437,7 +5466,10 @@ function appAlerts(bs, k, f){
     if (bad && bad.x && dkey(bad.t) === dkey(now)) push({ id: "pvdiode" + g.addr + "-" + dkey(bad.t), sev: "alarm", who: pvName(g), at: bad.t,
       t: `All'alba ${nf(bad.v, 0)} V${fin(bad.e) ? ` invece di ${nf(bad.e, 0)}` : ""}`, d: `Manca ${bad.x > 1 ? "la tensione di circa " + bad.x + " pannelli" : "circa un pannello"} su ${c.n / (c.s || 1)} in serie: un diodo di bypass o un pannello in corto. Misura col tester la Voc dei pannelli di questo gruppo.` });
   });
-  if (S.alPv && Array.isArray(data.pv) && hr >= 13) {
+  // non nei giorni in cui i regolatori hanno tagliato (2.53): il 20/11, con le batterie piene dalle 14:29, ognuno ha smesso per conto suo e
+  // l'avviso dava Pollaio al −38 % e Pannellini al −60 %
+  const cutDay = k.soc >= 95 || !!(data.bank && data.bank.full_t >= midnight(now)) || (D => !!(D && D[6].h))(lostDays(model, now));
+  if (S.alPv && Array.isArray(data.pv) && hr >= 13 && !cutDay) {
     const gs = data.pv.filter(g => g.online !== false && fin(dayRatio(g))), rs = gs.map(dayRatio), best = Math.max(0, ...rs);
     if (gs.length > 1 && best >= .25) gs.forEach((g, j) => { if (rs[j] < best * .7)
       push({ id: "pvlow" + g.addr, sev: "alarm", who: pvName(g), t: `Oggi rende il ${nf((1 - rs[j] / best) * 100, 0)}% meno degli altri`, d: strGone(g, 1 - rs[j] / best) || "Pannelli sporchi, un'ombra nuova o una stringa saltata." }); });
@@ -5967,11 +5999,188 @@ function drawPv(pv, k){
       `<span class="pv-st">${esc(stTxt)}</span></div>`;
   }).join("");
 
-  $("pv-day").innerHTML = `<div id="voc-box"></div>` +
+  $("pv-day").innerHTML = `<div id="lost-box"></div><div id="voc-box"></div><div id="vocw-box"></div>` +
     `<h3>Dettagli</h3><table class="pv-tab"><thead><tr><th>Gruppo</th><th>Pannelli</th><th>Corrente</th><th>Installati</th></tr></thead><tbody>` +
     pv.map(g => { const off = g.online === false; return `<tr><td>${esc(pvName(g))}</td><td>${!off && fin(g.v) ? nf(g.v, 1) + " V" : "–"}${pvPeak(g.addr) ? `<small class="${pvPeak(g.addr).v >= pvWarnAt(vmaxOf(g.addr)) ? "hot" : ""}">max oggi ${nf(pvPeak(g.addr).v, 0)} V su ${nf(pvLim(vmaxOf(g.addr)), 0)}</small>` : ""}</td>` +
       `<td>${!off && fin(g.a) ? nf(g.a, 1) + " A" + (strOf(g.addr) > 1 ? `<small>${nf(g.a / strOf(g.addr), 1)} A a stringa</small>` : "") : "–"}</td><td>${fin(g.kwp) ? nf(g.kwp, 2) + " kWp" : "–"}<small>${AZ_NAME[azTag(planeOf(g).az)]} · ${planeOf(g).tilt}°</small></td></tr>`; }).join("") + `</tbody></table>`;
+  drawLost();
   drawVoc(pv);
+  drawVocWinter();
+}
+/* ---------- sole non usato (2.53, richiesta dell'utente il 20/11/2026) ----------
+   Con le batterie piene i regolatori fermano i pannelli: il 20/11 dalle 14:29, con la casa su Enel. Quanta energia avrebbero dato si stima ora per
+   ora dal registro: nelle ore con la carica vicina al pieno (95 % all'inizio o 97 % alla fine) e la produzione sotto il 70 % di quella possibile,
+   la differenza è sole non usato. La produzione possibile è quella della previsione (pvBase: il sole vero di quell'ora × la resa imparata nelle
+   ore lontane dal pieno, per posizione del sole), quindi vale quanto vale lei: circa ±20 %. Le ore con un gruppo staccato dalla leva non contano
+   (pvAvail). spareOf: lo stesso conto in avanti, sulla previsione di oggi: l'energia che le batterie non potranno prendere da adesso a stasera. */
+let lostMemo = { M: null, q: 0, v: null };
+function lostDays(M, now){
+  if (!M || !M.sun || !M.pvKnown) return null;
+  const q = Math.floor(now / 900); if (lostMemo.M === M && lostMemo.q === q) return lostMemo.v;
+  const m0 = midnight(now), days = [];
+  for (let n = 6; n >= 0; n--) { const d0 = dayAdd(m0, -n); days.push({ d0, d1: dayAdd(d0, 1), made: 0, lost: 0, h: 0, seen: false }); }
+  M.H.forEach(o => {
+    if (o.pv === null || o.t < days[0].d0) return;
+    const D = days.find(x => o.t >= x.d0 && o.t < x.d1); if (!D) return;
+    D.made += o.pwh / 1000; D.seen = true;
+    if (!(o.soc0 >= 95 || o.soc >= 97)) return;
+    const pot = pvBase(M, o.t, false); if (!fin(pot) || pot < 300 || o.pv > pot * .7) return;
+    D.lost += (pot - o.pv) / 1000; D.h++;
+  });
+  lostMemo = { M, q, v: days };
+  return days;
+}
+function spareOf(f, now){
+  if (!f || !Array.isArray(f.mid) || !fin(f.cap)) return null;
+  const end = dayAdd(midnight(now), 1); let wh = 0, at = null;
+  for (let i = 0; i + 1 < f.mid.length && f.t[i] < end; i++) {
+    const net = f.pv[i] - f.load[i]; if (!(net > 0) || !(f.mid[i + 1] >= 97)) continue;
+    const x = net - (f.mid[i + 1] - f.mid[i]) / 100 * f.cap; if (x > 50) { wh += x * Math.min(1, (end - f.t[i]) / HOUR); if (at === null) at = f.t[i]; } }
+  return wh > 0 ? { kwh: wh / 1000, at } : null;
+}
+function drawLost(){
+  const box = $("lost-box"); if (!box) return;
+  const now = nowOf(data), days = lostDays(model, now);
+  const head = `<h3>Sole non usato</h3><p class="note">Con le batterie piene i regolatori fermano i pannelli. Qui c'è l'energia che avrebbero dato in quelle ore, dal sole che c'era e da come rendono di solito: una stima, circa ±20 %.</p>`;
+  if (!days || !days.some(D => D.seen)) { box.innerHTML = head + `<p class="vocw-empty">Si riempie quando la app ha imparato come rendono i pannelli: servono una ventina di ore di sole nel registro.</p>`; return; }
+  const lost = days.reduce((a, D) => a + D.lost, 0), made = days.reduce((a, D) => a + D.made, 0), sp = fc ? spareOf(fc, now) : null;
+  const W = 340, H = 118, T = 16, B = 20, cw = W / 7, top = Math.max(1, ...days.map(D => D.made + D.lost)), y = v => T + (1 - v / top) * (H - T - B);
+  let g = `<defs><pattern id="lost-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--warn-tint)"/><rect width="2" height="5" fill="var(--warn)"/></pattern></defs>` +
+    `<line class="lb" x1="0" x2="${W}" y1="${H - B}" y2="${H - B}"/>`;
+  days.forEach((D, i) => {
+    const x = i * cw + cw * .2, w = cw * .6, d = new Date((D.d0 + 12 * HOUR) * 1000), yM = y(D.made), yL = y(D.made + D.lost);
+    if (D.made > 0) g += `<rect class="lm" x="${x.toFixed(1)}" y="${yM.toFixed(1)}" width="${w.toFixed(1)}" height="${(H - B - yM).toFixed(1)}" rx="3"/>`;
+    if (D.lost >= .1) g += `<rect class="ll" x="${x.toFixed(1)}" y="${yL.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1.5, yM - yL - 1).toFixed(1)}" rx="3"/>` +
+      `<text class="lv" x="${(x + w / 2).toFixed(1)}" y="${(yL - 3).toFixed(1)}" text-anchor="middle">${nf(D.lost, D.lost < 10 ? 1 : 0)}</text>`;
+    g += `<text class="lx${i === 6 ? " now" : ""}" x="${(x + w / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${i === 6 ? "oggi" : d.toLocaleDateString("it-IT", { weekday: "short" }).slice(0, 3) + " " + d.getDate()}</text>`;
+  });
+  const tip = sp && sp.kwh >= 1 ? `<p class="lost-tip">Oggi, da qui a stasera, le batterie non potranno prendere circa <b>${nf(sp.kwh, sp.kwh < 10 ? 1 : 0)} kWh</b>${sp.at > now + 900 ? `, dalle ${hm(q15(sp.at))}` : ""}: ` +
+    (houseNow() ? "è il momento buono per lavatrice, forno o scaldabagno." : "la casa è su Enel, portala sulle batterie per usarli.") + `</p>` : "";
+  box.innerHTML = head + `<div class="lost"><p class="lost-h"><b class="${lost < .5 ? "zero" : ""}">${nf(lost, lost < 10 ? 1 : 0)} kWh</b><span>negli ultimi 7 giorni${made > 0 ? `, su ${nf(made, 0)} prodotti` + (lost >= .5 ? ` (+${nf(lost / made * 100, 0)}% possibile)` : "") : ""}</span></p>` +
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Energia prodotta e sole non usato, giorno per giorno: ${days.map(D => `${vDay(D.d0 + 12 * HOUR)} ${nf(D.made, 1)} kWh prodotti, ${nf(D.lost, 1)} non usati`).join("; ")}">${g}</svg>` +
+    `<p class="lost-k"><span><i></i>prodotti</span><span><i class="h"></i>non usati, kWh</span></p>${tip}</div>`;
+}
+/* ---------- il freddo d'inverno (2.53, richiesta dell'utente il 20/11/2026) ----------
+   Il 20/11, con le batterie piene e i pannelli a vuoto, i Pannellini sono arrivati a 135,9 V: e non è ancora inverno. Qui la Voc di ogni gruppo
+   (lo stesso modello imparato dalle albe: vocSeries) si porta alla temperatura più bassa degli ultimi inverni: le minime di ogni giorno degli
+   ultimi 5 anni dall'archivio di Open-Meteo (una richiesta, tenuta 30 giorni), inverno = da luglio a giugno, solo gli inverni con gennaio dentro.
+   «Tipico» è la mediana delle minime degli inverni, «il più freddo» la più bassa. A ogni temperatura si prende la luce che dà la tensione più alta
+   (con poca luce la Voc è bassa, con molta le celle si scaldano), col margine del modello: è il caso dei pannelli a vuoto a batterie piene, non
+   solo dell'alba. Il limite è quello di adesso, alla temperatura della stanza: con la stanza più fredda il regolatore regge qualche volt in più. */
+const COLD_KEY = "mybattery.cold.v1";
+let cold = null, coldBusy = false, coldTried = 0;
+async function coldLoad(){
+  if (!cold) cold = lsGet(COLD_KEY);
+  if (coldBusy || !S.loc || Date.now() - coldTried < 600e3) return;
+  if (cold && cold.lat === S.loc.lat && cold.lon === S.loc.lon && Date.now() - cold.at < 30 * 864e5) return;
+  coldBusy = true; coldTried = Date.now();
+  try {
+    const e = new Date(Date.now() - 6 * 864e5), b = new Date(e); b.setFullYear(b.getFullYear() - 5); const iso = d => d.toISOString().slice(0, 10);
+    const r = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${S.loc.lat}&longitude=${S.loc.lon}&start_date=${iso(b)}&end_date=${iso(e)}&daily=temperature_2m_min&timezone=auto`);
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json(), w = {};
+    j.daily.time.forEach((d, i) => { const v = j.daily.temperature_2m_min[i]; if (!fin(v)) return;
+      const yr = +d.slice(0, 4), mo = +d.slice(5, 7), k = mo >= 7 ? yr : yr - 1, o = w[k] || (w[k] = { t: 99, d: "", jan: false });
+      if (mo === 1) o.jan = true; if (v < o.t) { o.t = v; o.d = d; } });
+    const mins = Object.keys(w).map(Number).sort((x, y) => x - y).filter(k => w[k].jan).map(k => [k, w[k].t, w[k].d]);
+    if (!mins.length) throw new Error("vuoto");
+    cold = { at: Date.now(), lat: S.loc.lat, lon: S.loc.lon, mins }; lsSet(COLD_KEY, cold);
+  } catch (e) {}
+  coldBusy = false; drawVocWinter();
+}
+// la Voc più alta che il gruppo può dare a una temperatura dell'aria: centrale e col margine del modello
+function vocWorst(md, air){
+  const K = md.k * (md.beta || 1), v = Math.max(...[200, 300, 400, 500, 600, 800, 1000].map(g => vocV(K, air, g, md.b)));
+  return { v, hi: v * (1 + Math.max(md.rel, md.up || 0)) };
+}
+function drawVocWinter(){
+  const box = $("vocw-box"); if (!box) return;
+  const ser = vocSeries().filter(s => s.md);
+  if (!ser.length) { box.innerHTML = ""; return; }
+  const head = `<h3>Il freddo d'inverno</h3>`;
+  if (!S.loc) { box.innerHTML = head + `<p class="vocw-empty">Imposta la località nelle impostazioni: serve per sapere quanto freddo fa d'inverno da te.</p>`; return; }
+  coldLoad();
+  if (!cold || cold.lat !== S.loc.lat || cold.lon !== S.loc.lon || !cold.mins.length) { box.innerHTML = head + `<p class="vocw-empty">${coldBusy ? "Leggo le minime degli ultimi inverni…" : "Le minime degli ultimi inverni non sono arrivate: serve internet, riprovo più tardi."}</p>`; return; }
+  const ts = cold.mins.map(m => m[1]), typ = quant(ts, .5), rec = cold.mins.reduce((a, m) => m[1] < a[1] ? m : a), deg = t => nf(t, 0).replace("-", "−") + " °C";
+  const recD = new Date(rec[2] + "T12:00:00").toLocaleDateString("it-IT", { month: "short", year: "numeric" });
+  const bad = [], near = [];
+  const rows = ser.map(s => {
+    const lim = pvLim(s.vmax), a = vocWorst(s.md, typ), b = vocWorst(s.md, rec[1]);
+    const under = key => { let lo = -40, hi = 40; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (vocWorst(s.md, m)[key] >= lim) lo = m; else hi = m; } return lo; };
+    const tC = under("v"), tH = under("hi");            // sotto queste temperature tocca il limite: con la stima centrale, e col margine del modello
+    const cls = b.v >= lim ? "hot" : b.hi >= lim ? "near" : "ok";   // la stima centrale lo supera; lo supera solo col margine del modello
+    if (cls === "hot") bad.push([s, tC, tH]); else if (cls === "near") near.push([s, tH, tH]);
+    return `<tr><td>${esc(pvName(s.g))}</td><td>${nf(a.v, 0)} V<small>fino a ${nf(a.hi, 0)}</small></td><td>${nf(b.v, 0)} V<small>fino a ${nf(b.hi, 0)}</small></td>` +
+      `<td>${nf(lim, 0)} V<small class="${cls}">${cls === "hot" ? "lo supera" : cls === "near" ? "può superarlo" : `margine ${nf(lim - b.hi, 0)} V`}</small><small>${tC > -39 ? `sotto ${deg(tC)}` : tH > -39 ? `col margine, sotto ${deg(tH)}` : "&nbsp;"}</small></td></tr>`;
+  }).join("");
+  const and = l => l.length > 1 ? l.slice(0, -1).join(", ") + " e " + l[l.length - 1] : l[0] || "", nm = l => `<b>${and(l.map(([s]) => esc(pvName(s.g))))}</b>`;
+  const under = (l, j) => and(l.map(x => deg(x[j]) + (l.length > 1 ? ` (${esc(pvName(x[0].g))})` : "")));
+  const lim5 = [...new Set(ser.map(s => s.vmax))].map(m => { const lo = m === 100 ? 92 : m === 200 ? 180 : 138; return nf(lo + (m - lo) * 20 / 50, 0); }).join(" / ");
+  const say = (bad.length ? `${nm(bad)}: nell'inverno più freddo ${bad.length > 1 ? "superano" : "supera"} il limite del regolatore. Succede sotto ${under(bad, 1)}; col margine del modello può succedere già sotto ${under(bad, 2)}. ` : "") +
+    (near.length ? `${nm(near)}: ${near.length > 1 ? "restano" : "resta"} sotto con la stima centrale, ma col margine del modello ${near.length > 1 ? "possono" : "può"} superarlo sotto ${under(near, 1)}. ` : "") +
+    (bad.length || near.length ? `La scheda avvisa la sera prima quando serve staccare l'ingresso; il rimedio che chiude il problema è un pannello in meno per stringa. Con la stanza a 5 °C il limite sale a ~${lim5} V.`
+      : "Tutti i gruppi restano sotto il limite anche nell'inverno più freddo degli ultimi anni.");
+  box.innerHTML = head + `<p class="note">La tensione a vuoto più alta che ogni gruppo può dare col freddo: all'alba, o di giorno con le batterie piene e i pannelli fermi. ` +
+    `Dalle minime degli ultimi ${cold.mins.length} inverni a ${esc(S.loc.name || "casa")}; il limite è quello di oggi, con la stanza a ${nf(pvEnv(), 0)} °C.</p>` +
+    `<table class="pv-tab"><thead><tr><th>Gruppo</th><th>Inverno tipico<small>${deg(typ)}</small></th><th>Il più freddo<small>${deg(rec[1])}, ${recD}</small></th><th>Limite</th></tr></thead><tbody>${rows}</tbody></table>` +
+    `<p class="note" style="margin-top:10px">${say}</p>`;
+}
+/* ---------- salute delle celle e capacità vera (2.53, richiesta dell'utente il 20/11/2026) ----------
+   L'archivio dei pieni della scheda (firmware 0.78, GET /api/full quando cambia full_at, da fuori casa nel pacchetto): per ogni pieno
+   [inizio, minuti, V più alta ×100, [[mV alta, mV bassa, cella alta, cella bassa] per batteria], àncora a riposo (0 = non ancora), carica ×100,
+   [Ah rimasti ×10], [Ah pieni ×10], A nascosti ×100]. Lo squilibrio in cima alla carica è quello che dice se una batteria si sta chiudendo o
+   aprendo: una barretta per pieno. La capacità vera: tra il pieno e la prima àncora a riposo (un'ora ferme sotto 51,2 V, dove la tensione dice la
+   carica, uguale per tutte perché sono in parallelo) ogni BMS ha contato gli Ah usciti; più la parte di corrente nascosta di quelle ore, diviso
+   la parte di carica consumata. Il margine viene dalla curva della tensione (±5 punti di carica); oltre 3 giorni tra pieno e àncora è poco precisa. */
+const FULL_KEY = "mybattery.full";
+let FULLS = null, fullSeen = null, fullBusy = false;
+const fullOk = r => Array.isArray(r) && r.length >= 9 && fin(r[0]) && Array.isArray(r[3]) && Array.isArray(r[6]) && Array.isArray(r[7]);
+function fullTake(rows){ if (!Array.isArray(rows)) return; FULLS = rows.filter(fullOk).sort((a, b) => a[0] - b[0]); lsSet(FULL_KEY, FULLS); }
+async function fullPull(){
+  if (fullBusy || mode !== "live" || !data || !("full_at" in data) || data.full_at === fullSeen) return;
+  fullBusy = true;
+  try { const j = await (await bFetch("/api/full", { cache: "no-store" })).json(); fullSeen = data.full_at; fullTake(j.rows); drawCellH(); } catch (e) {}
+  fullBusy = false;
+}
+function demoFulls(){
+  const m0 = midnight(Date.now() / 1000), sp = [[118, 96, 110, 92, 84, 71], [40, 44, 31, 30, 27, 22], [131, 122, 114, 117, 98, 90], [80, 83, 76, 70, 64, 52], [30, 28, 33, 29, 26, 24]];
+  return [11, 9, 6, 4, 2, 1].map((d, j) => { const t = dayAdd(m0, -d) + 13.4 * HOUR + j * 700, low = j === 3;
+    return [t, 95 + j * 14, 5560 + j * 3, sp.map((s, a) => [3400 + s[j], 3400, (a * 5 + 2) % 16 + 1, (a * 3 + 8) % 16 + 1]), low ? t + 31 * HOUR : 0, low ? 1460 : 0,
+      low ? [334, 392, 356, 371, 418] : [0, 0, 0, 0, 0], low ? [2020, 2000, 2000, 2000, 2000] : [0, 0, 0, 0, 0], low ? -55 : 0]; });
+}
+const fullRows = () => !isReal() ? demoFulls() : FULLS || (FULLS = (lsGet(FULL_KEY) || []).filter(fullOk));
+function fullCap(r){
+  if (!r || !(r[4] > 0)) return null;
+  const frac = 1 - r[5] / 10000, h = (r[4] - (r[0] + r[1] * 60)) / HOUR, n = r[7].filter(x => x > 0).length; if (!(frac >= .5) || !n || !(h > 0)) return null;
+  const hid = -(r[8] / 100) * h / n;                 // Ah che ogni BMS non ha visto uscire
+  return { h, frac, at: r[4], soc: r[5] / 100, bats: r[7].map((f, a) => { if (!(f > 0)) return null; const out = (f - r[6][a]) / 10 + hid, cap = out / frac; return { out, cap, nom: f / 10, err: cap * .05 / frac }; }) };
+}
+function drawCellH(){
+  const box = $("cellh"); if (!box || !data) return;
+  fullPull();
+  const bs = data.batteries || [], all = fullRows(), rows = all.slice(-12);
+  if (!rows.length) { box.innerHTML = `<p class="vocw-empty">${isReal() && !("full_at" in data) ? "Arriva col firmware 0.78: a ogni pieno la scheda segna quanto sono lontane le celle di ogni batteria." : "Si riempie al prossimo pieno: la scheda segna quanto sono lontane le celle di ogni batteria in cima alla carica, e qui si vede se col tempo si avvicinano."}</p>`; return; }
+  const last = rows[rows.length - 1], lim = S.alDiff || 80, sprd = (r, a) => r[3][a] && r[3][a][0] > 0 ? r[3][a][0] - r[3][a][1] : null;
+  const top = Math.max(lim * 1.3, ...rows.flatMap(r => r[3].map((c, a) => sprd(r, a) || 0))), bw = 112 / 12;
+  const dur = last[1] >= 60 ? `${Math.floor(last[1] / 60)} h ${String(last[1] % 60).padStart(2, "0")}` : `${last[1]} minuti`;
+  const list = bs.map((b, a) => {
+    const sv = rows.map(r => sprd(r, a)), cur = sv[sv.length - 1], prev = sv.slice(0, -1).filter(fin).slice(-3);
+    const tr = fin(cur) && prev.length ? cur - prev.reduce((x, y) => x + y, 0) / prev.length : null, c = last[3][a];
+    const bars = sv.map((v, i) => { const x = (12 - sv.length + i) * bw + 1, hh = fin(v) ? Math.max(2, v / top * 28) : 2;
+      return `<rect class="${!fin(v) ? "n" : v > lim ? "w" : ""}" x="${x.toFixed(1)}" y="${(30 - hh).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${hh.toFixed(1)}" rx="1.5"/>`; }).join("");
+    return `<div class="ch-row"><b>${esc(nameOf(b, a))}</b><svg viewBox="0 0 112 30" aria-hidden="true"><line x1="0" x2="112" y1="${(30 - lim / top * 28).toFixed(1)}" y2="${(30 - lim / top * 28).toFixed(1)}"/>${bars}</svg>` +
+      `<span class="ch-v${cur > lim ? " warn" : ""}">${fin(cur) ? nf(cur, 0) + " mV" : "–"}</span>` +
+      `<small>${fin(cur) ? `cella ${c[2]} la più alta (${nf(c[0] / 1000, 3)} V), cella ${c[3]} la più bassa (${nf(c[1] / 1000, 3)} V)` : "non letta in questo pieno"}` +
+      (tr !== null && Math.abs(tr) >= 5 ? ` · <span class="${tr > 0 ? "up" : "dn"}">${tr > 0 ? "▲" : "▼"} ${nf(Math.abs(tr), 0)} mV</span> sui pieni prima` : tr !== null ? " · stabile" : "") + `</small></div>`;
+  }).join("");
+  const capR = [...all].reverse().find(r => fullCap(r)), cp = fullCap(capR);
+  const capH = cp ? `<p class="note">Dal pieno ${vDay(capR[0])} alla sosta ${vDay(cp.at)} alle ${hm(cp.at)} (${nf(cp.h, 0)} ore dopo), con le batterie al ${nf(cp.soc, 0)}% dalla tensione a riposo: gli Ah che ogni BMS ha visto uscire, più quelli nascosti, divisi per la parte di carica usata.${cp.h > 72 ? " Sono passati più di 3 giorni: è poco precisa." : ""}</p>` +
+      `<table class="pv-tab"><thead><tr><th>Batteria</th><th>Usciti</th><th>Capacità vera</th><th>Di targa</th></tr></thead><tbody>` +
+      bs.map((b, a) => { const x = cp.bats[a]; return x ? `<tr><td>${esc(nameOf(b, a))}</td><td>${nf(x.out, 0)} Ah</td><td>${nf(x.cap, 0)} Ah<small>± ${nf(x.err, 0)}</small></td><td>${nf(x.cap / x.nom * 100, 0)}%<small class="${x.cap + x.err < x.nom * .9 ? "near" : "ok"}">${x.cap + x.err < x.nom * .9 ? "sotto il 90%" : "nella norma"}</small></td></tr>` : ""; }).join("") + `</tbody></table>`
+    : `<p class="vocw-empty">Si misura alla prima scarica profonda dopo un pieno: quando le batterie restano ferme un'ora sotto 51,2 V (di solito dopo uno spegnimento automatico) la tensione dice quanta carica è rimasta, e da lì esce la capacità vera di ognuna.</p>`;
+  box.innerHTML = `<p class="note">Quanto sono lontane la cella più alta e la più bassa di ogni batteria in cima alla carica, pieno dopo pieno: una barretta per pieno, la più a destra è l'ultimo. ` +
+    `La linea è la soglia di avviso (${lim} mV). Ultimo pieno: ${vDay(last[0])} alle ${hm(last[0])}, ${dur} sopra 55 V, fino a ${nf(last[2] / 100, 2)} V.</p>` +
+    `<div class="ch-list">${list}</div><h3>Capacità vera</h3>${capH}`;
 }
 
 function drawCabinet(bs, lowSoc){
