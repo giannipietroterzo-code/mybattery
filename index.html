@@ -1396,7 +1396,10 @@ footer{border-top:0;padding-top:0}
 .inv-row{display:grid;grid-template-columns:7.2em minmax(0,1fr) 4.6em;align-items:center;gap:10px;font-size:.78rem;color:var(--muted)}
 .inv-row b{justify-self:end;color:var(--ink);font:700 .92rem var(--num,inherit);font-variant-numeric:tabular-nums;white-space:nowrap}
 .inv-row .wnd-bar{height:10px;border-radius:5px}.inv-row .wnd-bar i{border-radius:5px}
-.inv-row.dc .wnd-bar i{background:var(--lith)}.inv-row.ac .wnd-bar i{background:var(--good)}
+.inv-row.dc .wnd-bar i{background:var(--lith)}.inv-row.ac .wnd-bar i{background:var(--good)}.inv-row.re .wnd-bar i{background:var(--warn)}
+.inv-pw{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.inv-pw .inv-row{grid-template-columns:5.4em minmax(0,1fr) 5em}
+.inv-pw .inv-row.dc .wnd-bar i{background:var(--muted)}
+.inv-pw p{margin:8px 0 0;font-size:.76rem;color:var(--muted);line-height:1.4}
 .inv-big{display:flex;align-items:baseline;gap:10px;margin-top:2px}
 .inv-big>b{font:700 1.9rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}.inv-big span{font-size:.8rem;color:var(--muted)}.inv-big span b{color:var(--ink);font-weight:700}
 .inv-dl{display:grid;gap:0;margin:2px 0 0}
@@ -1775,7 +1778,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
         <p class="hist-read" id="inv-runr"></p>
       </section>
       <section class="panel" aria-labelledby="h-inv-dev">
-        <h2 id="h-inv-dev">Interruttore e misuratore</h2>
+        <h2 id="h-inv-dev">Shelly e misuratori</h2>
         <div id="inv-dev"></div>
       </section>
     </div>
@@ -2059,7 +2062,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.54"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.55"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2694,13 +2697,17 @@ const houseAC = dc => { const f = hcalFit(); return f && fin(dc) ? Math.max(0, f
    0.72: meas), se no quelli dell'inverter se è tarata a mano, se no quelli dal lato delle batterie senza l'impianto.
    La media al minuto della scheda (house.w) serve a lei per decidere dove sta la casa, e alla taratura con l'inverter */
 // i watt in uscita dall'inverter misurati adesso dal misuratore dopo lo Shelly: null se la misura ha più di 30 secondi
-/* l'uscita dell'inverter (2.54): la misura lo Shelly EM (data.em, firmware 0.79: una lettura ogni 2 s, sempre) e, quando lui non risponde, il
-   misuratore Tuya (data.ac), che resta di riserva e di confronto. outM le dà nella stessa forma, quella di data.ac, più src «em» o «ty» */
+/* l'uscita dell'inverter: la misura lo Shelly EM (data.em, firmware 0.79: una lettura ogni 2 s, sempre). outM la dà nella forma di data.ac,
+   più src «em» o «ty», var (potenza reattiva) e va (apparente). 2.55, voluto dall'utente: dove c'è lo Shelly EM si mostra solo quello che lui
+   misura o che se ne calcola (corrente e fattore di potenza da watt e var; la frequenza non la dà e non si mostra); il misuratore Tuya non
+   entra più nei numeri della pagina, nemmeno se lo Shelly EM tace, e resta in fondo come confronto. Senza Shelly EM (firmware vecchi) vale il Tuya */
 function outM(){
   const e = data && data.em, a = data && data.ac || null;
-  if (!(e && e.ok && fin(e.w))) return a ? Object.assign({ src: "ty" }, a) : e ? { src: "em", ok: false, code: e.code, ip: e.ip, at: e.at } : null;
-  return { src: "em", ok: true, code: 200, ip: e.ip, at: e.at, t6: e.at, w: Math.round(e.w), v: e.v, a: fin(e.v) && e.v > 50 ? Math.hypot(e.w, e.var || 0) / e.v : null,
-    pf: e.pf, kwh: e.kwh, hz: a && a.ok && fin(a.hz) ? a.hz : null };
+  if (!e) return a ? Object.assign({ src: "ty" }, a) : null;
+  if (!(e.ok && fin(e.w))) return { src: "em", ok: false, code: e.code, ip: e.ip, at: e.at };
+  const va = Math.hypot(e.w, e.var || 0);
+  return { src: "em", ok: true, code: 200, ip: e.ip, at: e.at, t6: e.at, w: Math.round(e.w), var: fin(e.var) ? e.var : null, va, v: e.v,
+    a: fin(e.v) && e.v > 50 ? va / e.v : null, pf: fin(e.pf) ? e.pf : va >= 20 ? Math.min(1, e.w / va) : null, kwh: e.kwh };
 }
 const acNow = () => { const a = outM(); return a && a.ok && fin(a.w) && a.t6 && nowOf(data) - a.t6 <= 30 ? a.w : null; };
 function houseLive(k){
@@ -6648,7 +6655,7 @@ function drawInv(k){
     : !linked ? (a.src === "em" ? "Lo Shelly EM non risponde: è senza corrente o fuori dal WiFi." : esc(AC_ERR[a.code] || "codice " + a.code))
     : !ok && avg !== null ? `<span>Media di <b>${nf(Math.max(1, a.wdt / 60), 0)}</b> min fino alle ${hm(a.wat)}, dai kWh</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 2) : "–"}</b> kWh${today !== null ? ` · oggi <b>${nf(today, 2)}</b>` : ""}</span>`
     : !ok ? `<span>In attesa delle misure${a.t6 ? ": le ultime alle " + hm(a.t6) : ""}.</span><span>Il misuratore le manda circa ogni 5 minuti.</span>`
-    : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 1) : "–"}</b> kWh</span>`;
+    : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, a.src === "em" ? 2 : 1) : "–"}</b> kWh</span>`;
   // gli ampere: misurati (dato 6, fino a 10 minuti), o con la sola media dai kWh i medi, watt ÷ tensione (l'ultima letta, se no 230 V)
   // la tensione: quella del misuratore se recente, se no quella dello Shelly (stessa linea, la legge ogni 3 s)
   const vSh = cb && cb.ok && cb.on && fin(cb.v) && cb.v > 150 ? cb.v : null, vNow = six && fin(a.v) ? a.v : vSh;
@@ -6659,7 +6666,15 @@ function drawInv(k){
     `<text x="46" y="48" text-anchor="middle">${amp !== null ? (ampAvg ? "≈" : "") + nf(amp, amp < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">${ampAvg ? "A MEDI" : "AMPERE"}</text></svg>`;
   const tile = (t, v, u) => `<div><dt>${t}</dt><dd>${v}${u ? `<small>${u}</small>` : ""}</dd></div>`;
   head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
-    `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", linked && fin(a.pf) ? nf(a.pf, 2) : six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
+    `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${a && a.src === "em" ? tile("Apparente", ok ? nf(a.va, 0) : "–", "VA") : tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", linked && fin(a.pf) ? nf(a.pf, 2) : six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
+  /* le tre potenze dello Shelly EM (2.55): attiva (quella che la casa consuma davvero), reattiva (va e viene fra inverter e carichi: motori,
+     alimentatori), apparente (quella che l'inverter deve reggere, e che decide gli ampere). Barre sulla stessa scala, l'apparente */
+  if (a && a.src === "em" && ok) {
+    const pb = (cls, t, v, u) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${a.va >= 20 ? (Math.min(1, Math.abs(v) / a.va) * 100).toFixed(1) : 0}%"></i></div><b>${nf(Math.abs(v), 0)} ${u}</b></div>`;
+    head.innerHTML += `<div class="inv-pw"><div class="inv-eff">${pb("ac", "Attiva", a.w, "W")}${pb("re", "Reattiva", a.var || 0, "var")}${pb("dc", "Apparente", a.va, "VA")}</div>` +
+      `<p>${a.va < 20 ? "Uscita quasi a vuoto: sotto i 20 VA il fattore di potenza non si calcola." : a.pf >= .95 ? "Quasi tutta potenza attiva: l'inverter lavora per quello che la casa consuma davvero."
+        : `L'inverter regge <b>${nf(a.va, 0)} VA</b> per darne <b>${nf(a.w, 0)} W</b> utili: il resto è potenza reattiva dei carichi (motori, alimentatori).`}</p></div>`;
+  }
   // ---- rendimento
   /* media dell'ultimo minuto (2.47, richiesta dell'utente): batterie e misuratore sono letti in istanti diversi, e quando parte o si ferma un
      carico grosso la differenza dell'istante schizza (perdite «da 800 W» che non esistono). Si mediano ingresso e uscita sulle stesse letture */
@@ -6688,7 +6703,7 @@ function drawInv(k){
       row("Shelly EM in rete", em.ip ? esc(em.ip) + (emV ? " · firmware " + esc(emV) : "") : "lo sto cercando", "") +
       (em.rev ? row("Pinza dello Shelly EM", "montata al contrario: i watt li conto lo stesso", "") : "") +
       row("Letture dello Shelly EM", `${nf(em.n || 0, 0)} buone · ${nf(em.bad || 0, 0)} fallite`, "") : "") +
-    row(em ? "Tuya · riserva" : "Misuratore", !ty ? "non collegato" : tyOk ? seen(ty) : esc(AC_ERR[ty.code] || "codice " + ty.code), !ty ? "" : tyOk ? "ok" : "bad") +
+    row(em ? "Tuya · confronto" : "Misuratore", !ty ? "non collegato" : tyOk ? seen(ty) : esc(AC_ERR[ty.code] || "codice " + ty.code), !ty ? "" : tyOk ? "ok" : "bad") +
     (ty ? row(em ? "Tuya in rete" : "In rete", ty.ip ? `${esc(ty.ip)}${ty.ver ? " · protocollo " + esc(ty.ver) : ""}` : "non ancora trovato", "") +
       row("Tensione e potenza" + (em ? " del Tuya" : ""), ty.t6 ? "misurate alle " + hm(ty.t6) + " · ogni 5 minuti" : "non ancora arrivate", !em && ty.t6 && now - ty.t6 > 900 ? "bad" : "") +
       (fin(ty.wa) && ty.wat && ty.wdt >= 240 ? row("Potenza media dai kWh", `${power(ty.wa)} su ${nf(Math.max(1, ty.wdt / 60), 0)} min, alle ${hm(ty.wat)}`, "") : "") +
@@ -6704,24 +6719,31 @@ function invLearnTxt(){
   return `<p class="set-note">Imparato su <b>${f.n}</b> ore con la casa sulle batterie: a 1 kW in uscita prende dalle batterie circa <b>${power(f.a * 1000 + f.b)}</b> ` +
     `(rendimento <b>${nf(at(1000) * 100, 0)}%</b>; a 3 kW ${nf(at(3000) * 100, 0)}%), e <b>${power(f.b)}</b> se ne vanno comunque, inverter a vuoto e impianto.</p>`;
 }
+/* ultima ora (2.55): i minuti li tiene la scheda (data.m1, in coda l'uscita dell'inverter misurata con la casa sulle batterie; la app li
+   conserva in W1B), quindi il grafico c'è anche appena aperta la app; in più le letture arrivate adesso, per i minuti non ancora chiusi.
+   Dove la casa era su Enel la linea si interrompe (dall'inverter non usciva niente da registrare) */
 function drawInvRun(now){
   const svg = $("inv-run"); if (!svg) return;
   const W = 340, H = 130, l = 34, r = 8, t0 = 10, b = 112, from = now - 3600, X = t => l + (t - from) / 3600 * (W - l - r);
-  const pts = invRun.filter(x => x.t >= from), top = Math.max(500, ...pts.map(x => x.w)), Y = w => b - w / top * (b - t0);
+  const B = Object.assign({}, W1B || lsGet(W1B_KEY) || {}); (data && Array.isArray(data.m1) ? data.m1 : []).forEach(x => { if (Array.isArray(x) && fin(x[0])) B[x[0]] = x; });
+  const mins = Object.values(B).filter(x => Array.isArray(x) && x.length >= 12 && x[8] > 0 && fin(x[11]) && x[0] >= from && x[0] <= now).map(x => ({ t: x[0] + 30, w: x[11], m: true }));
+  const has = new Set(mins.map(x => x.t - 30)), pts = mins.concat(invRun.filter(x => x.t >= from && !has.has(Math.floor(x.t / 60) * 60))).sort((x, y) => x.t - y.t);
+  const top = Math.max(500, ...pts.map(x => x.w)), Y = w => b - w / top * (b - t0);
   let g = `<line x1="${l}" y1="${b}" x2="${W - r}" y2="${b}" stroke="var(--line)"/><line x1="${l}" y1="${t0}" x2="${W - r}" y2="${t0}" stroke="var(--line)" stroke-dasharray="2 3"/>` +
     `<text x="${l - 4}" y="${t0 + 3}" text-anchor="end" font-size="9" fill="var(--muted)">${power(top)}</text><text x="${l - 4}" y="${b + 3}" text-anchor="end" font-size="9" fill="var(--muted)">0</text>` +
     [60, 45, 30, 15, 0].map(m => `<text x="${X(now - m * 60)}" y="${b + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${m ? "−" + m + "′" : "ora"}</text>`).join("");
-  if (pts.length >= 2) {
-    const line = pts.map((x, i) => `${i ? "L" : "M"}${X(x.t).toFixed(1)} ${Y(x.w).toFixed(1)}`).join("");
-    g += `<path d="${line}L${X(pts[pts.length - 1].t).toFixed(1)} ${b}L${X(pts[0].t).toFixed(1)} ${b}Z" fill="var(--good)" opacity=".18"/><path d="${line}" fill="none" stroke="var(--good)" stroke-width="1.8" stroke-linejoin="round"/>`;
-  }
-  // le misure arrivano ogni ~5 minuti: ogni punto si vede, anche da solo
-  // (in tempo reale i punti sono fitti: il pallino solo dove il punto prima è lontano almeno un minuto)
-  g += pts.filter((x, i) => !i || x.t - pts[i - 1].t >= 60).map(x => `<circle cx="${X(x.t).toFixed(1)}" cy="${Y(x.w).toFixed(1)}" r="3" fill="var(--surface)" stroke="var(--good)" stroke-width="1.8"/>`).join("");
+  const segs = []; pts.forEach((x, i) => { if (!i || x.t - pts[i - 1].t > 150) segs.push([]); segs[segs.length - 1].push(x); });
+  segs.forEach(q => {
+    if (q.length < 2) { g += `<circle cx="${X(q[0].t).toFixed(1)}" cy="${Y(q[0].w).toFixed(1)}" r="3" fill="var(--surface)" stroke="var(--good)" stroke-width="1.8"/>`; return; }
+    const line = q.map((x, i) => `${i ? "L" : "M"}${X(x.t).toFixed(1)} ${Y(x.w).toFixed(1)}`).join("");
+    g += `<path d="${line}L${X(q[q.length - 1].t).toFixed(1)} ${b}L${X(q[0].t).toFixed(1)} ${b}Z" fill="var(--good)" opacity=".18"/><path d="${line}" fill="none" stroke="var(--good)" stroke-width="1.8" stroke-linejoin="round"/>`;
+  });
+  if (pts.length) { const z = pts[pts.length - 1]; if (now - z.t <= 90) g += `<circle cx="${X(z.t).toFixed(1)}" cy="${Y(z.w).toFixed(1)}" r="3.2" fill="var(--good)"/>`; }
   svg.innerHTML = g;
-  const avg = pts.length ? pts.reduce((s, x) => s + x.w, 0) / pts.length : null, mx = pts.reduce((m, x) => !m || x.w > m.w ? x : m, null);
-  $("inv-runr").innerHTML = pts.length >= 1 ? `Media <b>${power(avg)}</b> · massimo <b>${power(mx.w)}</b> alle ${hm(mx.t)}. Misure e medie arrivate da quando hai aperto la app.`
-    : "Le misure si accumulano mentre la app è aperta: il misuratore le manda circa ogni 5 minuti.";
+  const avg = pts.length ? pts.reduce((s, x) => s + x.w, 0) / pts.length : null, mx = pts.reduce((m, x) => !m || x.w > m.w ? x : m, null), cover = mins.length;
+  $("inv-runr").innerHTML = pts.length >= 1 ? `Media <b>${power(avg)}</b> · massimo <b>${power(mx.w)}</b> alle ${hm(mx.t)}` +
+      (cover ? ` · <b>${cover}</b> ${cover === 1 ? "minuto" : "minuti"} con la casa sulle batterie, registrati dalla scheda.` : ". Letture arrivate da quando hai aperto la app.")
+    : "Qui compare l'uscita dell'inverter minuto per minuto, quando la casa è sulle batterie: la registra la scheda, anche con la app chiusa.";
 }
 function drawWind(){
   const head = $("wnd-head"); if (!head) return;
