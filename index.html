@@ -2062,7 +2062,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.55"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.56"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2699,15 +2699,15 @@ const houseAC = dc => { const f = hcalFit(); return f && fin(dc) ? Math.max(0, f
 // i watt in uscita dall'inverter misurati adesso dal misuratore dopo lo Shelly: null se la misura ha più di 30 secondi
 /* l'uscita dell'inverter: la misura lo Shelly EM (data.em, firmware 0.79: una lettura ogni 2 s, sempre). outM la dà nella forma di data.ac,
    più src «em» o «ty», var (potenza reattiva) e va (apparente). 2.55, voluto dall'utente: dove c'è lo Shelly EM si mostra solo quello che lui
-   misura o che se ne calcola (corrente e fattore di potenza da watt e var; la frequenza non la dà e non si mostra); il misuratore Tuya non
-   entra più nei numeri della pagina, nemmeno se lo Shelly EM tace, e resta in fondo come confronto. Senza Shelly EM (firmware vecchi) vale il Tuya */
+   misura o che se ne calcola (corrente e fattore di potenza da watt e var). Dalla 2.56, voluto dall'utente: la frequenza, che lo Shelly EM
+   non dà, e il fattore sotto i 20 VA si prendono dal misuratore Tuya quando risponde; per il resto il Tuya resta in fondo come confronto. Senza Shelly EM (firmware vecchi) vale il Tuya */
 function outM(){
   const e = data && data.em, a = data && data.ac || null;
   if (!e) return a ? Object.assign({ src: "ty" }, a) : null;
   if (!(e.ok && fin(e.w))) return { src: "em", ok: false, code: e.code, ip: e.ip, at: e.at };
-  const va = Math.hypot(e.w, e.var || 0);
+  const va = Math.hypot(e.w, e.var || 0), ty = !!(a && a.ok);   // 2.56: la frequenza, e il fattore quando lo Shelly EM non lo può dare, dal Tuya se risponde
   return { src: "em", ok: true, code: 200, ip: e.ip, at: e.at, t6: e.at, w: Math.round(e.w), var: fin(e.var) ? e.var : null, va, v: e.v,
-    a: fin(e.v) && e.v > 50 ? va / e.v : null, pf: fin(e.pf) ? e.pf : va >= 20 ? Math.min(1, e.w / va) : null, kwh: e.kwh };
+    a: fin(e.v) && e.v > 50 ? va / e.v : null, pf: fin(e.pf) ? e.pf : va >= 20 ? Math.min(1, e.w / va) : ty && fin(a.pf) ? a.pf : null, kwh: e.kwh, hz: ty ? a.hz : null };
 }
 const acNow = () => { const a = outM(); return a && a.ok && fin(a.w) && a.t6 && nowOf(data) - a.t6 <= 30 ? a.w : null; };
 function houseLive(k){
@@ -6666,7 +6666,7 @@ function drawInv(k){
     `<text x="46" y="48" text-anchor="middle">${amp !== null ? (ampAvg ? "≈" : "") + nf(amp, amp < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">${ampAvg ? "A MEDI" : "AMPERE"}</text></svg>`;
   const tile = (t, v, u) => `<div><dt>${t}</dt><dd>${v}${u ? `<small>${u}</small>` : ""}</dd></div>`;
   head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
-    `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${a && a.src === "em" ? tile("Apparente", ok ? nf(a.va, 0) : "–", "VA") : tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", linked && fin(a.pf) ? nf(a.pf, 2) : six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
+    `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", linked && fin(a.pf) ? nf(a.pf, 2) : six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
   /* le tre potenze dello Shelly EM (2.55): attiva (quella che la casa consuma davvero), reattiva (va e viene fra inverter e carichi: motori,
      alimentatori), apparente (quella che l'inverter deve reggere, e che decide gli ampere). Barre sulla stessa scala, l'apparente */
   if (a && a.src === "em" && ok) {
