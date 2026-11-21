@@ -141,6 +141,7 @@ body{height:100%;overflow:hidden}
 .ch-v{font-family:var(--num);font-weight:700;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.ch-v.warn{color:var(--warn)}
 .ch-row small .up{color:var(--warn);font-weight:600}.ch-row small .dn{color:var(--good);font-weight:600}
 #cellh h3{margin:22px 2px 4px;font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}#cellh .note{margin:0 2px 10px;font-size:.8rem;color:var(--muted)}
+#cellh .lim-g{margin:6px 2px 10px}#cellh .lim-n b{color:var(--ink);font-weight:600}#cellh .lim-n .lim-w{color:var(--warn)}
 .pv-tab small.ok{color:var(--good);font-weight:600}.pv-tab small.near{color:var(--warn);font-weight:600}
 .vocw-empty{margin:0 2px;padding:14px;border-radius:16px;background:var(--surface);font-size:.85rem;color:var(--muted)}
 @media (prefers-color-scheme: dark){:root .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}}
@@ -1898,7 +1899,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.59"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.60"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5896,11 +5897,33 @@ function fullCap(r){
   const hid = -(r[8] / 100) * h / n;                 // Ah che ogni BMS non ha visto uscire
   return { h, frac, at: r[4], soc: r[5] / 100, bats: r[7].map((f, a) => { if (!(f > 0)) return null; const out = (f - r[6][a]) / 10 + hid, cap = out / frac; return { out, cap, nom: f / 10, err: cap * .05 / frac }; }) };
 }
+/* le soglie dei BMS (2.60, firmware 0.81: batteries[].lim, lette col comando 80H, sola lettura): da che tensione di cella e da che differenza
+   parte il bilanciamento, a che tensione di cella il BMS stacca la carica e a quale la riprende. Di solito sono uguali per tutte: allora
+   tre caselle; se una batteria le ha diverse, una riga per batteria. La frase sotto le mette accanto a quello che è successo all'ultimo
+   pieno (fullRows): la tensione media per cella raggiunta e la cella più alta vista, contro la soglia di avvio e quella di stacco */
+function limBox(bs, last){
+  const L = bs.map((b, a) => b.lim ? { ...b.lim, a, name: nameOf(b, a) } : null).filter(Boolean), V = mv => nf(mv / 1000, 2);
+  if (!L.length) return bs.some(b => b.lim_raw) ? `<h3>Soglie dei BMS</h3><p class="vocw-empty">La scheda ha chiesto le soglie ai BMS ma la risposta non è nella forma prevista dal manuale: va guardata a mano.</p>` : "";
+  const same = L.every(x => x.bv === L[0].bv && x.bd === L[0].bd && x.ov === L[0].ov && x.ovr === L[0].ovr), x = L[0];
+  const tile = (t, v, u) => `<div><dt>${t}</dt><dd>${v}<small>${u}</small></dd></div>`;
+  const tab = same ? `<dl class="wnd-g lim-g">${tile("Bilancia da", V(x.bv), "V")}${tile("Con più di", nf(x.bd, 0), "mV")}${tile("Stacca a", V(x.ov), "V")}</dl>`
+    : `<table class="pv-tab"><thead><tr><th>Batteria</th><th>Bilancia da</th><th>Con più di</th><th>Stacca a</th></tr></thead><tbody>` +
+      L.map(q => `<tr><td>${esc(q.name)}</td><td>${V(q.bv)} V</td><td>${nf(q.bd, 0)} mV</td><td>${V(q.ov)} V<small>riprende a ${V(q.ovr)}</small></td></tr>`).join("") + `</tbody></table>`;
+  let txt = `Per cella. Il BMS scarica un poco le celle più alte quando superano la tensione di avvio e distano dalla più bassa più della differenza; se una cella arriva alla tensione di stacco ferma la carica di quella batteria${same ? `, e la riprende sotto ${V(x.ovr)} V` : ""}.`;
+  if (last) {
+    const avg = last[2] / 100 / 16 * 1000, bvMax = Math.max(...L.map(q => q.bv)), hi = L.map(q => ({ q, c: last[3][q.a] && last[3][q.a][0] > 0 ? last[3][q.a][0] : null })).filter(o => o.c !== null);
+    const near = hi.filter(o => o.c >= o.q.ov - 30).map(o => `${esc(o.q.name)} (${V(o.c)} V)`);
+    txt += ` All'ultimo pieno le batterie sono arrivate in media a <b>${V(avg)} V</b> per cella, ` +
+      (avg >= bvMax + 20 ? `sopra l'avvio del bilanciamento: finché restano lì, bilanciano.` : avg >= bvMax ? `appena sopra l'avvio del bilanciamento: il tempo utile è poco.` : `<b>sotto</b> l'avvio del bilanciamento: bilanciano solo le batterie con celle più alte della media.`) +
+      (near.length ? ` <b class="lim-w">Vicino allo stacco:</b> ${near.join(", ")}.` : hi.length ? ` La cella più alta è rimasta ${nf(Math.min(...hi.map(o => o.q.ov - o.c)), 0)} mV sotto lo stacco.` : "");
+  }
+  return `<h3>Soglie dei BMS</h3>${tab}<p class="note lim-n">${txt}</p>`;
+}
 function drawCellH(){
   const box = $("cellh"); if (!box || !data) return;
   fullPull();
   const bs = data.batteries || [], all = fullRows(), rows = all.slice(-12);
-  if (!rows.length) { box.innerHTML = `<p class="vocw-empty">${isReal() && !("full_at" in data) ? "Arriva col firmware 0.78: a ogni pieno la scheda segna quanto sono lontane le celle di ogni batteria." : "Si riempie al prossimo pieno: la scheda segna quanto sono lontane le celle di ogni batteria in cima alla carica, e qui si vede se col tempo si avvicinano."}</p>`; return; }
+  if (!rows.length) { box.innerHTML = limBox(bs, null) + `<p class="vocw-empty">${isReal() && !("full_at" in data) ? "Arriva col firmware 0.78: a ogni pieno la scheda segna quanto sono lontane le celle di ogni batteria." : "Si riempie al prossimo pieno: la scheda segna quanto sono lontane le celle di ogni batteria in cima alla carica, e qui si vede se col tempo si avvicinano."}</p>`; return; }
   const last = rows[rows.length - 1], lim = S.alDiff || 80, sprd = (r, a) => r[3][a] && r[3][a][0] > 0 ? r[3][a][0] - r[3][a][1] : null;
   const top = Math.max(lim * 1.3, ...rows.flatMap(r => r[3].map((c, a) => sprd(r, a) || 0))), bw = 112 / 12;
   const dur = last[1] >= 60 ? `${Math.floor(last[1] / 60)} h ${String(last[1] % 60).padStart(2, "0")}` : `${last[1]} minuti`;
@@ -5921,7 +5944,7 @@ function drawCellH(){
     : `<p class="vocw-empty">Si misura alla prima scarica profonda dopo un pieno: quando le batterie restano ferme un'ora sotto 51,2 V (di solito dopo uno spegnimento automatico) la tensione dice quanta carica è rimasta, e da lì esce la capacità vera di ognuna.</p>`;
   box.innerHTML = `<p class="note">Quanto sono lontane la cella più alta e la più bassa di ogni batteria in cima alla carica, pieno dopo pieno: una barretta per pieno, la più a destra è l'ultimo. ` +
     `La linea è la soglia di avviso (${lim} mV). Ultimo pieno: ${vDay(last[0])} alle ${hm(last[0])}, ${dur} sopra 55 V, fino a ${nf(last[2] / 100, 2)} V.</p>` +
-    `<div class="ch-list">${list}</div><h3>Capacità vera</h3>${capH}`;
+    `<div class="ch-list">${list}</div>${limBox(bs, last)}<h3>Capacità vera</h3>${capH}`;
 }
 
 function drawCabinet(bs, lowSoc){
