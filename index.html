@@ -1449,14 +1449,14 @@ button.tdy-top{cursor:pointer}
 .tdy-t{display:grid;gap:5px;align-content:start;min-width:0;padding:11px 12px 12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;text-align:left;cursor:pointer;
   clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);transition:border-color .15s}
 .tdy-t:active{border-color:var(--lith)}
-.tdy-t.bat,.tdy-t.home,.tdy-t.time{grid-column:1/-1}
+.tdy-t.bat,.tdy-t.home,.tdy-t.time,.tdy-t.tom{grid-column:1/-1}
 .tdy-h{display:flex;align-items:center;gap:7px;font:700 .72rem "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .tdy-h svg{width:17px;height:17px;flex:none;color:var(--c,var(--lith))}
 .tdy-v{font:700 2rem/1 "Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif;color:var(--c,var(--ink));font-variant-numeric:tabular-nums;white-space:nowrap}
 .tdy-v small{margin-left:4px;font-size:.9rem;font-weight:600;color:var(--muted)}
 .tdy-s{font-size:.78rem;line-height:1.35;color:var(--muted)}.tdy-s b{color:var(--ink);font-weight:600}
 .tdy-bar{display:block;height:8px;background:var(--line);transform:skewX(-20deg);margin:1px 3px 2px}.tdy-bar i{display:block;height:100%;background:var(--lith)}
-.tdy-t.bat{--c:var(--lith)}.tdy-t.sun{--c:var(--sun)}.tdy-t.wind{--c:var(--wn-w)}.tdy-t.home.on{--c:var(--good)}.tdy-t.time.ok{--c:var(--good)}.tdy-t.time.warn{--c:var(--warn)}
+.tdy-t.bat{--c:var(--lith)}.tdy-t.sun{--c:var(--sun)}.tdy-t.wind{--c:var(--wn-w)}.tdy-t.home.on{--c:var(--good)}.tdy-t.time.ok{--c:var(--good)}.tdy-t.time.warn{--c:var(--warn)}.tdy-t.tom{--c:var(--sun)}
 .tdy-t.bat .tdy-v,.tdy-t.time .tdy-v{font-size:2.5rem}
 /* una sezione a scomparsa, in fondo alla pagina: quello che si legge una volta */
 .fold{margin:0 0 14px;border:1px solid var(--line);background:var(--surface)}
@@ -1898,7 +1898,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.57"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.58"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -6817,21 +6817,23 @@ async function keepAwake(){                           // lo schermo acceso in mo
 }
 document.addEventListener("visibilitychange", keepAwake);
 /* ---------- pagina Oggi (2.57, idea condivisa con l'utente il 21/11/2026) ----------
-   La giornata in cinque riquadri, e tutto il resto un livello sotto: ogni riquadro porta alla sua pagina. Non calcola niente di suo, prende i
+   La giornata in sei riquadri, e tutto il resto un livello sotto: ogni riquadro porta alla sua pagina. Non calcola niente di suo, prende i
    numeri dove li prendono le altre pagine, così non possono dire cose diverse:
    - Carica: quella vera (bank), con lo stato di adesso;
    - Sole: i kWh di oggi dal registro e quelli non usati a batterie piene (lostDays), i watt di adesso dei regolatori;
    - Casa: dove sta (houseNow) e quanto prende adesso (houseLive: misurato dallo Shelly EM se è sulle batterie), i kWh che l'inverter le ha dato
      oggi (i Wh misurati nel registro, H.awh);
    - Pala: i kWh stimati oggi nelle ore stimabili (wndHours) e i watt di adesso (wndShown);
-   - Autonomia: lo stesso motore di «Batterie su solare» e della previsione (autonomy).
+   - Autonomia: lo stesso motore di «Batterie su solare» e della previsione (autonomy);
+   - Domani: il sole previsto e dove arrivano le batterie, dalla previsione a 48 ore (currentForecast).
    In testa una riga sola: gli avvisi aperti, se no il sole in più previsto per oggi (spareOf), se no «tutto regolare» */
 const TDY_ICO = {
   bat: '<rect x="3" y="7" width="16" height="10" rx="1.5"/><path d="M21 10.5v3M7 10v4M10.5 10v4M14 10v4"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
   home: '<path d="M3.5 11.5 12 4l8.5 7.5M6 10v9.5h12V10M10 19.5v-5h4v5"/>',
   wind: '<path d="M12 12v9.5M12 12 6.5 4.5M12 12l8.5-2M12 12l-7 6"/><circle cx="12" cy="12" r="1.6"/>',
-  time: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/>' };
+  time: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/>',
+  next: '<path d="M3 18.5h18M6.5 18.5a5.5 5.5 0 0 1 11 0M12 6V3.5M12 3.5 9.8 5.7M12 3.5l2.2 2.2M4.6 11.6l1.5 1.5M19.4 11.6l-1.5 1.5"/>' };
 function drawToday(k, f){
   const box = $("tdy"); if (!box) return;
   const now = nowOf(data), m0 = midnight(now), M = model, L = houseLive(k), kwh = v => `${nf(v, v < 10 ? 1 : 0)}<small>kWh</small>`;
@@ -6862,6 +6864,17 @@ function drawToday(k, f){
     if (!L.on) aSub += " · se la casa fosse sulle batterie";
   } else if (a && fin(a.dark)) { aV = dur(a.dark); aSub = `al buio, al consumo ${L.on ? "di adesso" : "solito"}: stima senza abitudini`; }
   else if (a) aSub = "non ancora stimabile: mancano i consumi";
+  // domani (2.58): dalla previsione a 48 ore, la stessa di «Batterie, prossime 48 ore»: il sole atteso e dove arrivano le batterie
+  let dV = "–", dSub = "serve la previsione: meteo impostato e almeno una settimana di registro", dCls = "";
+  if (f && Array.isArray(f.t) && Array.isArray(f.mid) && Array.isArray(f.pv)) {
+    const d1 = dayAdd(m0, 1), d2 = dayAdd(m0, 2); let wh = 0, n = 0, mx = -1, fullAt = null;
+    for (let i = 0; i < f.t.length; i++) { const t = f.t[i], s1 = f.mid[i + 1]; if (t < d1 || t >= d2) continue;
+      n++; wh += Math.max(0, f.pv[i] || 0);
+      if (fin(s1)) { if (s1 > mx) mx = s1; if (s1 >= 99 && fullAt === null) fullAt = t + HOUR; } }
+    const same = M ? kwhAhead(M, simCtx(M, now).ahead, d1, d2).pv : null;   // gli stessi kWh della scheda del meteo in Andamento
+    if (n >= 20 && mx >= 0) { dV = kwh(same !== null ? same : wh / 1000); dCls = fullAt ? " ok" : "";
+      dSub = "di sole previsto · " + (fullAt ? `batterie <b>piene</b> verso le ${hm(q15(fullAt))}` : `le batterie arrivano al <b>${nf(mx, 0)}%</b>`) + (L.on ? "" : " · con la casa com'è adesso"); }
+  }
   // la riga in testa
   const nAl = document.querySelectorAll("#alerts > li").length, sp = f ? spareOf(f, now) : null;
   const top = nAl ? `<button type="button" class="tdy-top al" data-go="0"><b>${nAl} ${nAl === 1 ? "avviso aperto" : "avvisi aperti"}</b><span>guardali nella Dashboard</span></button>`
@@ -6872,7 +6885,8 @@ function drawToday(k, f){
     tile("sun", 2, "sun", "Sole di oggi", D && D.seen ? kwh(D.made) : pvNow !== null ? big(pvNow) : "–", D && D.seen ? sSub : pvNow !== null ? "adesso · i kWh di oggi arrivano col registro" : sSub) +
     tile("wind", 5, "wind", "Pala di oggi", wV, wSub) +
     tile("home" + (L.on ? " on" : ""), 6, "home", "Casa", hV, hSub) +
-    tile("time" + aCls, 3, "time", "Autonomia", aV, aSub) + `</div>`;
+    tile("time" + aCls, 3, "time", "Autonomia", aV, aSub) +
+    tile("tom" + dCls, 3, "next", "Domani", dV, dSub) + `</div>`;
   if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
 }
 $("tdy").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) goPage(+b.dataset.go); });
