@@ -377,10 +377,15 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .ax{position:absolute;right:0;font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1;transform:translateY(-50%)}
 .ref{position:absolute;left:0;right:38px;border-top:1.5px dashed var(--muted);pointer-events:none}
 .ref span{position:absolute;left:0;bottom:2px;font-size:.66rem;color:var(--muted);background:var(--surface);padding:0 4px 0 0;white-space:nowrap}
-.cell-n{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;font-size:.62rem;color:var(--muted);text-align:center;margin:4px 38px 0 0;font-variant-numeric:tabular-nums}
+.cell-n{display:grid;grid-template-columns:repeat(16,1fr);gap:3px;font-size:.62rem;color:var(--muted);text-align:center;margin:4px 0 0;font-variant-numeric:tabular-nums}
 .cell-n .sel{color:var(--ink);font-weight:700}
 .cells-sum{margin:10px 0 0;font-size:.9rem;min-height:2.9em}
 .cells-sum.warn{color:var(--warn)}
+.balt{position:relative;display:grid;grid-template-columns:repeat(16,1fr);gap:3px;height:28px;margin:6px 0 0;align-items:start;border-top:1px solid var(--line)}
+.balt i{display:block;border-radius:0 0 3px 3px;background:var(--lith);opacity:0}
+.balt i.on{opacity:.45}.balt i.now{opacity:1}.balt i.sel{opacity:1;background:var(--ink)}
+.balt span{position:absolute;left:100%;top:2px;width:38px;padding-left:6px;font-size:.58rem;line-height:1.15;color:var(--muted)}
+.balt-sum{margin:6px 0 0;font-size:.82rem;color:var(--muted)}.balt-sum b{color:var(--ink);font-weight:600}
 .temps{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .temps span{padding:6px 10px;border-radius:8px;background:var(--bg);font-size:.88rem;font-variant-numeric:tabular-nums}
 .sheet h3{font-size:.95rem;margin:22px 0 4px;font-weight:600}
@@ -1819,6 +1824,13 @@ button.tdy-top{cursor:pointer}
       <label><input type="radio" name="alDiff" value="80"><span>80 mV</span></label>
       <label><input type="radio" name="alDiff" value="120"><span>120 mV</span></label>
     </fieldset>
+    <span class="set-lbl">Corrente di bilanciamento <small>stima: il BMS non la misura</small></span>
+    <fieldset class="seg" id="set-balma"><legend>Corrente di bilanciamento stimata</legend>
+      <label><input type="radio" name="balMa" value="50"><span>50 mA</span></label>
+      <label><input type="radio" name="balMa" value="100"><span>100 mA</span></label>
+      <label><input type="radio" name="balMa" value="150"><span>150 mA</span></label>
+      <label><input type="radio" name="balMa" value="200"><span>200 mA</span></label>
+    </fieldset>
     <div class="chk" id="set-alchk">
       <label><input type="checkbox" name="alTemp"><span><b>Temperature</b><small>Celle sopra 45 °C, o sotto 2 °C quando non si possono caricare</small></span></label>
       <label><input type="checkbox" name="alOff"><span><b>Apparecchi che non rispondono</b><small>Una batteria o un regolatore Epever muto</small></span></label>
@@ -1899,7 +1911,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.60"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.61"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2368,8 +2380,8 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { poll: [2,5,10,30], inv: [46,47,48,49,50], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
-const DEF = { poll: 5, inv: 48, wnd: [[1794878400, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const OPT = { poll: [2,5,10,30], inv: [46,47,48,49,50], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], balMa: [50,100,150,200], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
+const DEF = { poll: 5, inv: 48, wnd: [[1794878400, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, balMa: 100, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2450,7 +2462,7 @@ const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0
 const guardSoc = () => Math.max(aoMean() ?? aoBase(), cutSoc());
 const aoActs = () => { const a = data && data.ao, cb = data && data.cb; return !!(aoLimit() && cb && cb.ok !== false && cb.on !== false && !(a && a.st === 4)); };
 const floorSoc = () => houseNow() && aoActs() ? guardSoc() : cutSoc();
-const SHARED = ["inv", "wnd", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
+const SHARED = ["inv", "wnd", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "balMa", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* le impostazioni condivise si salvano a voci (firmware 0.48): cfgBase è come la scheda le ha l'ultima volta che le abbiamo viste o scritte, e si manda
@@ -5919,11 +5931,31 @@ function limBox(bs, last){
   }
   return `<h3>Soglie dei BMS</h3>${tab}<p class="note lim-n">${txt}</p>`;
 }
+/* il tempo di bilanciamento (2.61, firmware 0.82: batteries[].bal_s secondi da bal_from, bal_d secondi di oggi, per cella). Il BMS dice
+   solo quali celle stanno bilanciando, non con quanta corrente (non è nel protocollo né nel manuale): il dato vero è il tempo. Gli Ah tolti
+   sono una stima, tempo × la corrente scelta nelle impostazioni (S.balMa), e si scrivono sempre con «circa» */
+const balT = s => { const m = Math.round(s / 60); return s < 60 ? `${Math.round(s)} s` : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };
+const balAh = s => s / 3600 * (S.balMa || 100) / 1000;
+const balAhT = s => { const x = balAh(s); return `circa ${nf(x, x < .1 ? 3 : 2)} Ah`; };
+const balTop = arr => { const mx = Math.max(0, ...arr); return { s: mx, j: mx > 0 ? arr.indexOf(mx) : -1, n: arr.filter(x => x > 0).length }; };
+const balFrom = () => data && data.bal_from ? `${vDay(data.bal_from)} alle ${hm(data.bal_from)}` : "";
+function balBox(bs){
+  const L = bs.map((b, a) => Array.isArray(b.bal_s) ? { name: nameOf(b, a), t: balTop(b.bal_s), d: balTop(b.bal_d || []), now: (b.bal || []).filter(Boolean).length } : null).filter(Boolean);
+  if (!L.length) return isReal() ? `<h3>Tempo di bilanciamento</h3><p class="vocw-empty">Arriva col firmware 0.82: la scheda conta per quanto tempo ogni cella ha avuto il bilanciamento acceso.</p>` : "";
+  const any = L.some(x => x.t.s > 0);
+  const tab = `<table class="pv-tab"><thead><tr><th>Batteria</th><th>Oggi</th><th>In tutto</th><th>Tolti</th></tr></thead><tbody>` +
+    L.map(x => `<tr><td>${esc(x.name)}</td><td>${x.d.s > 0 ? balT(x.d.s) : "–"}<small>${x.now ? `<span class="up">●</span> ${x.now === 1 ? "1 cella adesso" : x.now + " celle adesso"}` : x.d.n ? (x.d.n === 1 ? "1 cella" : x.d.n + " celle") : "ferma"}</small></td>` +
+      `<td>${x.t.s > 0 ? balT(x.t.s) : "–"}<small>${x.t.s > 0 ? `cella ${x.t.j + 1} · ${x.t.n === 1 ? "solo lei" : x.t.n + " celle"}` : "nessuna cella"}</small></td>` +
+      `<td>${x.t.s > 0 ? "≈ " + nf(balAh(x.t.s), balAh(x.t.s) < .1 ? 3 : 2) + " Ah" : "–"}<small>stima</small></td></tr>`).join("") + `</tbody></table>`;
+  return `<h3>Tempo di bilanciamento</h3>${tab}<p class="note lim-n">Per ogni batteria la cella che ha bilanciato di più${balFrom() ? `, contata dalla scheda da ${balFrom()}` : ""}. ` +
+    `Il BMS dice quali celle bilanciano ma non misura la corrente: gli Ah tolti sono il tempo per <b>${S.balMa || 100} mA</b> (si cambia in Impostazioni → Allarmi), una stima: a quella corrente un'ora di bilanciamento toglie ${nf((S.balMa || 100) / 1000, 2)} Ah a una cella da 200. ` +
+    (any ? "" : `Finora nessuna cella ha bilanciato.`) + `</p>`;
+}
 function drawCellH(){
   const box = $("cellh"); if (!box || !data) return;
   fullPull();
   const bs = data.batteries || [], all = fullRows(), rows = all.slice(-12);
-  if (!rows.length) { box.innerHTML = limBox(bs, null) + `<p class="vocw-empty">${isReal() && !("full_at" in data) ? "Arriva col firmware 0.78: a ogni pieno la scheda segna quanto sono lontane le celle di ogni batteria." : "Si riempie al prossimo pieno: la scheda segna quanto sono lontane le celle di ogni batteria in cima alla carica, e qui si vede se col tempo si avvicinano."}</p>`; return; }
+  if (!rows.length) { box.innerHTML = limBox(bs, null) + balBox(bs) + `<p class="vocw-empty">${isReal() && !("full_at" in data) ? "Arriva col firmware 0.78: a ogni pieno la scheda segna quanto sono lontane le celle di ogni batteria." : "Si riempie al prossimo pieno: la scheda segna quanto sono lontane le celle di ogni batteria in cima alla carica, e qui si vede se col tempo si avvicinano."}</p>`; return; }
   const last = rows[rows.length - 1], lim = S.alDiff || 80, sprd = (r, a) => r[3][a] && r[3][a][0] > 0 ? r[3][a][0] - r[3][a][1] : null;
   const top = Math.max(lim * 1.3, ...rows.flatMap(r => r[3].map((c, a) => sprd(r, a) || 0))), bw = 112 / 12;
   const dur = last[1] >= 60 ? `${Math.floor(last[1] / 60)} h ${String(last[1] % 60).padStart(2, "0")}` : `${last[1]} minuti`;
@@ -5944,7 +5976,7 @@ function drawCellH(){
     : `<p class="vocw-empty">Si misura alla prima scarica profonda dopo un pieno: quando le batterie restano ferme un'ora sotto 51,2 V (di solito dopo uno spegnimento automatico) la tensione dice quanta carica è rimasta, e da lì esce la capacità vera di ognuna.</p>`;
   box.innerHTML = `<p class="note">Quanto sono lontane la cella più alta e la più bassa di ogni batteria in cima alla carica, pieno dopo pieno: una barretta per pieno, la più a destra è l'ultimo. ` +
     `La linea è la soglia di avviso (${lim} mV). Ultimo pieno: ${vDay(last[0])} alle ${hm(last[0])}, ${dur} sopra 55 V, fino a ${nf(last[2] / 100, 2)} V.</p>` +
-    `<div class="ch-list">${list}</div>${limBox(bs, last)}<h3>Capacità vera</h3>${capH}`;
+    `<div class="ch-list">${list}</div>${limBox(bs, last)}${balBox(bs)}<h3>Capacità vera</h3>${capH}`;
 }
 
 function drawCabinet(bs, lowSoc){
@@ -6657,15 +6689,25 @@ function fillSheet(i){
       sum = (mark ? `Più alta ${volt(mx)} (cella ${iMx+1}), più bassa ${volt(mn)} (cella ${iMn+1}).<br>Differenza ${diff} mV` : `Celle allineate: tutte tra ${volt(mn)} e ${volt(mx)}.<br>Differenza ${diff} mV`) +
         (balN ? `, ${balN === 1 ? "1 cella" : balN + " celle"} in bilanciamento.` : ".");
     }
+    let balHtml = "", balStrip = "";
+    if (Array.isArray(b.bal_s)) {
+      const T = b.bal_s, D = b.bal_d || [], top = balTop(T), dTop = balTop(D), sc = Math.max(top.s, 600), fr = balFrom();
+      const strip = cells.map((_, j) => `<i class="${[T[j] > 0 ? "on" : "", b.bal && b.bal[j] ? "now" : "", j === selCell ? "sel" : ""].filter(Boolean).join(" ")}" style="height:${(T[j] > 0 ? Math.max(8, T[j] / sc * 100) : 0).toFixed(0)}%"></i>`).join("");
+      const txt = selCell !== null
+        ? (T[selCell] > 0 ? `Cella ${selCell + 1}: ha bilanciato <b>${balT(T[selCell])}</b>${fr ? ` da ${fr}` : ""}${D[selCell] > 0 ? `, ${balT(D[selCell])} oggi` : ""}: ${balAhT(T[selCell])} tolti (stima a ${S.balMa || 100} mA).` : `Cella ${selCell + 1}: non ha mai bilanciato${fr ? ` da ${fr}` : ""}.`)
+        : top.s > 0 ? `Bilanciamento${fr ? ` da ${fr}` : ""}: ${top.n === 1 ? "una cella" : top.n + " celle"}, la ${top.j + 1} più di tutte, <b>${balT(top.s)}</b> (${balAhT(top.s)} tolti, stima a ${S.balMa || 100} mA). ${dTop.s > 0 ? `Oggi fino a ${balT(dTop.s)} (cella ${dTop.j + 1}).` : "Oggi niente."}`
+        : `Nessuna cella ha bilanciato${fr ? ` da ${fr}` : ""}.`;
+      balStrip = `<div class="balt" role="img" aria-label="Tempo di bilanciamento di ogni cella">${strip}<span>${balT(top.s).replace(/ (\d\d)$/, "\u202f$1")}</span></div>`; balHtml = `<p class="balt-sum">${txt}</p>`;
+    }
     cellHtml = `
       <div class="cells-wrap">
         <div class="cells" role="img" aria-label="Tensioni delle ${cells.length} celle, da ${volt(mn)} a ${volt(mx)}">${bars}</div>
         ${ref}
         <span class="ax" style="top:0">${nf(hi/1000, 2)}</span>
         <span class="ax" style="top:${H}px">${nf(lo/1000, 2)}</span>
-        <div class="cell-n">${nums}</div>
+        <div class="cell-n">${nums}</div>${balStrip}
       </div>
-      <p class="cells-sum${diff > 50 && selCell === null ? " warn" : ""}">${sum}</p>`;
+      <p class="cells-sum${diff > 50 && selCell === null ? " warn" : ""}">${sum}</p>${balHtml}`;
   }
 
   const tc = (b.t_cells || []).filter(fin);
@@ -7012,6 +7054,7 @@ function simulate(){
       if (k === 2) cells[6] += 46; // una cella un po' alta, per mostrare l'avviso
       return { addr:k, name, online:true, soc, soh:100, v:0, i:0, rem_ah:soc*2, full_ah:200,
         cycles: 31 + k, cells, bal: cells.map((_,j)=> (k===2 && j===6) ? 1 : 0),
+        bal_s: cells.map((_,j) => k===2 && j===6 ? 15720 : (j * 7 + k * 3) % 11 === 0 ? 900 + 420 * k + 60 * j : 0), bal_d: cells.map((_,j) => k===2 && j===6 ? 2460 : 0),
         t_cells:[24.6+k*.2,25.0+k*.1,24.8,25.2], t_mos:27.1+k*.3, t_env:23.8, alarms: k===2 ? ["CELL_DIFF"] : [], prot:[] };
     })};
     // storico sintetico delle ultime 24 ore, che termina sulla carica attuale
@@ -7072,7 +7115,7 @@ function simulate(){
     : { ip: "192.168.0.33", ver: "3.5", ok: false, code: 11, n: 1200, bad: 40 };
   return { time: Math.round(now), rssi: -61, pv_off: demoPvOff, pv: offDemo, cb, ac,
     limits: { bal_start: 3400, bal_diff: 30, cell_ov: 3650, cell_uv: 2500, low_soc: 10 },
-    batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})),
+    batteries: sim.bs.map(b => ({...b, cells:[...b.cells]})), bal_from: Math.round(now) - 6 * 86400 - 5 * 3600,
     history: { step: hs.step, soc: [...hs.soc], p: [...hs.p] } };
 }
 
@@ -7288,6 +7331,7 @@ $("settings").addEventListener("change", e => {
   saveSettings();
   if (t.name === "poll") { schedule(); poll(); }
   if (t.name === "aoBack" || t.name === "aoWarn" || t.name === "alLow") fillAoNote();
+  if (t.name === "balMa" && data) render(mode);
   if (t.name === "inv") { fillInvNote(); nightMemo = {}; fc = null; fcAt = 0; if (data) render(mode); }
   if (t.name === "tilt") { if (S.loc) loadWx(true); else relearn(); }
   if (data) render(mode);
