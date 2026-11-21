@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it" data-style="mecha" data-theme="dark" data-mecha>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#ECECE8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="only dark">
+<meta name="theme-color" content="#0B0B0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MyBattery">
@@ -15,86 +14,6 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>MyBattery</title>
-<script>/* tema, colori e stile scelti nelle impostazioni, applicati prima del disegno per evitare il lampo */
-var r=document.documentElement;r.setAttribute("data-theme","dark"); /* Classico: scuro se non scelto */
-try{var o=JSON.parse(localStorage.getItem("mybattery.settings")||"{}");
-if(o.theme==="light")r.setAttribute("data-theme","light");else if(o.theme==="auto")r.removeAttribute("data-theme");
-var st=["classico","hitech","terminale","mecha","cyber","reattore","plancia"].indexOf(o.style)>=0?o.style:"mecha"; /* predefinito: Mecha */
-if(st==="classico"&&["blu","ciano","smeraldo","viola"].indexOf(o.palette)>=0)r.setAttribute("data-palette",o.palette);
-if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme","dark");if(st==="hitech")r.setAttribute("data-hud","");if(st==="mecha")r.setAttribute("data-mecha","")}}catch(e){}</script>
-<!--
-  CONTRATTO DATI (prodotto dal firmware ESP32)
-  GET /api/status  ->
-  {
-    "time": 1793460000,              // epoch secondi UTC (RTC della scheda); se l'RTC non è impostato
-                                     // (valore < 1600000000) la pagina usa l'ora del telefono
-    "rssi": -58,                     // segnale WiFi dBm
-    "full_at": 1795180000,           // cambia quando cambia l'archivio dei pieni sulla scheda: GET /api/full (firmware 0.78)
-    "spare": { "full": 1795180000, "kwh": 8.4, "k": 0.82 },   // il sole in più di oggi secondo la scheda (0.78): pieno previsto, kWh che restano dopo, resa imparata
-    "fc_last": 1794000000,           // ora dell'ultima previsione archiviata sulla scheda: GET /api/fc (firmware 0.27)
-    "voc_at": 1794000000,            // cambia quando cambiano taratura della Voc e albe sulla scheda: GET /api/voc (firmware 0.26)
-    "log_min": 15,                   // minuti tra le righe del registro (fisso a 15 dalla 0.33): GET /api/log, GET /api/stress
-    "bank": { "soc_t": 13.3, "src": 2, "ih": -1.06, "a_t": 1794780000, "full_t": 0 },   // carica vera (0.58): src 0 BMS 1 conto 2 curva 3 pieno, ih A nascosti
-    "wnd": { "w": 1900, "rpm": 1031, "at": 1795100000, "on": true, "fast": true },   // la pala nell'ultimo minuto stimabile secondo la scheda (0.76): watt, giri stimati, avviso WIND_FAST
-    "crash": { "t": 1794780000, "task": "loopTask", "fw": "0.58", "pc": "0x4200…", "bt": ["0x4200…"] },   // ultimo errore grave (0.58)
-    "batteries": [{
-      "addr": 0, "name": "Master", "online": true,
-      "soc": 81.2, "soh": 100,       // %
-      "v": 53.21, "i": 12.4,         // V, A (positiva = carica)
-      "rem_ah": 162.4, "full_ah": 200, "cycles": 34,
-      "cells": [3321, ...16],        // mV
-      "bal": [0,1,0,...16],          // facoltativo: celle in bilanciamento
-      "t_cells": [25.1, ...4], "t_mos": 27.2, "t_env": 24.0,   // °C
-      "alarms": ["CELL_DIFF"], "prot": []                       // codici: vedi MSG nello script
-    }],
-    "pv": [{                         // facoltativo: regolatori Epever letti in sola lettura (Modbus funzione 04)
-      "addr": 1, "name": "Tettoia", "online": true,   // addr = indirizzo Modbus; name facoltativo (nella app si può rinominare)
-      "w": 2410, "v": 112.4, "a": 21.4,   // pannelli: W, V, A (registri 3100H–3103H)
-      "out_w": 2340,                 // W che il regolatore porta alle batterie (3106H–3107H): li usa «Energia adesso»
-      "v_max": 128.4, "v_max_at": 1793990000,   // picco della tensione dei pannelli oggi (ora italiana), tenuto dalla scheda
-      "vmax": 150,                   // massimo del regolatore, da cui la scheda calcola, con la temperatura della stanza, gli allarmi PV_HIGH e PV_DANGER
-      "voc": [[1793944200, 144.8]],  // ultimi 7 giorni: tensione più alta del mattino, prima delle 11 (= Voc), e ora
-      "kwh_today": 3.42,             // energia prodotta oggi, contata dalla mezzanotte italiana (dalla 0.21)
-      "fault": true, "sus": true,    // il regolatore segnala un guasto; sus = non vede i pannelli ma la leva dice collegato
-      "fc": {"a": 1, "v": 139, "at": 1794000000, "n": 149, "nt": 1794090000, "l": 140.2, "b": 1794003600, "c": true},   // a = 0 ricollega, 1 ricollega ma stacca entro sera, 2 non ricollegare; v/at massimo del prossimo sole, n/nt di quello dopo, l limite, b da quando è sicuro, c = Voc calibrata
-      "kwh_reg": 3.42,               // lo stesso registro 330CH com'è: si azzera col suo orologio
-      "clk": -27720, "clk_est": -27600,   // s: orologio del regolatore meno ora italiana (9013H) e stima dall'azzeramento del contatore
-      "state": "boost",              // "off" non carica, "boost" carica, "float" mantenimento, "equalize" (3201H bit 2–3)
-      "kwp": 6.0,                    // potenza installata del gruppo (la app la imposta con POST /api/config), fondo scala della barra
-      "az": 0, "tilt": 30,           // facoltativi: falda del gruppo, azimut da sud (−90 est, 90 ovest, 180 nord) e inclinazione
-      "strings": 2                   // facoltativo: stringhe in parallelo (la app lo imposta con POST /api/config)
-    }],
-    "inv": { "v": 48, "cuts": [[1794000000, 48.6, 12.0]] },   // stacco dell'inverter (impostazione) e stacchi veri visti: [t, V, carica]
-    "house": { "on": true, "at": 1794000000, "w": 1830, "by": "mis" },  // casa sulle batterie, da quando, W oltre lo zero; by "cb" = su Enel perché lo Shelly è OFF (o sparito), "mis" = dalle misure
-    "cb": { "ip": "192.168.0.29", "ok": true, "on": true, "v": 225.7, "t": 47.3, "err": ["lever"], "src": "SHC", "at": 1794000000, "chg": 1793990000, "ver": "2.0.0" },
-                                     // interruttore Shelly Pro 2CB tra inverter e ATS (dalla 0.43, sola lettura): ok = risponde, on = ON,
-                                     // v = tensione dall'inverter, t = °C interni, chg = ultimo cambio visto. Si spegne con l'inverter.
-    "ac": { "ip": "192.168.0.27", "ver": "3.5", "ok": true, "code": 0, "at": 1794000000, "v": 220.2, "a": 13.24, "w": 2880, "t6": 1794000000,
-            "pf": 0.987, "kwh": 5.29, "hz": 50, "wa": 2733, "wat": 1794000000, "wdt": 302, "n": 95, "bad": 4 },
-                                     // misuratore Tuya sull'uscita dell'inverter, dopo lo Shelly (dalla 0.67), sola lettura: v, a, w misurati a t6
-                                     // (col giro dei 5 minuti: il «refresh» che dava il tempo reale è stato tolto con la 0.79), pf = fattore di
-                                     // potenza, wa = potenza media dai kWh su wdt secondi fino a wat. Di riserva e di confronto allo Shelly EM
-    "em": { "ip": "192.168.0.31", "ok": true, "code": 200, "at": 1794000000, "w": 2874.5, "var": 310.2, "v": 221.4, "pf": 0.99, "kwh": 12.345,
-            "ver": "20230913-114150/v1.14.0-gcb84623", "n": 4100, "bad": 3, "cmp": [1793900000, 3.214, 3.18] },
-                                     // misuratore Shelly EM sull'uscita dell'inverter (dalla 0.79, sola lettura): una lettura ogni 2 s, sempre.
-                                     // Quando risponde (ok) è lui la misura dell'uscita, il Tuya resta di riserva; rev = pinza al contrario
-                                     // (w è già il valore assoluto); cmp = [da quando, kWh contati dallo Shelly EM, kWh contati dal Tuya]
-    "fw": "0.19", "fw_new": "0.20",  // firmware della scheda e quello nuovo pubblicato su GitHub (si installa dalla app o da /diag)
-    "fw_trial": true,                // firmware appena installato, non ancora confermato (torna al vecchio se in 10 min non si collega)
-    "fw_upd": { "st": 2, "pct": 45, "v": "0.20", "msg": "" },   // installazione in corso: st 1 controllo, 2 scarico, 3 fatto, 4 errore
-    "limits": {                      // facoltativo: soglie lette con 80H dalla master
-      "bal_start": 3400,             // mV, tensione di avvio bilanciamento (voce 102)
-      "bal_diff": 30,                // mV, differenza di avvio bilanciamento (voce 103)
-      "cell_ov": 3650, "cell_uv": 2500,   // mV, protezione sovra/sottotensione cella (voci 0 e 3)
-      "low_soc": 10                  // %, allarme carica bassa (voce 104)
-    },
-    "history": {                     // ultimo punto = adesso, uno ogni "step" secondi (max 288 = 24 h)
-      "step": 300,
-      "soc": [...],                  // % del banco; null dove mancano dati
-      "p": [...]                     // W del banco, positiva = carica; null dove mancano dati
-    }
-  }
--->
 <style>
 :root{
   color-scheme: light;
@@ -114,7 +33,7 @@ if(st!=="classico"){r.setAttribute("data-style",st);r.setAttribute("data-theme",
   padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
+  :root{
     color-scheme: dark;
     --bg:#161615; --surface:#20201E; --ink:#EDEDE8; --muted:#A09F98; --line:#33332F;
     --frame:#0E0E0D; --frame-ink:#75746E;
@@ -224,7 +143,7 @@ body{height:100%;overflow:hidden}
 #cellh h3{margin:22px 2px 4px;font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}#cellh .note{margin:0 2px 10px;font-size:.8rem;color:var(--muted)}
 .pv-tab small.ok{color:var(--good);font-weight:600}.pv-tab small.near{color:var(--warn);font-weight:600}
 .vocw-empty{margin:0 2px;padding:14px;border-radius:16px;background:var(--surface);font-size:.85rem;color:var(--muted)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}}
+@media (prefers-color-scheme: dark){:root .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}}
 :root[data-theme="dark"] .vocw{--vs1:#5E97F7;--vs2:#2CC7B2;--vs3:#E57AD0;--vs4:#A08CFF}
 .pv-tab{width:100%;border-collapse:collapse;border-radius:16px;overflow:hidden;background:var(--surface);font-size:.85rem}
 .pv-tab th,.pv-tab td{padding:9px 12px;text-align:right;white-space:nowrap}
@@ -339,19 +258,6 @@ section{margin-top:26px}
 .fc-p b{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.95rem;color:var(--lith)}
 .fc-p.warn{background:var(--warn-tint)} .fc-p.warn b{color:var(--warn)}
 .rel{display:block;width:100%;height:auto;margin-top:4px}
-.lrn-rib{display:block;width:100%;height:auto;margin:4px 0 2px}
-.lrn-leg{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 0;font-size:.74rem;color:var(--muted)}.lrn-leg i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px;border-radius:2px}
-.lrn{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:14px}
-.lrn li{display:grid;grid-template-columns:28px 1fr auto;gap:3px 10px;align-items:center}
-.lrn .ri{grid-row:1/4;align-self:start;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--lith-tint);color:var(--lith)}.lrn .ri svg{width:16px;height:16px}
-.lrn li.ok .ri{background:var(--good-tint);color:var(--good)}.lrn li.wait .ri{background:var(--surface);color:var(--muted)}
-.lrn b{font-weight:600;font-size:.88rem}.lrn em{font-style:normal;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.84rem;font-weight:700;color:var(--lith);text-align:right;white-space:nowrap}
-.lrn li.ok em{color:var(--good)}.lrn li.wait em{color:var(--muted)}
-.lrn-bar{grid-column:2/4;display:grid;grid-template-columns:repeat(12,1fr);gap:3px;height:7px}.lrn-bar i{border-radius:2px;background:var(--line)}.lrn-bar i.on{background:var(--lith)}.lrn li.ok .lrn-bar i.on{background:var(--good)}
-.lrn small{grid-column:2/4;color:var(--muted);font-size:.76rem;line-height:1.35}
-[data-mecha] .lrn .ri{border-radius:0;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
-[data-mecha] .lrn-bar{transform:skewX(-20deg);margin-left:3px}[data-mecha] .lrn-bar i{border-radius:0}
-[data-mecha] .lrn b{font-family:"Roboto Condensed","Arial Narrow",sans-serif;text-transform:uppercase;letter-spacing:.04em;font-size:.82rem}
 .rel-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
 .rel-list li{display:flex;gap:10px;align-items:flex-start;font-size:.86rem;line-height:1.35}
 .rel-list .ri{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--lith-tint);color:var(--lith)}
@@ -450,7 +356,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .s-bms{display:block;margin-top:2px;font-size:.72rem;font-weight:500;color:var(--muted);letter-spacing:.03em}
 #s-body{touch-action:pan-y}
 #s-body.sw{transition:transform .22s ease,opacity .22s ease}
-:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.s-arr,.s-dots button){border-radius:0}
+:is([data-mecha]) :is(.s-arr,.s-dots button){border-radius:0}
 [data-mecha] .s-dots button{width:12px;height:6px;transform:skewX(-20deg)}[data-mecha] .s-dots button[aria-current="true"]{transform:skewX(-20deg) scaleX(1.5)}
 .close{border:0;background:var(--bg);color:var(--ink);font:inherit;font-size:.9rem;padding:8px 14px;border-radius:999px;cursor:pointer}
 .close:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
@@ -548,13 +454,13 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .voc-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--c);transition:width .3s}
 .voc-bar u{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px}
 .voc p{margin:0;font-size:.74rem;color:var(--ink);line-height:1.4}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.voc,.vmax,.voc-bar,.voc-bar i){border-radius:0}
+:is([data-style="mecha"]) :is(.voc,.vmax,.voc-bar,.voc-bar i){border-radius:0}
 .pvc-arr{display:block;max-width:100%;height:auto}
 .pvc-arr rect{fill:var(--lith-tint);stroke:var(--lith);stroke-width:1.1}
 .pvc-arr .wire{stroke:var(--line);stroke-width:1.2}
 .pvc-arr .bus{stroke:var(--lith);stroke-width:2;stroke-linecap:round}
 .names .pvc .step input{border:0;border-radius:0;background:transparent;padding:0;outline:none}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.pvc,.step){border-radius:0}
+:is([data-style="mecha"]) :is(.pvc,.step){border-radius:0}
 [data-style] .pvc{border-color:color-mix(in srgb,var(--lith) 22%,transparent)}
 .names label{display:grid;gap:3px;font-size:.8rem;color:var(--muted)}
 .names input{width:100%;font:inherit;font-size:1rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
@@ -564,7 +470,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .ao-note ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}
 .ao-note li{position:relative;padding-left:14px}
 .ao-note li::before{content:"";position:absolute;left:1px;top:.5em;width:6px;height:6px;border-radius:50%;background:var(--lith);opacity:.75}
-[data-mecha] .ao-note li::before,[data-style="terminale"] .ao-note li::before,[data-style="plancia"] .ao-note li::before{border-radius:0;transform:skewX(-20deg)}
+[data-mecha] .ao-note li::before{border-radius:0;transform:skewX(-20deg)}
 .ao-note b{color:var(--ink);font-weight:600}
 .ao-note .ao-who{display:block;margin-top:8px}
 #ao-sub[hidden]{display:none}
@@ -608,7 +514,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 /* energia adesso: pannelli → batterie → casa, con il verso del flusso */
 .flow-box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:6px 4px 2px}
 [data-style] .flow-box{background:transparent;border-color:color-mix(in srgb,var(--lith) 25%,transparent)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) .flow-box{border-radius:0}
+:is([data-style="mecha"]) .flow-box{border-radius:0}
 [data-style="mecha"] .flow-box{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
 .flow{display:block;width:100%;height:auto;font-family:inherit}
 .flow .tr{fill:none;stroke:var(--line);stroke-width:4;stroke-linecap:round}
@@ -627,7 +533,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .flow .fn{font-size:9.5px;font-weight:700;letter-spacing:.09em;fill:var(--muted);text-transform:uppercase}
 .flow .fs{fill:var(--lith);font-size:11px;letter-spacing:.04em}
 .flow .fp{font-size:15px;font-weight:700;fill:var(--sun);font-variant-numeric:tabular-nums}
-[data-mecha] .flow .fv,[data-style="reattore"] .flow .fv,[data-style="plancia"] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
+[data-mecha] .flow .fv{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",sans-serif;font-stretch:condensed;font-size:17px}
 /* la casa sulle batterie o su Enel; le leve (q-mod) le usano gli interruttori dei pannelli */
 .quadro{margin-top:2px}
 .q-one{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:16px;background:var(--surface);border:1px solid var(--line)}
@@ -649,13 +555,13 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .q-chip.off i{background:var(--muted);box-shadow:none}
 [data-style] .q-mod{background:color-mix(in srgb,var(--lith) 4%,var(--bg));border-color:color-mix(in srgb,var(--lith) 14%,transparent)}
 [data-style] .q-mod[aria-checked="true"]{background:color-mix(in srgb,var(--lith) 14%,var(--bg));border-color:var(--lith);box-shadow:0 0 14px -6px var(--lith)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.q-one,.q-mod,.q-slot,.q-lev){border-radius:0}
+:is([data-style="mecha"]) :is(.q-one,.q-mod,.q-slot,.q-lev){border-radius:0}
 [data-style="mecha"] .q-mod{clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
 [data-mecha] .fc-p{background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 10%,#161616),#131313);box-shadow:inset 3px 0 0 var(--lith)}
 [data-mecha] .q-mod,[data-mecha] .q-mod[aria-checked="true"]{background:linear-gradient(180deg,#1a1a1a,#0f0f0f)}   /* niente fondi gialli: lo stato lo dicono bordo, leva e testo */
 [data-mecha] .q-ico{border-radius:50%;border:2.2px solid var(--muted);background:var(--bg);color:var(--muted)}   /* come i cerchi di «Energia adesso» */
 [data-mecha] .q-one.on .q-ico{border-color:var(--sun);color:var(--sun);background:var(--bg)}
-[data-style="hitech"] :is(.q-one,.q-mod){border-radius:3px}
+
 /* stanotte: badge in dashboard (verde ce la fai, giallo sotto la soglia, rosso stacco) */
 .night{--c:var(--good);--t:var(--good-tint);margin-top:16px;padding:12px 14px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);border-radius:14px;background:var(--t)}
 .night.warn{--c:var(--warn);--t:var(--warn-tint)}.night.bad{--c:var(--alert);--t:var(--alert-tint)}.night.wait{--c:var(--muted);--t:var(--surface)}
@@ -673,7 +579,7 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .tmr-d button{min-width:72px;padding:4px 12px;border:1px solid var(--line);border-radius:99px;background:transparent;color:var(--muted);font:inherit;font-size:.76rem;font-weight:600;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
 .tmr-d button[aria-current="true"]{border-color:var(--lith);color:var(--sun);background:color-mix(in srgb,var(--lith) 12%,transparent)}
 .tmr-d button:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.tmr,.tmr-d button){border-radius:0}
+:is([data-style="mecha"]) :is(.tmr,.tmr-d button){border-radius:0}
 .mem-g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 0}.mem-g div{padding:8px 10px;border:1px solid var(--line);background:var(--bg)}.mem-g dt{font-size:.72rem;color:var(--muted)}.mem-g dd{margin:2px 0 0;font:600 1.02rem var(--mono)}
 .mem-ev{list-style:none;margin:10px 0 0;padding:0}.mem-ev li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:.82rem;line-height:1.35}.mem-ev b{color:var(--ink)}.mem-ev i{font-style:normal;color:var(--warn)}.mem-ev i.c{color:var(--alert)}.mem-ev small{grid-column:1/-1;color:var(--muted)}
 .n-ico{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c)}
@@ -694,9 +600,8 @@ dialog[open]{animation:sheet-up .28s ease-out}
 .n-tip .set-btn{margin-top:8px;padding:7px 12px;font-size:.84rem;background:var(--lith);color:#111}
 .n-tip .set-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 [data-style] .night{background:color-mix(in srgb,var(--c) 7%,transparent)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.night,.n-tip){border-radius:0}
+:is([data-style="mecha"]) :is(.night,.n-tip){border-radius:0}
 [data-style="mecha"] .night{clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
-.q-cal{margin-top:8px}.q-cal .set-note{margin:8px 2px 0}.q-cal .link-btn{padding:0;font-size:inherit}
 .ql-cap{margin:0 2px 6px;font-size:.78rem;color:var(--muted)}
 .ql-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:6px;margin:2px 0 12px}
 .ql-sum div{padding:9px 9px;min-width:0;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
@@ -900,23 +805,17 @@ footer{border-top:0;padding-top:0}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
 /* ---------- colorazioni (Impostazioni → Colori). Senza attributo: Oro e grafite, i token in testa ---------- */
-:root[data-palette]{--bg:#E9EDF1; --surface:#F7F9FB; --ink:#18212B; --muted:#5B6773; --line:#D3DAE1; --frame:#26303B; --frame-ink:#C9D1D9}
-:root[data-palette="blu"]{--lith:#1F6BFF; --lith-tint:rgba(31,107,255,0.15); --fill-tint:rgba(31,107,255,0.2); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#7A4FD6; --out-tint:rgba(122,79,214,.14); --logo-arc:#3D8BFF}
-:root[data-palette="ciano"]{--lith:#0891B2; --lith-tint:rgba(8,145,178,0.15); --fill-tint:rgba(8,145,178,0.2); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#5B6B80; --out-tint:rgba(91,107,128,.14); --logo-arc:#22D3EE}
-:root[data-palette="smeraldo"]{--lith:#059669; --lith-tint:rgba(5,150,105,0.15); --fill-tint:rgba(5,150,105,0.2); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#3B6FD4; --out-tint:rgba(59,111,212,.14); --logo-arc:#34D399}
-:root[data-palette="viola"]{--lith:#7C3AED; --lith-tint:rgba(124,58,237,0.13); --fill-tint:rgba(124,58,237,0.18); --sun:#C98207; --sun-tint:rgba(217,146,11,.16); --out:#5B6B80; --out-tint:rgba(91,107,128,.14); --logo-arc:#A78BFA}
-@media (prefers-color-scheme: dark){
-  :root[data-palette]:not([data-theme="light"]){--bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542; --frame:#0C1117; --frame-ink:#6B7886}
-  :root[data-palette="blu"]:not([data-theme="light"]){--lith:#3D8BFF; --lith-tint:rgba(61,139,255,0.2); --fill-tint:rgba(61,139,255,0.24); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#A68BF7; --out-tint:rgba(166,139,247,.14); --logo-arc:#3D8BFF}
-  :root[data-palette="ciano"]:not([data-theme="light"]){--lith:#22D3EE; --lith-tint:rgba(34,211,238,0.18); --fill-tint:rgba(34,211,238,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#22D3EE}
-  :root[data-palette="smeraldo"]:not([data-theme="light"]){--lith:#34D399; --lith-tint:rgba(52,211,153,0.18); --fill-tint:rgba(52,211,153,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#7AA2F0; --out-tint:rgba(122,162,240,.14); --logo-arc:#34D399}
-  :root[data-palette="viola"]:not([data-theme="light"]){--lith:#A78BFA; --lith-tint:rgba(167,139,250,0.18); --fill-tint:rgba(167,139,250,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#A78BFA}
-}
-:root[data-palette][data-theme="dark"]{--bg:#121820; --surface:#1B232D; --ink:#E7ECF1; --muted:#93A0AD; --line:#2A3542; --frame:#0C1117; --frame-ink:#6B7886}
-:root[data-palette="blu"][data-theme="dark"]{--lith:#3D8BFF; --lith-tint:rgba(61,139,255,0.2); --fill-tint:rgba(61,139,255,0.24); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#A68BF7; --out-tint:rgba(166,139,247,.14); --logo-arc:#3D8BFF}
-:root[data-palette="ciano"][data-theme="dark"]{--lith:#22D3EE; --lith-tint:rgba(34,211,238,0.18); --fill-tint:rgba(34,211,238,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#22D3EE}
-:root[data-palette="smeraldo"][data-theme="dark"]{--lith:#34D399; --lith-tint:rgba(52,211,153,0.18); --fill-tint:rgba(52,211,153,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#7AA2F0; --out-tint:rgba(122,162,240,.14); --logo-arc:#34D399}
-:root[data-palette="viola"][data-theme="dark"]{--lith:#A78BFA; --lith-tint:rgba(167,139,250,0.18); --fill-tint:rgba(167,139,250,0.22); --sun:#F0AE2E; --sun-tint:rgba(240,174,46,.18); --out:#94A3B8; --out-tint:rgba(148,163,184,.14); --logo-arc:#A78BFA}
+
+
+
+
+
+
+
+
+
+
+
 
 /* ---------- stili (Impostazioni → Stile). Senza attributo: Classico; gli altri forzano data-theme="dark" ---------- */
 .g-tick,.g-deco,.g-gaps{display:none}
@@ -929,60 +828,53 @@ footer{border-top:0;padding-top:0}
 .gauge.low .g-tick line.on{stroke:var(--warn)}
 
 /* Hi-Tech: cruscotto quasi nero con griglia sottile, ciano luminoso, card con gli angoli a staffa, scritte monospaziate */
-:root[data-style="hitech"][data-theme="dark"]{--bg:#04070C; --surface:#08111A; --ink:#E2F7FF; --muted:#5F8296; --line:#123047; --frame:#06101A; --frame-ink:#3B6B85;
-  --sun:#2DE2FF; --sun-tint:rgba(45,226,255,.14); --out:#FF9A3C; --out-tint:rgba(255,154,60,.15);
-  --good:#36F5B0; --good-tint:rgba(54,245,176,.14); --warn:#FFD23F; --warn-tint:rgba(255,210,63,.14); --alert:#FF4D5E; --alert-tint:rgba(255,77,94,.15)}
-:root[data-style="hitech"]:not([data-palette])[data-theme="dark"]{--lith:#2DE2FF; --lith-tint:rgba(45,226,255,.16); --fill-tint:rgba(45,226,255,.22); --logo-arc:#2DE2FF}
+
+
 /* Terminale: cyberdeck a fosfori verdi, card con angoli tagliati e barra a sinistra, tutto monospaziato,
    titoli con prompt e cursore, arco a tacche come una barra di LED, pagina scelta in negativo */
-:root[data-style="terminale"][data-theme="dark"]{--bg:#020603; --surface:#06100A; --ink:#C8FFD9; --muted:#4F8A62; --line:#0F2A18; --frame:#040A06; --frame-ink:#2F6B44;
-  --sun:#39FF7A; --sun-tint:rgba(57,255,122,.13); --out:#FFB347; --out-tint:rgba(255,179,71,.14);
-  --good:#39FF7A; --good-tint:rgba(57,255,122,.13); --warn:#FFE066; --warn-tint:rgba(255,224,102,.14); --alert:#FF5555; --alert-tint:rgba(255,85,85,.15)}
-:root[data-style="terminale"]:not([data-palette])[data-theme="dark"]{--lith:#39FF7A; --lith-tint:rgba(57,255,122,.15); --fill-tint:rgba(57,255,122,.2); --logo-arc:#39FF7A}
-[data-style="terminale"] body{background:radial-gradient(90% 60% at 50% 40%,color-mix(in srgb,var(--lith) 6%,transparent),transparent 70%),var(--bg)}
-[data-style="terminale"] :is(body,button,input){font-family:var(--mono)}
-[data-style="terminale"] .app::after{content:"";position:fixed;inset:0;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,color-mix(in srgb,var(--lith) 4%,transparent) 0 1px,transparent 1px 3px)}
-[data-style="terminale"] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){
-  background:linear-gradient(90deg,color-mix(in srgb,var(--lith) 9%,transparent),transparent 45%),var(--surface);
-  border:0;border-left:3px solid var(--lith);border-radius:0;box-shadow:none;
-  clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
-[data-style="terminale"] .alerts li{border-left-color:var(--c)}
-[data-style="terminale"] .pv-col.low{border-left-color:var(--warn)}
-[data-style="terminale"] .hero-card{padding:16px 12px 18px}
-[data-style="terminale"] :is(.num,.soc .big,.soc .pct,.kpis dd,.pv-w,.pv-rv,.pv-p,.pv-tab td){font-family:var(--mono)}
-[data-style="terminale"] .soc .big{font-weight:400;letter-spacing:-.06em;color:var(--lith);text-shadow:0 0 14px color-mix(in srgb,var(--lith) 60%,transparent)}
-[data-style="terminale"] :is(.kpis dt,.state,.tab,.pv-st){text-transform:uppercase;letter-spacing:.06em}
-[data-style="terminale"] section h2::before{content:"> ";color:var(--lith)}
-[data-style="terminale"] section h2::after{content:"_";margin-left:2px;color:var(--lith);animation:led-blink 1.1s steps(2,start) infinite}
-[data-style="terminale"] .kpis dt{font-size:.66rem}
-[data-style="terminale"] .k-sub{font-size:.64rem;white-space:normal;line-height:1.25}
-[data-style="terminale"] .pv-n{font-size:.68rem}
-[data-style="terminale"] .pv-tab{font-size:.74rem}
-[data-style="terminale"] .pv-tab :is(th,td){padding:9px 7px}
-[data-style="terminale"] .pv-day .note,[data-style="terminale"] .hist-read{font-size:.8rem}
-[data-style="terminale"] .g-track,[data-style="terminale"] .g-fill,[data-style="terminale"] .g-ticks{display:none}
-[data-style="terminale"] .g-tick{display:inline}
-[data-style="terminale"] .g-tick line{stroke:color-mix(in srgb,var(--lith) 14%,transparent);stroke-linecap:butt;stroke-width:4}
-[data-style="terminale"] .g-tick line.on{stroke:var(--lith);filter:drop-shadow(0 0 3px var(--lith))}
-[data-style="terminale"] .state{background:none;border-radius:0;padding:4px 6px;font-size:.84rem}
-[data-style="terminale"] .state::before{content:"[";width:auto;height:auto;border-radius:0;background:none}
-[data-style="terminale"] .state::after{content:"]"}
-[data-style="terminale"] .state.chg{color:var(--sun)} [data-style="terminale"] .state.dsg{color:var(--out)}
-[data-style="terminale"] .tabs{background:var(--bg);border-top:1px solid color-mix(in srgb,var(--lith) 30%,transparent)}
-[data-style="terminale"] .tab{font-size:.58rem}
-[data-style="terminale"] .tab .ti{border-radius:0}
-[data-style="terminale"] .tab[aria-selected="true"]{color:var(--lith)}
-[data-style="terminale"] .tab[aria-selected="true"] .ti{background:var(--lith);color:var(--bg)}
-[data-style="terminale"] .pv-g .f{filter:drop-shadow(0 0 3px var(--c))}
-[data-style="terminale"] .pv-g circle{stroke-linecap:butt}
-[data-style="terminale"] .pv-rows,[data-style="terminale"] .pv-tab{border-radius:0}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
 
 /* Mecha: pannelli HUD neri con cornice arancione ad angoli smussati, cerchi concentrici, tratteggi diagonali,
    caratteri stretti e maiuscoli. La cornice è lo sfondo arancione del pannello, il riempimento è il ::before rientrato di 2 px */
 :root[data-style="mecha"][data-theme="dark"]{--bg:#0A0A0A; --surface:#151515; --ink:#F2F2F2; --muted:#9C9C9C; --line:#2A2A2A; --frame:#101010; --frame-ink:#6A6A6A;
   --sun:#FFB617; --sun-tint:rgba(255,182,23,.16); --out:#ECECEC; --out-tint:rgba(236,236,236,.12);
   --good:#A6E22E; --good-tint:rgba(166,226,46,.14)}
-:root[data-style="mecha"]:not([data-palette])[data-theme="dark"]{--lith:#FFB617; --lith-tint:rgba(255,182,23,.18); --fill-tint:rgba(255,182,23,.24); --logo-arc:#FFB617}
+:root[data-style="mecha"][data-theme="dark"]{--lith:#FFB617; --lith-tint:rgba(255,182,23,.18); --fill-tint:rgba(255,182,23,.24); --logo-arc:#FFB617}
 /* Mecha: niente giallo né rosso «a parte» (2.12, scelto dall'utente): l'attenzione è l'ambra del tema, il pericolo è un rosso ricavato da lei
    (35% ambra + 65% rosso: arancio-rosso della stessa famiglia). Con le altre tavolozze segue il loro colore */
 :root[data-style="mecha"]{--warn:var(--lith); --warn-tint:color-mix(in srgb,var(--lith) 14%,transparent);
@@ -1045,155 +937,128 @@ footer{border-top:0;padding-top:0}
 
 /* Cyber: spazio nero con il bordo di un pianeta arancione, linee al neon giallo-oro col bagliore, numeri digitali
    e icone in ciano, scritte maiuscole spaziate. Carica gialla, scarica ciano */
-:root[data-style="cyber"][data-theme="dark"]{--bg:#050403; --surface:#0C0A06; --ink:#FFF4D6; --muted:#A08D60; --line:#2A2412; --frame:#0A0805; --frame-ink:#6E6040;
-  --sun:#FFC21A; --sun-tint:rgba(255,194,26,.15); --out:#2EF2E6; --out-tint:rgba(46,242,230,.13);
-  --good:#57F287; --good-tint:rgba(87,242,135,.13); --warn:#FF8A1E; --warn-tint:rgba(255,138,30,.15); --alert:#FF4040; --alert-tint:rgba(255,64,64,.15)}
-:root[data-style="cyber"]:not([data-palette])[data-theme="dark"]{--lith:#FFC21A; --lith-tint:rgba(255,194,26,.16); --fill-tint:rgba(255,194,26,.22); --logo-arc:#FFC21A}
-[data-style="cyber"] body{background:
-  radial-gradient(circle at 128% 38%,transparent 0 56%,rgba(255,176,64,.38) 57.2%,rgba(255,120,0,.1) 60%,transparent 67%),
-  radial-gradient(circle at 128% 38%,rgba(120,52,6,.5) 0,rgba(60,24,4,.35) 40%,transparent 57%),
-  radial-gradient(1px 1px at 20% 30%,rgba(255,255,255,.5),transparent 2px),radial-gradient(1px 1px at 70% 80%,rgba(255,255,255,.35),transparent 2px),
-  radial-gradient(1px 1px at 40% 65%,rgba(255,255,255,.3),transparent 2px),var(--bg)}
-[data-style="cyber"] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){background:linear-gradient(180deg,rgba(255,194,26,.05),rgba(0,0,0,.35)),rgba(8,6,3,.72);
-  border:1.5px solid color-mix(in srgb,var(--lith) 85%,transparent);border-radius:10px;
-  box-shadow:0 0 10px -1px color-mix(in srgb,var(--lith) 55%,transparent),inset 0 0 16px -6px color-mix(in srgb,var(--lith) 40%,transparent)}
-[data-style="cyber"] :is(.kpis div,.pv-col){border-width:1px;border-radius:8px}
-[data-style="cyber"] .alerts li{border-color:var(--c);box-shadow:0 0 10px -1px color-mix(in srgb,var(--c) 55%,transparent)}
-[data-style="cyber"] .pv-col.low{border-color:var(--warn)}
-[data-style="cyber"] :is(.hero-card,.panel){position:relative}
-[data-style="cyber"] :is(.hero-card,.panel)::after{content:"";position:absolute;top:32%;bottom:32%;left:-7px;right:-7px;pointer-events:none;
-  background:linear-gradient(var(--lith),var(--lith)) left/4px 100% no-repeat,linear-gradient(var(--lith),var(--lith)) right/4px 100% no-repeat;
-  filter:drop-shadow(0 0 5px var(--lith));border-radius:2px}
-[data-style="cyber"] .hero-card{padding:18px 12px 20px}
-[data-style="cyber"] :is(.kpis dt,.state,.tab,.pv-st,.pv-n,section h2,.pv-day h3){text-transform:uppercase;letter-spacing:.14em}
-[data-style="cyber"] section h2,[data-style="cyber"] .pv-day h3{color:var(--lith);text-shadow:0 0 8px color-mix(in srgb,var(--lith) 70%,transparent);letter-spacing:.24em}
-[data-style="cyber"] .kpis dt,[data-style="cyber"] .pv-n{color:var(--lith);font-size:.66rem}
-[data-style="cyber"] .pv-col .pv-n{text-transform:none;letter-spacing:.03em}
-[data-style="cyber"] .pv-tab{font-size:.78rem}
-[data-style="cyber"] .pv-tab :is(th,td){padding:9px 8px}
-[data-style="cyber"] :is(.soc .big,.kpis dd,.pv-w,.pv-rv,.pv-tab td:not(:first-child)){font-family:var(--mono);color:var(--out);text-shadow:0 0 10px color-mix(in srgb,var(--out) 60%,transparent)}
-[data-style="cyber"] .soc .big{font-weight:400;letter-spacing:-.04em}
-[data-style="cyber"] .soc .pct{color:var(--lith)}
-[data-style="cyber"] .g-arc{stroke-width:6}
-[data-style="cyber"] .g-track{stroke:color-mix(in srgb,var(--lith) 14%,transparent)}
-[data-style="cyber"] .g-fill{filter:drop-shadow(0 0 6px var(--lith))}
-[data-style="cyber"] .g-ticks line{stroke:var(--lith);opacity:.9}
-[data-style="cyber"] .g-deco{display:inline;fill:none;stroke:color-mix(in srgb,var(--out) 70%,transparent);stroke-width:2.5;stroke-dasharray:3 6;filter:drop-shadow(0 0 3px var(--out))}
-[data-style="cyber"] .g-deco-out{stroke:color-mix(in srgb,var(--lith) 70%,transparent);stroke-width:1.5;stroke-dasharray:532.5 710;transform:rotate(135deg);transform-origin:120px 120px;filter:none}
-[data-style="cyber"] .g-comet circle{stroke-width:4}
-[data-style="cyber"] .state{background:rgba(0,0,0,.4);border:1.5px solid currentColor;border-radius:8px;box-shadow:0 0 10px -2px currentColor;font-size:.8rem;padding:6px 14px}
-[data-style="cyber"] .state.chg{color:var(--sun)} [data-style="cyber"] .state.dsg{color:var(--out)}
-[data-style="cyber"] .eta{background:rgba(0,0,0,.35);border:1px solid color-mix(in srgb,var(--out) 45%,transparent);border-radius:10px}
-[data-style="cyber"] .tabs{background:rgba(5,4,3,.9);border-top:1.5px solid color-mix(in srgb,var(--lith) 60%,transparent);box-shadow:0 -6px 18px -12px var(--lith)}
-[data-style="cyber"] .tab{color:var(--lith);font-size:.56rem}
-[data-style="cyber"] .tab .ti{width:40px;height:32px;border-radius:8px;border:1.5px solid color-mix(in srgb,var(--out) 70%,transparent);color:var(--out);box-shadow:0 0 8px -2px var(--out)}
-[data-style="cyber"] .tab[aria-selected="true"]{color:var(--lith);text-shadow:0 0 6px var(--lith)}
-[data-style="cyber"] .tab[aria-selected="true"] .ti{background:color-mix(in srgb,var(--out) 22%,transparent);border-color:var(--out);color:#fff;box-shadow:0 0 14px var(--out)}
-[data-style="cyber"] .pv-g .f{filter:drop-shadow(0 0 4px var(--c))}
-[data-style="cyber"] :is(.pv-rows,.pv-tab){background:rgba(8,6,3,.72);border:1px solid color-mix(in srgb,var(--lith) 55%,transparent);border-radius:10px}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
 
 /* Reattore: griglia arancione da circuito stampato, pannelli a filo sottile con la linguetta in alto,
    grafico a mirino (anelli concentrici divisi da tacche), pulsanti rotondi, caratteri stretti */
-:root[data-style="reattore"][data-theme="dark"]{--bg:#070502; --surface:#100C06; --ink:#FFF1DE; --muted:#A48A66; --line:#2B2114; --frame:#0C0904; --frame-ink:#6E5A3E;
-  --sun:#FF9A0F; --sun-tint:rgba(255,154,15,.15); --out:#F5E6CF; --out-tint:rgba(245,230,207,.12);
-  --good:#A6E22E; --good-tint:rgba(166,226,46,.14); --warn:#FFD23F; --warn-tint:rgba(255,210,63,.14); --alert:#FF453A; --alert-tint:rgba(255,69,58,.15)}
-:root[data-style="reattore"]:not([data-palette])[data-theme="dark"]{--lith:#FF9A0F; --lith-tint:rgba(255,154,15,.17); --fill-tint:rgba(255,154,15,.22); --logo-arc:#FF9A0F}
-[data-style="reattore"] body{background:radial-gradient(80% 50% at 50% 30%,rgba(255,154,15,.08),transparent 70%),
-  linear-gradient(color-mix(in srgb,var(--lith) 10%,transparent) 1px,transparent 1px) 0 0/88px 88px,
-  linear-gradient(90deg,color-mix(in srgb,var(--lith) 10%,transparent) 1px,transparent 1px) 0 0/88px 88px,
-  linear-gradient(color-mix(in srgb,var(--lith) 4%,transparent) 1px,transparent 1px) 0 0/22px 22px,
-  linear-gradient(90deg,color-mix(in srgb,var(--lith) 4%,transparent) 1px,transparent 1px) 0 0/22px 22px,var(--bg)}
-[data-style="reattore"] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){position:relative;background:linear-gradient(180deg,rgba(255,154,15,.06),rgba(0,0,0,.4)),rgba(12,9,4,.88);
-  border:1px solid color-mix(in srgb,var(--lith) 60%,transparent);border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.6)}
-[data-style="reattore"] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li)::after{content:"";position:absolute;top:-2px;left:14px;width:42px;height:3px;border-radius:2px;background:var(--lith);pointer-events:none}
-[data-style="reattore"] .alerts li{border-color:var(--c)}
-[data-style="reattore"] .alerts li::after{background:var(--c)}
-[data-style="reattore"] .pv-col.low{border-color:var(--warn)}
-[data-style="reattore"] .hero-card{padding:18px 12px 20px}
-[data-style="reattore"] :is(.soc .big,.soc .pct,.kpis dd,.pv-w,.pv-rv,section h2,.state,.tab,.kpis dt,.pv-n,.pv-st,.g-sub,.pv-day h3){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
-[data-style="reattore"] :is(.kpis dt,.state,.pv-st,section h2,.pv-day h3){text-transform:uppercase;letter-spacing:.08em}
-[data-style="reattore"] :is(section h2,.pv-day h3,.kpis dt,.pv-n){color:var(--lith)}
-[data-style="reattore"] .soc .big{font-weight:700}
-[data-style="reattore"] .soc .pct{color:var(--lith)}
-[data-style="reattore"] :is(.kpis dd,.pv-w){font-weight:700}
-[data-style="reattore"] .g-arc{stroke-width:9}
-[data-style="reattore"] .g-track{stroke:color-mix(in srgb,var(--lith) 14%,transparent)}
-[data-style="reattore"] .g-ticks line{stroke:var(--lith);stroke-width:2.5;opacity:1}
-[data-style="reattore"] .g-deco{display:inline;fill:color-mix(in srgb,var(--lith) 5%,transparent);stroke:color-mix(in srgb,var(--lith) 55%,transparent);stroke-width:1.2}
-[data-style="reattore"] .g-deco-out{fill:none;stroke:var(--lith);stroke-width:3;stroke-dasharray:124.4 11 124.4 11 124.4 11 124.4 179.4;transform:rotate(135deg);transform-origin:120px 120px} /* mirino: 4 archi per 270° */
-[data-style="reattore"] .g-comet circle{stroke-width:6}
-[data-style="reattore"] .state{background:rgba(0,0,0,.45);border:1.5px solid currentColor;font-weight:700;font-size:.82rem}
-[data-style="reattore"] .state.chg{color:var(--sun)} [data-style="reattore"] .state.dsg{color:var(--out)}
-[data-style="reattore"] .eta{border:1px solid color-mix(in srgb,var(--lith) 35%,transparent);border-radius:999px;background:rgba(0,0,0,.35)}
-[data-style="reattore"] .eta-ico,[data-style="reattore"] .eta>span:first-child{border-radius:50%}
-[data-style="reattore"] .tabs{background:rgba(7,5,2,.92);border-top:1px solid color-mix(in srgb,var(--lith) 50%,transparent)}
-[data-style="reattore"] .tab{font-size:.6rem;color:var(--muted)}
-[data-style="reattore"] .tab .ti{width:36px;height:36px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--lith) 70%,transparent);color:var(--lith)}
-[data-style="reattore"] .tab[aria-selected="true"]{color:var(--lith)}
-[data-style="reattore"] .tab[aria-selected="true"] .ti{background:var(--lith);color:#120c04;box-shadow:0 0 14px -2px var(--lith)}
-[data-style="reattore"] .tab-n{top:-4px;right:-6px}
-[data-style="reattore"] .cab .slot{rx:6px;fill:rgba(12,9,4,.88);stroke:color-mix(in srgb,var(--lith) 60%,transparent);stroke-width:1}
-[data-style="reattore"] .cab .m.low .slot{stroke:var(--warn)}
-[data-style="reattore"] .cab .bar{display:inline;fill:var(--lith);height:3px;width:42px;x:14px;rx:1.5px}
-[data-style="reattore"] .cab .name{font:700 13.5px "Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed;text-transform:uppercase;letter-spacing:.05em}
-[data-style="reattore"] .cab .pct{font:700 22px "Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
-[data-style="reattore"] .cab .seg{rx:3.3px}
-[data-style="reattore"] :is(.pv-rows,.pv-tab){background:rgba(12,9,4,.88);border:1px solid color-mix(in srgb,var(--lith) 50%,transparent);border-radius:6px}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ /* mirino: 4 archi per 270° */
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* Plancia: plancia di comando ciano su griglia verde-acqua, pannelli con cornice ciano ad angoli tagliati, titoli in
    barre piene con la punta, anello del grafico a segmenti, pulsanti esagonali, codice a barre decorativo */
-:root[data-style="plancia"][data-theme="dark"]{--bg:#021012; --surface:#05191C; --ink:#E2FBFF; --muted:#62A0A8; --line:#0C353A; --frame:#031417; --frame-ink:#3E7C84;
-  --sun:#19E3F5; --sun-tint:rgba(25,227,245,.14); --out:#F0FAFB; --out-tint:rgba(240,250,251,.12);
-  --good:#4DFFB0; --good-tint:rgba(77,255,176,.13); --warn:#FFC93C; --warn-tint:rgba(255,201,60,.14); --alert:#FF4D5E; --alert-tint:rgba(255,77,94,.15)}
-:root[data-style="plancia"]:not([data-palette])[data-theme="dark"]{--lith:#19E3F5; --lith-tint:rgba(25,227,245,.16); --fill-tint:rgba(25,227,245,.22); --logo-arc:#19E3F5}
-[data-style="plancia"] body{background:radial-gradient(90% 55% at 50% 35%,rgba(25,227,245,.12),transparent 72%),
-  linear-gradient(color-mix(in srgb,var(--lith) 7%,transparent) 1px,transparent 1px) 0 0/16px 16px,
-  linear-gradient(90deg,color-mix(in srgb,var(--lith) 7%,transparent) 1px,transparent 1px) 0 0/16px 16px,var(--bg)}
-[data-style="plancia"] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){--bd:color-mix(in srgb,var(--lith) 75%,transparent);position:relative;isolation:isolate;background:var(--bd);
-  border:0;border-radius:0;box-shadow:none;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))}
-[data-style="plancia"] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li)::before{content:"";position:absolute;inset:1.5px;z-index:-1;pointer-events:none;
-  background:linear-gradient(180deg,#06222600,#06222655),var(--surface);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,11px 100%,0 calc(100% - 11px))}
-[data-style="plancia"] .alerts li{--bd:var(--c)}
-[data-style="plancia"] .alerts li::before{background:linear-gradient(100deg,var(--t),transparent 62%),var(--surface)}
-[data-style="plancia"] .pv-col.low{--bd:var(--warn)}
-[data-style="plancia"] :is(.hero-card,.panel)::after{content:"";position:absolute;top:10px;right:20px;width:48px;height:12px;pointer-events:none;opacity:.85;
-  background:repeating-linear-gradient(90deg,var(--lith) 0 2px,transparent 2px 3px,var(--lith) 3px 4px,transparent 4px 7px,var(--lith) 7px 10px,transparent 10px 12px)}
-[data-style="plancia"] .hero-card{padding:20px 12px 20px}
-[data-style="plancia"] :is(.soc .big,.soc .pct,.kpis dd,.pv-w,.pv-rv,section h2,.state,.tab,.kpis dt,.pv-n,.pv-st,.pv-day h3){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
-[data-style="plancia"] :is(.kpis dt,.state,.pv-st,.tab){text-transform:uppercase;letter-spacing:.08em}
-[data-style="plancia"] :is(.kpis dt,.pv-n){color:var(--lith)}
-[data-style="plancia"] section h2,[data-style="plancia"] .pv-day h3{display:inline-flex;align-items:center;gap:6px;width:auto;padding:4px 22px 4px 10px;
-  background:var(--lith);color:#021012;letter-spacing:.12em;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 50%,calc(100% - 12px) 100%,0 100%)}
-[data-style="plancia"] .soc .big{font-weight:700;color:#fff;text-shadow:0 0 18px color-mix(in srgb,var(--lith) 55%,transparent)}
-[data-style="plancia"] .soc .pct{color:var(--lith)}
-[data-style="plancia"] :is(.kpis dd,.pv-w){font-weight:700}
-[data-style="plancia"] .g-arc{stroke-width:16}
-[data-style="plancia"] .g-track{stroke:color-mix(in srgb,var(--lith) 12%,transparent)}
-[data-style="plancia"] .g-fill{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--lith) 70%,transparent))}
-[data-style="plancia"] .g-gaps{display:inline;fill:none;stroke:var(--surface);stroke-width:20;stroke-dasharray:2 7.425;transform:rotate(135deg);transform-origin:120px 120px} /* 64 segmenti */
-[data-style="plancia"] .g-ticks line{stroke:var(--lith)}
-[data-style="plancia"] .g-deco{display:inline;fill:none;stroke:color-mix(in srgb,var(--lith) 70%,transparent);stroke-width:5;stroke-dasharray:1.5 4}
-[data-style="plancia"] .g-deco-out{stroke-width:1.5;stroke-dasharray:532.5 710;transform:rotate(135deg);transform-origin:120px 120px}
-[data-style="plancia"] .g-comet{display:none}
-[data-style="plancia"] .state{background:color-mix(in srgb,currentColor 14%,transparent);border:1.5px solid currentColor;border-radius:0;font-weight:700;
-  clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,8px 100%,0 50%);padding:6px 20px}
-[data-style="plancia"] .state.chg{color:var(--sun)} [data-style="plancia"] .state.dsg{color:var(--out)}
-[data-style="plancia"] .eta{border-radius:0;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));background:color-mix(in srgb,var(--lith) 8%,transparent)}
-[data-style="plancia"] .tabs{background:rgba(2,16,18,.92);border-top:1.5px solid color-mix(in srgb,var(--lith) 60%,transparent)}
-[data-style="plancia"] .tab{font-size:.58rem;color:var(--muted)}
-[data-style="plancia"] .tab .ti{width:40px;height:34px;border-radius:0;background:color-mix(in srgb,var(--lith) 14%,transparent);color:var(--lith);
-  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
-[data-style="plancia"] .tab[aria-selected="true"]{color:var(--lith)}
-[data-style="plancia"] .tab[aria-selected="true"] .ti{background:var(--lith);color:#021012}
-[data-style="plancia"] .cab .slot{display:none}
-[data-style="plancia"] .cab .ch2{display:inline;fill:var(--surface);stroke:color-mix(in srgb,var(--lith) 75%,transparent);stroke-width:1.5}
-[data-style="plancia"] .cab .m.low .ch2{stroke:var(--warn)}
-[data-style="plancia"] .cab .hatch{display:inline;fill:none;stroke:var(--lith);stroke-width:1.6}
-[data-style="plancia"] .cab .name{font:700 13.5px "Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed;text-transform:uppercase;letter-spacing:.05em}
-[data-style="plancia"] .cab .pct{font:700 22px "Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed;filter:drop-shadow(0 0 5px color-mix(in srgb,var(--lith) 50%,transparent))}
-[data-style="plancia"] .cab .seg{rx:0}
-[data-style="plancia"] :is(.pv-rows,.pv-tab){background:var(--surface);border-radius:0;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));outline:1.5px solid color-mix(in srgb,var(--lith) 60%,transparent);outline-offset:-1.5px}
-[data-style="plancia"] .pv-g circle{stroke-linecap:butt}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ /* 64 segmenti */
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ---------- impostazioni e schede (finestre dal basso) negli stili hi-tech: cornice, titoli, pulsanti e selettori dello stile ---------- */
 [data-style] dialog{background:linear-gradient(180deg,color-mix(in srgb,var(--lith) 7%,transparent),transparent 120px),var(--surface);
@@ -1210,59 +1075,50 @@ footer{border-top:0;padding-top:0}
 [data-style] .stats dt{color:var(--lith);text-transform:uppercase;letter-spacing:.06em;font-size:.7rem}
 [data-style] .set-foot{border-top-color:color-mix(in srgb,var(--lith) 25%,transparent)}
 /* forme: angoli vivi e smussati (Mecha, Terminale, Plancia), appena arrotondati (Hi-Tech), morbidi e luminosi (Cyber, Reattore) */
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) dialog{border-radius:0;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px)}
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input,.loc-res button,.loc-cur,.temps span,.cell,.usb-card,.usb-stats div){border-radius:0}
+:is([data-style="mecha"]) dialog{border-radius:0;clip-path:polygon(16px 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%,0 16px)}
+:is([data-style="mecha"]) :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input,.loc-res button,.loc-cur,.temps span,.cell,.usb-card,.usb-stats div){border-radius:0}
 [data-style="mecha"] .seg input:checked+span,[data-style="mecha"] .close{clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%)}
 [data-style="mecha"] .close{background:var(--lith);color:#111;border:0;font-weight:700;padding:8px 18px}
-:is([data-mecha],[data-style="reattore"],[data-style="plancia"]) :is(.sheet-head h2,.sheet h3,.seg span,.close,.set-btn,.stats dt,.stats dd){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
+:is([data-mecha]) :is(.sheet-head h2,.sheet h3,.seg span,.close,.set-btn,.stats dt,.stats dd){font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
 [data-style="mecha"] .sheet-head h2{display:flex;align-items:center;gap:10px;flex:1}
 [data-style="mecha"] .sheet-head h2::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--lith),transparent)}
-[data-style="terminale"] .sheet-head h2::before{content:"> "}
-[data-style="terminale"] .sheet h3::before{content:"// ";opacity:.7}
-[data-style="plancia"] .sheet h3{display:inline-block;padding:3px 20px 3px 9px;background:var(--lith);color:#021012;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%)}
-[data-style="plancia"] .close{clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,8px 100%,0 50%);border:0;background:color-mix(in srgb,var(--lith) 18%,transparent);padding:8px 18px}
-[data-style="hitech"] dialog{border-radius:4px 4px 0 0}
-[data-style="hitech"] :is(.close,.set-btn,.seg,.seg span,.names input,.loc-f input){border-radius:3px}
-[data-style="hitech"] :is(.sheet-head h2,.sheet h3,.stats dt){font-family:var(--mono)}
-[data-style="cyber"] dialog{border-radius:14px 14px 0 0;border:1.5px solid var(--lith);border-bottom:0;box-shadow:0 0 22px -4px color-mix(in srgb,var(--lith) 60%,transparent)}
-[data-style="cyber"] :is(.sheet-head h2,.sheet h3){text-shadow:0 0 8px color-mix(in srgb,var(--lith) 70%,transparent);letter-spacing:.2em}
-[data-style="cyber"] .seg input:checked+span{background:color-mix(in srgb,var(--out) 22%,transparent);color:var(--out);box-shadow:inset 0 0 0 1.5px var(--out),0 0 12px -2px var(--out)}
-[data-style="cyber"] .stats dd{font-family:var(--mono);color:var(--out);text-shadow:0 0 8px color-mix(in srgb,var(--out) 55%,transparent)}
-[data-style="reattore"] dialog{border-radius:12px 12px 0 0;border:1px solid color-mix(in srgb,var(--lith) 60%,transparent);border-bottom:0}
-[data-style="reattore"] .close{border-radius:999px}
 
 
-[data-hud] body{background:radial-gradient(120% 55% at 50% -12%,color-mix(in srgb,var(--lith) 14%,transparent),transparent 62%),
-  linear-gradient(color-mix(in srgb,var(--lith) 5%,transparent) 1px,transparent 1px) 0 0/22px 22px,
-  linear-gradient(90deg,color-mix(in srgb,var(--lith) 5%,transparent) 1px,transparent 1px) 0 0/22px 22px,var(--bg)}
-[data-hud] .app::after{content:"";position:fixed;inset:0;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 3px)}
-[data-hud] :is(.hero-card,.kpis div,.pv-col,.panel,.notice,.alerts li){--k:color-mix(in srgb,var(--lith) 85%,transparent);
-  background:linear-gradient(var(--k),var(--k)) 0 0/11px 1.5px,linear-gradient(var(--k),var(--k)) 0 0/1.5px 11px,
-    linear-gradient(var(--k),var(--k)) 100% 0/11px 1.5px,linear-gradient(var(--k),var(--k)) 100% 0/1.5px 11px,
-    linear-gradient(var(--k),var(--k)) 0 100%/11px 1.5px,linear-gradient(var(--k),var(--k)) 0 100%/1.5px 11px,
-    linear-gradient(var(--k),var(--k)) 100% 100%/11px 1.5px,linear-gradient(var(--k),var(--k)) 100% 100%/1.5px 11px,
-    linear-gradient(180deg,color-mix(in srgb,var(--lith) 7%,transparent),transparent 65%),var(--surface);
-  background-repeat:no-repeat;border:1px solid color-mix(in srgb,var(--lith) 16%,transparent);border-radius:3px;
-  box-shadow:inset 0 0 26px -14px var(--lith)}
-[data-hud] .alerts li{--k:var(--c)}
-[data-hud] .pv-col.low{--k:var(--warn)}
-[data-hud] .hero-card{padding:16px 12px 18px}
-[data-hud] :is(.kpis dt,.pv-n,section h2,.state,.tab,.g-sub,.eta,footer,.hist-read,.legend,.pv-h,.pv-st,.pv-p,.fc-note,.wx){font-family:var(--mono)}
-[data-hud] :is(.kpis dt,.state,.tab,.pv-st){text-transform:uppercase;letter-spacing:.08em}
-[data-hud] :is(.kpis dt,.pv-n){font-size:.68rem}
-[data-hud] .tab{font-size:.58rem}
-[data-hud] .soc .big{font-family:var(--mono);font-weight:300;letter-spacing:-.05em;text-shadow:0 0 22px color-mix(in srgb,var(--lith) 55%,transparent)}
-[data-hud] :is(.kpis dd,.pv-w,.pv-rv){font-family:var(--mono);font-weight:500;letter-spacing:-.02em}
-[data-hud] .g-arc{stroke-width:7}
-[data-hud] .g-fill{filter:drop-shadow(0 0 6px var(--lith))}
-[data-hud] .g-track{stroke:color-mix(in srgb,var(--lith) 13%,transparent)}
-[data-hud] .g-ticks line{stroke:var(--lith);opacity:.7}
-[data-hud] .state{background:none;border:1px solid color-mix(in srgb,currentColor 55%,transparent);border-radius:3px;padding:5px 12px;font-size:.78rem}
-[data-hud] .state.chg{color:var(--sun)} [data-hud] .state.dsg{color:var(--out)}
-[data-hud] .pv-g .f{filter:drop-shadow(0 0 4px var(--c))}
-[data-hud] .tabs{background:color-mix(in srgb,var(--bg) 88%,transparent);border-top-color:color-mix(in srgb,var(--lith) 22%,transparent)}
-[data-hud] .tab[aria-selected="true"]{color:var(--lith)}
-[data-hud] .tab[aria-selected="true"] .ti{background:none;border-radius:2px;box-shadow:inset 0 -2px 0 var(--lith);color:var(--lith);filter:drop-shadow(0 0 6px var(--lith))}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
 
 /* ---------- card del tempo stimato ---------- */
 .eta{display:flex;align-items:center;gap:12px;margin:12px auto 0;max-width:340px;padding:9px 14px 9px 9px;border-radius:18px;
@@ -1293,8 +1149,8 @@ footer{border-top:0;padding-top:0}
 .volt-sc{position:relative;height:12px;font:500 .62rem var(--mono);color:var(--muted)}
 .volt-sc span{position:absolute;transform:translateX(-50%)}
 .volt-sc span:first-child{transform:none}.volt-sc span:last-child{transform:translateX(-100%)}
-:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.volt-bar,.volt-bar i,.volt-bar .lo,.volt-bar .bo){border-radius:0}
-:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) .volt-bar em{border-radius:0;transform:rotate(45deg)}
+:is([data-mecha]) :is(.volt-bar,.volt-bar i,.volt-bar .lo,.volt-bar .bo){border-radius:0}
+:is([data-mecha]) .volt-bar em{border-radius:0;transform:rotate(45deg)}
 .eta-ico{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--sun-tint);color:var(--sun)}
 .eta.dsg .eta-ico{background:var(--out-tint);color:var(--out)}
 .eta.warn .eta-ico{background:var(--warn-tint);color:var(--warn)}
@@ -1380,7 +1236,7 @@ footer{border-top:0;padding-top:0}
 .wnd-av small{margin-left:3px;font-size:.74rem;font-weight:600;color:var(--muted)}
 .wnd-av em{display:block;font-style:normal;font-size:.62rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:1px}
 [data-mecha] .wnd-av{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
-:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.wnd-tag,.wnd-bar,.wnd-bar i){border-radius:0}
+:is([data-mecha]) :is(.wnd-tag,.wnd-bar,.wnd-bar i){border-radius:0}
 
 /* pagina Inverter (2.41): uscita misurata dopo lo Shelly (dallo Shelly EM, firmware 0.79, o dal misuratore Tuya, 0.67: outM), rendimento DC → AC, ultimi minuti, stato */
 .inv-top{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:6px 12px;margin-top:6px}
@@ -1399,6 +1255,7 @@ footer{border-top:0;padding-top:0}
 .inv-row.dc .wnd-bar i{background:var(--lith)}.inv-row.ac .wnd-bar i{background:var(--good)}.inv-row.re .wnd-bar i{background:var(--warn)}
 .inv-pw{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.inv-pw .inv-row{grid-template-columns:5.4em minmax(0,1fr) 5em}
 .inv-pw .inv-row.dc .wnd-bar i{background:var(--muted)}
+.inv-chk{margin-top:12px}
 .inv-pw p{margin:8px 0 0;font-size:.76rem;color:var(--muted);line-height:1.4}
 .inv-big{display:flex;align-items:baseline;gap:10px;margin-top:2px}
 .inv-big>b{font:700 1.9rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}.inv-big span{font-size:.8rem;color:var(--muted)}.inv-big span b{color:var(--ink);font-weight:700}
@@ -1409,7 +1266,7 @@ footer{border-top:0;padding-top:0}
 .inv-dl dd.bad{color:var(--warn)}.inv-dl dd.ok{color:var(--good)}
 .inv-empty{margin:6px 0 2px;font-size:.84rem;color:var(--muted);line-height:1.45}.inv-empty b{color:var(--ink)}
 [data-mecha] .inv-big b,[data-mecha] .inv-ring text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
-:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) .inv-row .wnd-bar,:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) .inv-row .wnd-bar i{border-radius:0}
+:is([data-mecha]) .inv-row .wnd-bar,:is([data-mecha]) .inv-row .wnd-bar i{border-radius:0}
 .wnd-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0 0}
 .wnd-g div{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 .wnd-g dt{font-size:.72rem;color:var(--muted)}.wnd-g dd{margin:3px 0 0;font:700 1.05rem var(--num,inherit);color:var(--ink);font-variant-numeric:tabular-nums}
@@ -1425,7 +1282,7 @@ footer{border-top:0;padding-top:0}
 .wnd-sw b{color:var(--ink)}.wnd-sw .set-btn{flex:none;padding:6px 12px;font-size:.8rem}
 .wnd-day.off b{color:var(--muted);font-weight:500}
 .wnd-info ul{margin:0;padding:0 0 0 16px;display:grid;gap:5px}.wnd-info b{color:var(--ink);font-weight:600}
-:is([data-mecha],[data-style="terminale"],[data-style="plancia"]) :is(.wnd-g div,.wnd-day .bar){border-radius:0}
+:is([data-mecha]) :is(.wnd-g div,.wnd-day .bar){border-radius:0}
 [data-mecha] .wnd-g div{clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%)}
 [data-mecha] .wnd-big{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif;font-stretch:condensed}
 [data-mecha] .wnd-svg text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif;letter-spacing:.04em}
@@ -1436,8 +1293,8 @@ footer{border-top:0;padding-top:0}
 /* spie: verde = in funzione, rosso = allarme, nelle tonalità dello stile (--led-ok, --led-err) */
 .cab .run.on{fill:var(--led-ok,#34C759);filter:drop-shadow(0 0 2.5px var(--led-ok,#34C759))}
 .cab .alm.on{fill:var(--led-err,var(--alert));filter:drop-shadow(0 0 2.5px var(--led-err,var(--alert)))}
-[data-style="hitech"]{--led-ok:#36F5B0;--led-err:#FF5D73}
-[data-style="terminale"]{--led-ok:#39FF7A;--led-err:#FF5544}
+
+
 [data-style="mecha"]{--led-ok:#C3E62B;--led-err:#FF4A1C}
 /* i due livelli delle batterie su solare (2.12): la scheda e l'inverter. Di norma il giallo e il rosso del tema; in Mecha (richiesta dell'utente)
    colori da quadro industriale: ambra chiaro per la scheda, arancio segnale per l'inverter, con scritte strette e maiuscole */
@@ -1448,26 +1305,26 @@ footer{border-top:0;padding-top:0}
 :root[data-style="mecha"]{--cg-in:color-mix(in srgb,var(--lith) 55%,#000);--cg-out:#BDBDBD;--cg-guard:#F2F2F2}
 [data-mecha] .night.sol.warn{--c:var(--sol-ao)}[data-mecha] .night.sol.bad{--c:var(--sol-cut)}
 [data-mecha] :is(.sol-bar,.sol-line) text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed;letter-spacing:.05em;text-transform:uppercase}
-[data-style="cyber"]{--led-ok:#9CFF3A;--led-err:#FF3B30}
-[data-style="reattore"]{--led-ok:#C3E62B;--led-err:#FF3D1F}
-[data-style="plancia"]{--led-ok:#4DFFB0;--led-err:#FF4D5E}
+
+
+
 .cab .blink{animation:led-blink 1.1s steps(2,start) infinite}
 .cab .m.off{opacity:.4}
 .cab .deco{display:none}
 /* righe dell'armadio nel carattere di ogni stile (i colori seguono già chiaro/scuro del tema) */
-[data-hud] .cab .slot{fill:rgba(8,17,26,.85);stroke:color-mix(in srgb,var(--lith) 18%,transparent);rx:3px}
+
 /* righe delle batterie negli stili hi-tech */
-[data-hud] .cab .brk{display:inline;fill:none;stroke:var(--lith);stroke-width:1.6;filter:drop-shadow(0 0 3px var(--lith))}
-[data-hud] .cab .name{font:600 11.5px var(--mono);text-transform:uppercase;letter-spacing:.06em}
-[data-hud] .cab .pct{font:500 19px var(--mono);fill:var(--lith);filter:drop-shadow(0 0 5px color-mix(in srgb,var(--lith) 60%,transparent))}
-[data-hud] .cab .seg{rx:1px}
-[data-style="terminale"] .cab .slot{display:none}
-[data-style="terminale"] .cab .ch2{display:inline;fill:var(--surface);stroke:color-mix(in srgb,var(--lith) 22%,transparent);stroke-width:1}
-[data-style="terminale"] .cab .bar{display:inline;fill:var(--lith)}
-[data-style="terminale"] .cab .m.low .bar{fill:var(--warn)}
-[data-style="terminale"] .cab .name{font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.04em}
-[data-style="terminale"] .cab .pct{font:400 20px var(--mono);fill:var(--lith);filter:drop-shadow(0 0 5px color-mix(in srgb,var(--lith) 55%,transparent))}
-[data-style="terminale"] .cab .seg{rx:0;height:22px}
+
+
+
+
+
+
+
+
+
+
+
 [data-mecha] .cab .slot{display:none}
 [data-mecha] .cab :is(.ch1,.ch2){fill:#141414;stroke:color-mix(in srgb,var(--lith) 70%,transparent);stroke-width:1.6}
 [data-style="mecha"] .cab .ch1{display:inline}
@@ -1477,12 +1334,12 @@ footer{border-top:0;padding-top:0}
 [data-mecha] .cab .name{font:700 14px "Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed;text-transform:uppercase;letter-spacing:.04em}
 [data-mecha] .cab .pct{font:700 22px "Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
 [data-mecha] .cab .seg{rx:0}
-[data-style="cyber"] .cab .slot{rx:10px;fill:rgba(8,6,3,.72);stroke:color-mix(in srgb,var(--lith) 80%,transparent);stroke-width:1.2;filter:drop-shadow(0 0 4px color-mix(in srgb,var(--lith) 50%,transparent))}
-[data-style="cyber"] .cab .m.low .slot{stroke:var(--warn)}
-[data-style="cyber"] .cab .side{display:inline;fill:none;stroke:var(--lith);stroke-width:4;stroke-linecap:round;filter:drop-shadow(0 0 4px var(--lith))}
-[data-style="cyber"] .cab .name{font:600 11.5px var(--body);text-transform:uppercase;letter-spacing:.14em;fill:var(--lith)}
-[data-style="cyber"] .cab .pct{font:500 20px var(--mono);fill:var(--out);filter:drop-shadow(0 0 5px color-mix(in srgb,var(--out) 60%,transparent))}
-[data-style="cyber"] .cab .seg{rx:1px}
+
+
+
+
+
+
 .cab.intro .seg{transition-delay:calc(var(--d,0s) + var(--j,0) * 35ms)}
 @keyframes led-blink{to{opacity:.2}}
 
@@ -1499,8 +1356,8 @@ footer{border-top:0;padding-top:0}
 .gauge.dsg .g-comet circle{stroke:color-mix(in srgb,var(--bg) 78%,transparent);animation:comet-d var(--flow-dur,3s) cubic-bezier(.45,0,.55,1) infinite}
 @keyframes comet{from{stroke-dashoffset:var(--L)}to{stroke-dashoffset:calc(var(--L) - var(--travel,300px))}}
 @keyframes comet-d{from{stroke-dashoffset:calc(-1 * var(--a,240px))}to{stroke-dashoffset:64px}}
-[data-hud] .g-comet circle{stroke-width:5}
-[data-style="terminale"] .g-comet{display:none}
+
+
 .cab .seg,.g-tick line{--off:var(--line)}
 .cab .seg.act{animation:seg-fill 1s ease-in-out infinite}
 .g-tick line.act{animation:seg-stroke 1s ease-in-out infinite}
@@ -1515,7 +1372,7 @@ footer{border-top:0;padding-top:0}
 
 @media (prefers-reduced-motion: reduce){
   .g-comet{display:none}
-  [data-style="terminale"] section h2::after{animation:none !important}
+  
   .cab .blink,.cab .seg.act,.g-tick line.act,.hist.intro,.prot .al-ico::after{animation:none !important}
   .conn.live .dot{animation:none}
   .cell{transition:none}
@@ -1577,11 +1434,37 @@ html.mon-open,html.mon-open body{overflow:hidden}
   .mon .volt .volt-h b{font-size:clamp(2.6rem,min(9vw,16vh),7rem)}
   .mon-cut .t{font-size:clamp(2.2rem,min(7.5vw,13vh),5.5rem)}
 }
-:is([data-style="mecha"],[data-style="terminale"],[data-style="plancia"]) :is(.mon-badge,.mon-cut,.mon-x,.mon-back){border-radius:0}
+:is([data-style="mecha"]) :is(.mon-badge,.mon-cut,.mon-x,.mon-back){border-radius:0}
 [data-style="mecha"] .mon-cut{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
 [data-style="mecha"] .mon-badge{clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);border-width:0;padding-inline:1.3em}
-[data-style="terminale"] :is(.mon-badge,.mon-cut .t,.mon-g .pc){font-family:var(--mono)}
+
 @media (prefers-reduced-motion: reduce){.mon>*,.mon-g .fl{transition:none}}
+/* pagina Oggi (2.57): una riga in testa e cinque riquadri che portano alle altre pagine */
+.tdy-top{display:grid;gap:2px;width:100%;margin:6px 0 12px;padding:11px 12px;border:1px solid var(--line);border-left:3px solid var(--good);background:var(--bg);color:var(--ink);font:inherit;text-align:left}
+button.tdy-top{cursor:pointer}
+.tdy-top b{font:700 1.02rem "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.04em;text-transform:uppercase}
+.tdy-top span{font-size:.8rem;color:var(--muted)}
+.tdy-top.ok b{color:var(--good)}.tdy-top.al{border-left-color:var(--warn)}.tdy-top.al b{color:var(--warn)}.tdy-top.sun{border-left-color:var(--sun)}.tdy-top.sun b{color:var(--sun)}
+.tdy-g{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.tdy-t{display:grid;gap:5px;align-content:start;min-width:0;padding:11px 12px 12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;text-align:left;cursor:pointer;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);transition:border-color .15s}
+.tdy-t:active{border-color:var(--lith)}
+.tdy-t.bat,.tdy-t.home,.tdy-t.time{grid-column:1/-1}
+.tdy-h{display:flex;align-items:center;gap:7px;font:700 .72rem "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tdy-h svg{width:17px;height:17px;flex:none;color:var(--c,var(--lith))}
+.tdy-v{font:700 2rem/1 "Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif;color:var(--c,var(--ink));font-variant-numeric:tabular-nums;white-space:nowrap}
+.tdy-v small{margin-left:4px;font-size:.9rem;font-weight:600;color:var(--muted)}
+.tdy-s{font-size:.78rem;line-height:1.35;color:var(--muted)}.tdy-s b{color:var(--ink);font-weight:600}
+.tdy-bar{display:block;height:8px;background:var(--line);transform:skewX(-20deg);margin:1px 3px 2px}.tdy-bar i{display:block;height:100%;background:var(--lith)}
+.tdy-t.bat{--c:var(--lith)}.tdy-t.sun{--c:var(--sun)}.tdy-t.wind{--c:var(--wn-w)}.tdy-t.home.on{--c:var(--good)}.tdy-t.time.ok{--c:var(--good)}.tdy-t.time.warn{--c:var(--warn)}
+.tdy-t.bat .tdy-v,.tdy-t.time .tdy-v{font-size:2.5rem}
+/* una sezione a scomparsa, in fondo alla pagina: quello che si legge una volta */
+.fold{margin:0 0 14px;border:1px solid var(--line);background:var(--surface)}
+.fold summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;cursor:pointer;list-style:none;font:700 .8rem "Roboto Condensed","Arial Narrow",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--lith)}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary::after{content:"";width:9px;height:9px;flex:none;border-right:2px solid var(--lith);border-bottom:2px solid var(--lith);transform:rotate(45deg);transition:transform .2s}
+.fold[open] summary::after{transform:rotate(-135deg)}
+.fold>:not(summary){margin-left:14px;margin-right:14px}.fold>:last-child{margin-bottom:14px}
 </style>
 <script>/* Chrome prima della 111 (marzo 2023) non conosce color-mix(): gli sfondi che la usano diventano trasparenti (impostazioni, Monitor, riquadri).
    Lì calcolo io i colori misti col tema di adesso e riscrivo il foglio di stile con colori normali; lo rifaccio quando cambiano tema, stile o colori
@@ -1620,8 +1503,6 @@ html.mon-open,html.mon-open body{overflow:hidden}
   }
   function run(){ st.textContent = orig; cs = getComputedStyle(root); memo = {}; st.textContent = resolve(orig); }
   run();
-  if (window.MutationObserver) new MutationObserver(run).observe(root, { attributes: true, attributeFilter: ["data-style", "data-theme", "data-palette", "data-mecha", "data-hud"] });
-  var mq = window.matchMedia && matchMedia("(prefers-color-scheme: dark)"); if (mq && mq.addListener) mq.addListener(run);
 })();
 </script>
 </head>
@@ -1638,6 +1519,12 @@ html.mon-open,html.mon-open body{overflow:hidden}
   </header>
 
   <div class="pages" id="pages">
+    <div class="page" id="pg-7" role="tabpanel" aria-labelledby="tab-7">
+      <section class="panel" aria-labelledby="h-tdy">
+        <h2 id="h-tdy">Oggi</h2>
+        <div class="tdy" id="tdy"></div>
+      </section>
+    </div>
     <div class="page" id="pg-0" role="tabpanel" aria-labelledby="tab-0">
       <section class="hero">
       <div class="hero-card">
@@ -1732,36 +1619,33 @@ html.mon-open,html.mon-open body{overflow:hidden}
         <div id="wnd-head"></div>
       </section>
       <section class="panel" aria-labelledby="h-wnd1">
-        <h2 id="h-wnd1">Ultima ora</h2>
+        <h2 id="h-wnd1">Pala, ultima ora</h2>
         <svg class="wnd-svg wnd-1h" id="wnd-1h" viewBox="0 0 340 150" role="img" aria-label="Potenza e corrente stimate della pala minuto per minuto nell'ultima ora"></svg>
         <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala, media del minuto</span><span><i class="wn-pk"></i>Picco istantaneo</span><span><i class="wn-bat"></i>Casa sulle batterie</span><span><i class="wn-na"></i>Non stimabile</span><span><i class="wn-gap"></i>Nessuna lettura</span></p>
         <p class="hist-read" id="wnd-1hr"></p>
       </section>
       <section class="panel" aria-labelledby="h-wnd48">
-        <h2 id="h-wnd48">Ultime 48 ore</h2>
+        <h2 id="h-wnd48">Pala, ultime 48 ore</h2>
         <svg class="wnd-svg" id="wnd-48" viewBox="0 0 340 150" role="img" aria-label="Potenza stimata della pala e vento nelle ultime 48 ore"></svg>
         <p class="legend"><span><i style="background:var(--wn-w)"></i>Pala (stimata)</span><span><i class="wn-pk"></i>Picchi del quarto d'ora: minuto (pieno), istante (vuoto)</span><span><i style="background:var(--wn-v)"></i>Vento m/s</span><span><i class="wn-na"></i>Casa sulle batterie: non stimabile</span></p>
         <p class="hist-read" id="wnd-48r"></p>
       </section>
       <section class="panel" aria-labelledby="h-wndd">
-        <h2 id="h-wndd">Ultimi 7 giorni</h2>
+        <h2 id="h-wndd">Pala, ultimi 7 giorni</h2>
         <div class="wnd-days" id="wnd-days"></div>
         <p class="set-note" id="wnd-days-n"></p>
       </section>
-      <section class="panel" aria-labelledby="h-wndc">
-        <h2 id="h-wndc">La curva della pala</h2>
-        <svg class="wnd-svg" id="wnd-curve" viewBox="0 0 340 170" role="img" aria-label="Potenza della pala secondo la velocità del vento"></svg>
-        <p class="set-note" id="wnd-curve-n"></p>
-      </section>
       <section class="panel" aria-labelledby="h-wndf">
-        <h2 id="h-wndf">Prossime 48 ore</h2>
+        <h2 id="h-wndf">Vento, prossime 48 ore</h2>
         <svg class="wnd-svg" id="wnd-fc" viewBox="0 0 340 150" role="img" aria-label="Vento previsto e produzione attesa della pala"></svg>
         <p class="hist-read" id="wnd-fcr"></p>
       </section>
-      <section class="panel plain" aria-labelledby="h-wndi">
-        <h2 id="h-wndi">Come si calcola</h2>
+      <details class="fold">
+        <summary>La curva della pala e come si calcola</summary>
+        <svg class="wnd-svg" id="wnd-curve" viewBox="0 0 340 170" role="img" aria-label="Potenza della pala secondo la velocità del vento"></svg>
+        <p class="set-note" id="wnd-curve-n"></p>
         <div class="set-note wnd-info" id="wnd-info"></div>
-      </section>
+      </details>
     </div>
     <div class="page" id="pg-6" role="tabpanel" aria-labelledby="tab-6">
       <section class="panel" aria-labelledby="h-inv" id="inv-now">
@@ -1769,11 +1653,11 @@ html.mon-open,html.mon-open body{overflow:hidden}
         <div id="inv-head"></div>
       </section>
       <section class="panel" aria-labelledby="h-inv-eff">
-        <h2 id="h-inv-eff">Rendimento, ultimo minuto</h2>
+        <h2 id="h-inv-eff">Rendimento</h2>
         <div id="inv-eff"></div>
       </section>
       <section class="panel" aria-labelledby="h-inv-run">
-        <h2 id="h-inv-run">Ultima ora</h2>
+        <h2 id="h-inv-run">Uscita, ultima ora</h2>
         <svg class="wnd-svg" id="inv-run" viewBox="0 0 340 130" role="img" aria-label="Potenza in uscita dall'inverter nell'ultima ora"></svg>
         <p class="hist-read" id="inv-runr"></p>
       </section>
@@ -1784,13 +1668,13 @@ html.mon-open,html.mon-open body{overflow:hidden}
     </div>
     <div class="page" id="pg-3" role="tabpanel" aria-labelledby="tab-3">
     <section class="panel" aria-labelledby="h-hist">
-      <h2 id="h-hist">Ultime 24 ore</h2>
+      <h2 id="h-hist">Batterie, ultime 24 ore</h2>
       <p class="hist-read" id="hist-read"></p>
       <svg class="hist" id="hist" viewBox="0 0 340 152" role="img" aria-label="Andamento della carica e della potenza nelle ultime 24 ore"></svg>
       <p class="legend"><span><i style="background:var(--lith)"></i>Carica delle batterie</span><span><i style="background:var(--cg-in)"></i>Potenza in entrata</span><span><i style="background:var(--cg-out)"></i>Potenza in uscita</span></p>
     </section>
     <section class="panel plain" aria-labelledby="h-fc">
-      <h2 id="h-fc">Prossime 48 ore</h2>
+      <h2 id="h-fc">Batterie, prossime 48 ore</h2>
       <div class="wx" id="wx"></div>
       <p class="hist-read" id="fc-read"></p>
       <svg class="fc" id="fc" viewBox="0 0 340 152" role="img" aria-label="Previsione della carica nelle prossime 48 ore"></svg>
@@ -1813,8 +1697,6 @@ html.mon-open,html.mon-open body{overflow:hidden}
       <ul class="rel-list alh-list" id="alh-list"></ul>
       <p class="fc-note" id="alh-note"></p>
     </section>
-    </div>
-    <div class="page" id="pg-4" role="tabpanel" aria-labelledby="tab-4">
       <section class="night wait" id="bankmem" hidden></section>
     <section class="panel plain" aria-labelledby="h-hab">
       <h2 id="h-hab">Abitudini di consumo</h2>
@@ -1823,21 +1705,16 @@ html.mon-open,html.mon-open body{overflow:hidden}
       <ul class="alerts habits" id="habits"></ul>
       <p class="fc-note" id="hab-note"></p>
     </section>
-    <section class="panel plain" aria-labelledby="h-lrn">
-      <h2 id="h-lrn">Cosa sto imparando</h2>
-      <p class="hist-read" id="lrn-read"></p>
-      <div id="lrn"></div>
-    </section>
     </div>
 </div>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Pagine">
-    <button class="tab" id="tab-0" type="button" role="tab" aria-label="Dashboard" title="Dashboard" aria-controls="pg-0" aria-selected="true" tabindex="0"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 17.8a8 8 0 1 1 13.6 0"/><path d="M12 13.5l3.2-3.6"/><circle cx="12" cy="14" r="1.4"/></svg><span class="tab-n" id="tab-n" hidden></span></span></button>
+    <button class="tab" id="tab-7" type="button" role="tab" aria-label="Oggi" title="Oggi" aria-controls="pg-7" aria-selected="true" tabindex="0"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.8v3.4M16 2.8v3.4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/></svg></span></button>
+    <button class="tab" id="tab-0" type="button" role="tab" aria-label="Dashboard" title="Dashboard" aria-controls="pg-0" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.2 17.8a8 8 0 1 1 13.6 0"/><path d="M12 13.5l3.2-3.6"/><circle cx="12" cy="14" r="1.4"/></svg><span class="tab-n" id="tab-n" hidden></span></span></button>
     <button class="tab" id="tab-1" type="button" role="tab" aria-label="Batterie" title="Batterie" aria-controls="pg-1" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg></span></button>
     <button class="tab" id="tab-2" type="button" role="tab" aria-label="Pannelli" title="Pannelli" aria-controls="pg-2" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14l2.5 11h-19L5 5z"/><path d="M3.9 10.5h16.2M9.7 5l-.9 11M14.3 5l.9 11M12 16v3.5M8.5 19.5h7"/></svg></span></button>
     <button class="tab" id="tab-5" type="button" role="tab" aria-label="Vento" title="Vento" aria-controls="pg-5" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="1.6"/><path d="M12 7.4V2.8c2.4.6 2.9 3.2 0 4.6M13.4 9.8l4 2.3c-1.8 1.7-4.3.8-4-2.3M10.6 9.8l-4 2.3c.5-2.4 3-3.3 4-2.3"/><path d="M12 10.6V21M9 21h6"/></svg></span></button>
     <button class="tab" id="tab-6" type="button" role="tab" aria-label="Inverter" title="Inverter" aria-controls="pg-6" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M5.5 18.5l13-13"/><path d="M6.5 8h4.5M6.5 10.3h1.4M8.4 10.3h1.2M10.1 10.3h.9"/><path d="M13 15.5c.8-1.6 1.6-1.6 2.4 0s1.6 1.6 2.4 0"/></svg></span></button>
     <button class="tab" id="tab-3" type="button" role="tab" aria-label="Andamento" title="Andamento" aria-controls="pg-3" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 19.5h17"/><path d="M4.5 15l4.5-5 3.5 3 6.5-7.5"/><path d="M15.5 5.5h3.5V9"/></svg></span></button>
-    <button class="tab" id="tab-4" type="button" role="tab" aria-label="Abitudini" title="Abitudini" aria-controls="pg-4" aria-selected="false" tabindex="-1"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.8v3.4M16 2.8v3.4"/><path d="M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2"/></svg></span></button>
   </nav>
 </main>
 <button class="mon-back" id="mon-back" type="button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg><span>Torna al Monitor</span><i id="mon-back-t"></i></button>
@@ -1878,43 +1755,6 @@ html.mon-open,html.mon-open body{overflow:hidden}
     <h3>Monitor</h3>
     <button class="set-btn pri mon-set" id="mon-on" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>Usa questo telefono come Monitor</button>
     <p class="set-note">Il telefono fa da display nella stanza della scheda: casa su solare o Enel, carica, tensione e a che ora la scheda stacca il solare, in una sola schermata sempre accesa. Vale solo per questo telefono; si esce con la ✕.</p>
-
-    <h3>Stile</h3>
-    <fieldset class="seg seg3 seg4" id="set-style">
-      <legend>Stile</legend>
-      <label><input type="radio" name="style" value="classico"><span>Classico</span></label>
-      <label><input type="radio" name="style" value="hitech"><span>Hi-Tech</span></label>
-      <label><input type="radio" name="style" value="terminale"><span>Terminale</span></label>
-      <label><input type="radio" name="style" value="mecha"><span>Mecha</span></label>
-      <label><input type="radio" name="style" value="cyber"><span>Cyber</span></label>
-      <label><input type="radio" name="style" value="reattore"><span>Reattore</span></label>
-      <label><input type="radio" name="style" value="plancia"><span>Plancia</span></label>
-    </fieldset>
-    <p class="set-note">Hi-Tech, Terminale, Mecha, Cyber, Reattore e Plancia sono gli stili hi-tech. Tema e colori si scelgono solo con Classico: gli altri stili hanno i loro.</p>
-
-    <div id="set-theme-box">
-    <h3>Tema</h3>
-    <fieldset class="seg" id="set-theme">
-      <legend>Tema</legend>
-      <label><input type="radio" name="theme" value="auto"><span><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1.8a6.2 6.2 0 0 1 0 12.4z" fill="currentColor"/></svg>Automatico</span></label>
-      <label><input type="radio" name="theme" value="light"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"/></svg>Chiaro</span></label>
-      <label><input type="radio" name="theme" value="dark"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 10.2A6 6 0 0 1 5.8 2.4a6 6 0 1 0 7.8 7.8z" fill="currentColor"/></svg>Scuro</span></label>
-    </fieldset>
-    <p class="set-note">Automatico segue il tema del telefono.</p>
-    </div>
-
-    <div id="set-pal-box">
-    <h3>Colori</h3>
-    <fieldset class="seg pal" id="set-palette">
-      <legend>Colori</legend>
-      <label><input type="radio" name="palette" value="oro"><span><i style="--a:#F5B800;--b:#2B2B29"></i>Oro</span></label>
-      <label><input type="radio" name="palette" value="blu"><span><i style="--a:#1F6BFF;--b:#26303B"></i>Blu</span></label>
-      <label><input type="radio" name="palette" value="ciano"><span><i style="--a:#0891B2;--b:#26303B"></i>Ciano</span></label>
-      <label><input type="radio" name="palette" value="smeraldo"><span><i style="--a:#059669;--b:#26303B"></i>Smeraldo</span></label>
-      <label><input type="radio" name="palette" value="viola"><span><i style="--a:#7C3AED;--b:#26303B"></i>Viola</span></label>
-    </fieldset>
-    <p class="set-note">L'icona sulla schermata Home resta oro: il telefono non la cambia dopo l'installazione.</p>
-    </div>
 
     <h3>Aggiornamento</h3>
     <fieldset class="seg" id="set-poll">
@@ -2024,10 +1864,6 @@ html.mon-open,html.mon-open body{overflow:hidden}
     <p class="set-note">Pannelli rivolti a sud: serve a chiedere il sole sul loro piano. Ombre e piccoli errori li impara la app confrontando la produzione vera.</p>
     </div>
 
-    <h3>Cavo USB delle batterie</h3>
-    <div id="set-cab"></div>
-    <p class="set-note">Senza la scheda la app legge da sola il BMS col cavo USB–RS485 delle batterie (Chrome su Android con adattatore OTG, o su computer) e tiene il registro su questo dispositivo: impara consumi e abitudini anche prima degli Epever. Solo domande di lettura, una al secondo. Registra finché la app resta aperta: col cavo collegato lo schermo non si spegne.</p>
-
     <h3>Diagnosi</h3>
     <a class="set-btn" href="diagnosi.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg>Diagnosi BMS col cavo USB</a>
     <p class="set-note">Prova il protocollo del BMS dal telefono col cavo USB–RS485 delle batterie, senza la scheda (Chrome su Android, con adattatore OTG).</p>
@@ -2062,7 +1898,7 @@ async function bFetch(url, opt, ms){
   } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.56"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.57"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2531,8 +2367,8 @@ const planeSig = () => planes().map(p => `${p.addr}:${p.key}:${p.kwp}`).join(","
 const SKEY = "mybattery.settings";
 const AL_BOOL = ["alTemp", "alOff", "alFc", "alTip", "alPv", "aoOn"]; // caselle sì/no (allarmi e, dalla 1.93, lo spegnimento automatico dell'uscita)
 const AZ8 = [["N", 180], ["NE", -135], ["E", -90], ["SE", -45], ["S", 0], ["SO", 45], ["O", 90], ["NO", 135]]; // azimut da sud, + verso ovest
-const OPT = { theme: ["auto","light","dark"], palette: ["oro","blu","ciano","smeraldo","viola"], style: ["classico","hitech","terminale","mecha","cyber","reattore","plancia"], poll: [2,5,10,30], inv: [46,47,48,49,50], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
-const DEF = { theme: "dark", palette: "oro", style: "mecha", poll: 5, inv: 48, wnd: [[1794878400, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, hcal: [], ntfy: "", names: {}, pv: {}, loc: null, rem: null };
+const OPT = { poll: [2,5,10,30], inv: [46,47,48,49,50], log: [15,30,45,60], tilt: [10,20,30,40,50], alLow: [10,20,30,40], alDiff: [50,80,120], aoBack: [0,10,20,30,100], aoWarn: [0,15,30,60,120] };
+const DEF = { poll: 5, inv: 48, wnd: [[1794878400, null]], log: 30, tilt: 30, alLow: 20, alDiff: 80, alTemp: true, alOff: true, alFc: true, alTip: true, alPv: true, aoOn: false, aoV: null, aoMarg: 5, aoBack: 20, aoWarn: 30, aoSoc: null, ir: null, ntfy: "", names: {}, pv: {}, loc: null, rem: null };
 let S = loadSettings(), pollTimer = 0;
 function loadSettings(){
   let s = {};
@@ -2568,9 +2404,8 @@ function loadSettings(){
     if (Object.keys(v).length) o.pv[a] = v;
   });
   if (s.names && typeof s.names === "object") Object.entries(s.names).forEach(([k,v]) => { if (typeof v === "string" && v.trim()) o.names[k] = v.trim().slice(0, 24); });
-  // imparati: resistenza del banco e tensione di stacco (irPush), taratura della casa con l'inverter (hcal)
+  // imparati: resistenza del banco e tensione di stacco (irPush)
   if (s.ir && fin(s.ir.r) && s.ir.r >= .005 && s.ir.r <= .06) o.ir = { r: s.ir.r, ...(fin(s.ir.vc) && s.ir.vc > 44 && s.ir.vc < 54 ? { vc: s.ir.vc } : {}) };
-  if (Array.isArray(s.hcal)) o.hcal = s.hcal.filter(r => Array.isArray(r) && r.length === 3 && r.every(fin) && r[0] > 100 && r[0] < 20000 && r[1] > 0 && r[1] < 20000).slice(-10);
   return o;
 }
 // auto = salvataggio fatto dalla app da sola (Voc imparata, resistenza del banco…): niente pop-up, e se non riesce si riprova più tardi
@@ -2614,7 +2449,7 @@ const alP = n => { n = Math.round(n); return (n === 1 || n === 11 || String(n)[0
 const guardSoc = () => Math.max(aoMean() ?? aoBase(), cutSoc());
 const aoActs = () => { const a = data && data.ao, cb = data && data.cb; return !!(aoLimit() && cb && cb.ok !== false && cb.on !== false && !(a && a.st === 4)); };
 const floorSoc = () => houseNow() && aoActs() ? guardSoc() : cutSoc();
-const SHARED = ["inv", "wnd", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir", "hcal"];
+const SHARED = ["inv", "wnd", "aoOn", "aoV", "aoBack", "aoWarn", "aoSoc", "log", "tilt", "alLow", "alDiff", "alTemp", "alOff", "alFc", "alTip", "alPv", "ntfy", "names", "pv", "loc", "rem", "ir"];
 let cfgAt = -1, cfgPushT = 0, cfgPulling = false, remSet = false;
 const sharedOf = () => Object.fromEntries(SHARED.map(k => [k, S[k]]));
 /* le impostazioni condivise si salvano a voci (firmware 0.48): cfgBase è come la scheda le ha l'ultima volta che le abbiamo viste o scritte, e si manda
@@ -2670,46 +2505,31 @@ function bankAt(t){
 }
 // lo «zero» della casa (impianto e scarti di misura), imparato dalla scheda: al buio zn, col sole zd + zb × pannelli
 const houseZero = pvW => { const h = data && data.house; return !h ? 0 : pvW > 30 ? h.zd + h.zb * pvW : h.zn; };
-/* la casa vista dall'inverter. La app vede la casa dal lato del banco (in continua, comprese le perdite dell'inverter: l'11/11 2,7 kW dalle batterie
-   per 2,17 kW alla casa). Con la casa sulle batterie scrivi quanto segna l'inverter: la coppia [W dalle batterie, W dell'inverter, ora] va nelle
-   impostazioni condivise (S.hcal, ultime 10). Un punto: inverter = η × (banco − impianto). Due o più a carichi diversi (almeno 500 W di
-   differenza): la retta inverter = a × banco + b, che impara anche la perdita fissa. */
-let hcalC = null;
-function hcalFit(){
-  const p = (Array.isArray(S.hcal) ? S.hcal : []).filter(r => Array.isArray(r) && r[0] > 100 && r[1] > 0 && r[1] < r[0] * 1.05), p0 = plantW(), key = JSON.stringify(p) + p0;
-  if (hcalC && hcalC.key === key) return hcalC.v;
-  let v = null;
-  if (p.length) {
-    const xs = p.map(r => r[0]), span = Math.max(...xs) - Math.min(...xs); let a, b;
-    if (p.length >= 2 && span >= 500) {
-      const n = p.length, mx = xs.reduce((s, x) => s + x, 0) / n, my = p.reduce((s, r) => s + r[1], 0) / n;
-      a = clamp(p.reduce((s, r) => s + (r[0] - mx) * (r[1] - my), 0) / p.reduce((s, r) => s + (r[0] - mx) ** 2, 0), .6, 1); b = Math.min(0, my - a * mx);
-    } else { a = clamp(quant(p.map(r => r[1] / Math.max(1, r[0] - p0)), .5), .6, 1); b = -a * p0; }
-    v = { a, b, n: p.length, eta: a, loss: -b / a };
-  }
-  return (hcalC = { key, v }).v;
-}
+/* l'inverter fra ingresso e uscita: ingresso = a × uscita + b (a = watt presi dalle batterie per ogni watt dato alla casa, b = a vuoto più
+   l'impianto). La app lo impara dal registro, nelle ore con l'uscita misurata dallo Shelly EM (learn → acFit); finché non ha tre ore, a = 1,17
+   (misurato in diretta il 19/11/2026) e b = l'impianto. Fino alla 2.56 c'era anche una taratura a mano coi watt letti sull'inverter (S.hcal):
+   tolta con la 2.57, ora che l'uscita si misura */
+const invAB = () => { const f = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null; return f ? { a: f.a, b: f.b, n: f.n } : { a: WND_A0, b: plantW(), n: 0 }; };
 // la casa adesso in continua, dalle batterie: regolatori − batterie, senza gli scarti di misura ma con l'impianto (l'inverter a vuoto è suo)
 const houseDC = (prod, bat) => prod !== null && bat !== null ? Math.max(0, prod - bat - houseZero(prod) + plantW()) : bat !== null && bat < 0 ? -bat : null;
-const houseAC = dc => { const f = hcalFit(); return f && fin(dc) ? Math.max(0, f.a * dc + f.b) : null; };
+const houseAC = dc => { if (!fin(dc)) return null; const f = invAB(); return Math.max(0, (dc - f.b) / f.a); };   // la casa in alternata, stimata dal lato delle batterie
 /* la casa adesso, una cifra sola per «Energia adesso», il chip in dashboard e la pagina Pannelli: nello stesso istante di pannelli e batterie
-   (regolatori − batterie − zero delle misure). w = i watt misurati in uscita dall'inverter se il misuratore è in tempo reale (2.46, firmware
-   0.72: meas), se no quelli dell'inverter se è tarata a mano, se no quelli dal lato delle batterie senza l'impianto.
-   La media al minuto della scheda (house.w) serve a lei per decidere dove sta la casa, e alla taratura con l'inverter */
+   (regolatori − batterie − zero delle misure). w = i watt misurati in uscita dall'inverter se il misuratore è in tempo reale (meas), se no la
+   stima dal lato delle batterie passata per il rendimento dell'inverter (houseAC).
+   La media al minuto della scheda (house.w) serve a lei per decidere dove sta la casa */
 // i watt in uscita dall'inverter misurati adesso dal misuratore dopo lo Shelly: null se la misura ha più di 30 secondi
-/* l'uscita dell'inverter: la misura lo Shelly EM (data.em, firmware 0.79: una lettura ogni 2 s, sempre). outM la dà nella forma di data.ac,
-   più src «em» o «ty», var (potenza reattiva) e va (apparente). 2.55, voluto dall'utente: dove c'è lo Shelly EM si mostra solo quello che lui
-   misura o che se ne calcola (corrente e fattore di potenza da watt e var). Dalla 2.56, voluto dall'utente: la frequenza, che lo Shelly EM
-   non dà, e il fattore sotto i 20 VA si prendono dal misuratore Tuya quando risponde; per il resto il Tuya resta in fondo come confronto. Senza Shelly EM (firmware vecchi) vale il Tuya */
+/* l'uscita dell'inverter: la misura lo Shelly EM (data.em, firmware 0.79: una lettura ogni 2 s, sempre). outM dà {src «em», ok, at, w, var
+   (reattiva), va (apparente), v, a, pf, kwh, hz}: corrente e fattore di potenza si calcolano da watt e var; la frequenza, che lo Shelly EM non
+   dà, e il fattore sotto i 20 VA vengono dal misuratore Tuya (data.ac, sola lettura, di confronto) quando risponde. Senza Shelly EM: null */
 function outM(){
-  const e = data && data.em, a = data && data.ac || null;
-  if (!e) return a ? Object.assign({ src: "ty" }, a) : null;
-  if (!(e.ok && fin(e.w))) return { src: "em", ok: false, code: e.code, ip: e.ip, at: e.at };
-  const va = Math.hypot(e.w, e.var || 0), ty = !!(a && a.ok);   // 2.56: la frequenza, e il fattore quando lo Shelly EM non lo può dare, dal Tuya se risponde
-  return { src: "em", ok: true, code: 200, ip: e.ip, at: e.at, t6: e.at, w: Math.round(e.w), var: fin(e.var) ? e.var : null, va, v: e.v,
-    a: fin(e.v) && e.v > 50 ? va / e.v : null, pf: fin(e.pf) ? e.pf : va >= 20 ? Math.min(1, e.w / va) : ty && fin(a.pf) ? a.pf : null, kwh: e.kwh, hz: ty ? a.hz : null };
+  const e = data && data.em, t = data && data.ac, ty = !!(t && t.ok);
+  if (!e) return null;
+  if (!(e.ok && fin(e.w))) return { src: "em", ok: false, at: e.at };
+  const va = Math.hypot(e.w, e.var || 0);
+  return { src: "em", ok: true, at: e.at, w: Math.round(e.w), var: fin(e.var) ? e.var : null, va, v: e.v, a: fin(e.v) && e.v > 50 ? va / e.v : null,
+    pf: fin(e.pf) ? e.pf : va >= 20 ? Math.min(1, e.w / va) : ty && fin(t.pf) ? t.pf : null, kwh: e.kwh, hz: ty && fin(t.hz) ? t.hz : null };
 }
-const acNow = () => { const a = outM(); return a && a.ok && fin(a.w) && a.t6 && nowOf(data) - a.t6 <= 30 ? a.w : null; };
+const acNow = () => { const a = outM(); return a && a.ok && fin(a.w) && a.at && nowOf(data) - a.at <= 30 ? a.w : null; };
 function houseLive(k){
   const pv = data && Array.isArray(data.pv) ? data.pv.filter(g => g.online !== false && fin(g.out_w)) : [], prod = pv.length ? pv.reduce((a, g) => a + g.out_w, 0) : null;
   k = k || bank((data && data.batteries) || []);
@@ -2765,27 +2585,14 @@ function drawSw(){
   const box = $("quadro"); if (!box) return;
   if (!box.dataset.built) {
     box.dataset.built = 1;
-    box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div><div class="ql-sum q-cb" id="q-cb" hidden></div>${CB_CTL}<div class="q-cal" id="q-cal"></div>`;
+    box.innerHTML = `<div class="q-one" id="q-one"><span class="q-ico" id="q-ico"></span><div class="q-txt"><b id="q-state"></b><span id="q-sub"></span></div></div><div class="ql-sum q-cb" id="q-cb" hidden></div>${CB_CTL}`;
     cbCtlInit();
-    box.addEventListener("submit", e => { e.preventDefault(); const i = e.target.querySelector("input"), w = +String(i.value).replace(",", "."), h = data && data.house;
-      const dc = h && fin(h.w) ? h.w + plantW() : null;                // la media al minuto della scheda, come il display dell'inverter
-      if (!(w > 50) || !(dc > 100)) { toast(dc > 100 ? "Scrivi i watt che segna l'inverter" : "Serve la casa sulle batterie per tarare"); return; }
-      S.hcal = [...(Array.isArray(S.hcal) ? S.hcal : []), [Math.round(dc), Math.round(w), Math.round(nowOf(data))]].slice(-10); hcalC = null; saveSettings(); i.value = "";
-      const f = hcalFit(); toast(f ? `Tarata: l'inverter rende circa ${ilP(f.eta * 100)}` : "Lettura salvata"); drawSw(); if (data) render(mode); });
-    box.addEventListener("click", e => { if (e.target.closest("#q-cal-del")) { S.hcal = []; hcalC = null; saveSettings(); drawSw(); if (data) render(mode); } });
   }
   const on = houseNow() === 1, cut = invCutNow(), h = data && data.house, cutAt = cut ? (data.open.find(r => r[0] === "INV_CUT") || [])[3] : null, ico = $("q-ico"), want = on ? "s" : "e";
   if (ico.dataset.v !== want) { ico.dataset.v = want; ico.innerHTML = on ? Q_SUN : Q_PLUG; }
   $("q-one").classList.toggle("cut", cut); $("q-one").classList.toggle("on", on);
-  const hdc = h && fin(h.w) ? h.w + plantW() : null, fit = hcalFit(), hl = houseLive();   // hdc: la media della scheda, per tarare; hl.w: la casa adesso, come in «Energia adesso»
-  $("q-state").textContent = on ? `Sulle batterie${hl.w === null ? "" : hl.meas ? ` · ${power(hl.w)} misurati` : ` · circa ${power(hl.w)}${hl.ac === null ? " dalle batterie" : ""}`}` : "Su Enel";
-  // col misuratore sull'uscita dell'inverter i watt della casa sono misurati: la taratura a mano resta solo di riserva (2.48)
-  const meter = (m => !!(m && m.ok))(outM());
-  const cal = $("q-cal"), calH = (meter ? `<p class="set-note">I watt della casa li <b>misura</b> il misuratore sull'uscita dell'inverter${hl.meas ? "" : " (lo Shelly EM, quando risponde)"}. La taratura a mano serve solo se il misuratore non risponde.</p>` : "") +
-    (on && hdc > 100 && !meter ? `<form class="loc-f" autocomplete="off"><input type="number" inputmode="decimal" min="50" step="1" placeholder="W che segna l'inverter adesso" aria-label="Watt che segna l'inverter adesso"><button class="set-btn pri" type="submit">Tara</button></form>` : "") +
-    ((t => t ? `<p class="set-note">${t}</p>` : "")(fit ? `Tarata con l'inverter su ${fit.n} ${fit.n === 1 ? "lettura" : "letture"}: rende circa <b>${ilP(fit.eta * 100)}</b>, perdita fissa ~${power(fit.loss)}.${meter ? "" : " I watt della casa sono quelli dell'inverter."} <button class="link-btn" id="q-cal-del" type="button">Cancella</button>`
-      : ""));
-  if (cal.dataset.h !== calH && !cal.contains(document.activeElement)) { cal.dataset.h = calH; cal.innerHTML = calH; }
+  const hl = houseLive();   // hdc: la media della scheda, per tarare; hl.w: la casa adesso, come in «Energia adesso»
+  $("q-state").textContent = on ? `Sulle batterie${hl.w === null ? "" : hl.meas ? ` · ${power(hl.w)} misurati` : ` · circa ${power(hl.w)}`}` : "Su Enel";
   $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
     : on ? "La casa prende corrente dall'inverter, cioè dalle batterie." : `Le batterie alimentano solo l'impianto (circa ${power(plantW())}).`;
   const last = $("q-last"); let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
@@ -2905,7 +2712,7 @@ function drawSwLog(){
   const rows = SW.rows.filter(r => Array.isArray(r) && (r[1] & 1) !== (r[2] & 1)).sort((a, b) => swT(a) - swT(b));
   sec.hidden = !SW.board && !rows.length; if (sec.hidden) return;
   const now = nowOf(data), cuts = (boardEv || []).filter(e => e.code === "INV_CUT").map(e => e.s);
-  const key = [rows.length, JSON.stringify(rows[rows.length - 1] || 0), Math.floor(now / 60), STRESS.length, cuts.length, qlAll, JSON.stringify(S.hcal)].join("|");
+  const key = [rows.length, JSON.stringify(rows[rows.length - 1] || 0), Math.floor(now / 60), STRESS.length, cuts.length, qlAll].join("|");
   if (key === qlC) return; qlC = key;
   if (!rows.length) { box.innerHTML = `<p class="set-note">Ancora nessun passaggio: la scheda li segna da sola quando la casa va sulle batterie o torna su Enel.</p>`; return; }
   // i soggiorni: dal passaggio al successivo (l'ultimo arriva ad adesso)
@@ -3615,30 +3422,13 @@ async function pullShared(){
     if (data) render(mode);
   } catch (e) { cfgPulling = false; }
 }
-const metas = [...document.querySelectorAll('meta[name="theme-color"]')];
-const PAGE_BG = { oro: ["#ECECE8", "#161615"], fredda: ["#E9EDF1", "#121820"] }; // = --bg chiaro e scuro
-const STYLE_BG = { hitech: "#04070C", terminale: "#020603", mecha: "#0B0B0B", cyber: "#050403", reattore: "#070502", plancia: "#021012" };
-function applyTheme(){
-  const r = document.documentElement;
-  const theme = S.style === "classico" ? S.theme : "dark"; // gli stili sono tutti scuri
-  if (theme === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", theme);
-  const pal = S.style === "classico" ? S.palette : "oro"; // ogni stile hi-tech ha la sua tavolozza: i Colori valgono solo per Classico
-  if (pal === "oro") r.removeAttribute("data-palette"); else r.setAttribute("data-palette", pal);
-  if (S.style === "classico") r.removeAttribute("data-style"); else r.setAttribute("data-style", S.style);
-  r.toggleAttribute("data-hud", S.style === "hitech"); // angoli a staffa e griglia: solo Hi-Tech
-  r.toggleAttribute("data-mecha", S.style === "mecha"); // cornici, caratteri e grafico di Mecha
-  ["set-theme-box", "set-pal-box"].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = S.style !== "classico"; }); // tema e colori: solo Classico
-  const [bl, bd] = PAGE_BG[pal === "oro" ? "oro" : "fredda"];
-  metas.forEach(m => m.content = STYLE_BG[S.style] || (theme === "light" ? bl : theme === "dark" ? bd : m.media.includes("dark") ? bd : bl));
-  // il tema vero, non "light dark": se no Chrome per Android col tema scuro dei siti "scurisce" la pagina già scura e schiarisce il logo
-  const cs = document.querySelector('meta[name="color-scheme"]');
-  if (cs) cs.content = theme === "dark" ? "only dark" : theme === "light" ? "only light" : "light dark";
-}
+/* lo stile è uno solo, Mecha (2.57, voluto dall'utente): sta scritto negli attributi di <html> (data-style, data-theme, data-mecha), e stili,
+   temi e tavolozze di prima sono stati tolti dal foglio di stile e dalle impostazioni */
 
-/* ---------- numeri: negli stili diversi da Classico l'unità è scritta piccola ---------- */
+/* ---------- numeri: l'unità è scritta piccola ---------- */
 const NUM_RE = /^([−+\-]?[\d.,]+)\s*(.*)$/;
 function setVal(el, text){
-  const m = S.style !== "classico" && NUM_RE.exec(text);
+  const m = NUM_RE.exec(text);
   if (!m) { el.textContent = text; return; }
   el.innerHTML = esc(m[1]) + (m[2] ? `<small class="vu">${esc(m[2])}</small>` : "");
 }
@@ -3971,7 +3761,7 @@ $("set-rem").addEventListener("click", e => {
 });
 
 async function poll(){
-  if (busy || document.hidden || cable) return;
+  if (busy || document.hidden) return;
   if (DEMO_ONLY) { if (S.rem) { if (await remHome()) return; remotePoll(); } else offline(); return; }
   busy = true;
   try {
@@ -3991,26 +3781,13 @@ async function poll(){
     if (fin(j.mute_until) && Math.abs(j.mute_until - muteUntil) > 60 && !muted()) { muteUntil = j.mute_until; try { localStorage.setItem(MUTE_KEY, String(muteUntil)); } catch (e) {} }
     syncLog();
   } catch (e) {
-    if (S.rem && !cable) remotePoll();                     // fuori casa con l'app della scheda: si legge il pacchetto
+    if (S.rem) remotePoll();                     // fuori casa con l'app della scheda: si legge il pacchetto
     else if (everLive) render("stale");
     else offline();
   } finally { busy = false; }
 }
-// Né scheda né cavo: se il telefono ha già letto le batterie col cavo mostra l'ultima lettura e il registro vero, se no la demo
-let unplugged = 0; // ora (s) dell'ultima lettura del cavo, mentre la mostro
-function offline(){
-  const L = lsGet(ULAST_KEY);
-  if (!L || !fin(L.t) || !Array.isArray(L.batteries) || !L.batteries.length) { unplugged = 0; data = simulate(); render("demo"); return; }
-  const now = Math.round(nowS()), H = lsGet(UHIST_KEY), soc = Array(288).fill(null), p = Array(288).fill(null);
-  if (H && fin(H.t) && Array.isArray(H.soc) && Array.isArray(H.p)) { // il grafico delle 24 ore spostato ad adesso: dopo lo scollegamento resta vuoto
-    const sh = Math.round((Math.floor(now / 300) * 300 - H.t) / 300);
-    for (let i = 0; i < 288; i++) { const j = i + sh; if (j >= 0 && j < 288) { soc[i] = H.soc[j]; p[i] = H.p[j]; } }
-  }
-  data = { time: now, log_min: S.log, batteries: L.batteries, history: { step: 300, soc, p } };
-  unplugged = L.t; lastOk = L.t * 1000;
-  render("stale");
-  if (logSrc !== "live") realLog().then(relearn); // relearn ridisegna in "stale": la demo non rimette il suo registro
-}
+// La scheda non risponde e non ha mai risposto: la demo coi dati simulati
+function offline(){ data = simulate(); render("demo"); }
 
 /* ---------- calcoli sulle batterie ---------- */
 // la cella più calda di una batteria (o l'elettronica, se il BMS non manda le celle)
@@ -4031,7 +3808,7 @@ function monSet(on, user){
   } else {
     m.style.removeProperty("--mx"); m.style.removeProperty("--my");
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    if (!cable && wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
   }
 }
 /* il badge porta al riquadro «Casa: batterie o Enel» (pagina Pannelli), dove c'è il comando dello Shelly. Il Monitor resta la scelta del
@@ -4165,15 +3942,14 @@ function render(m){
   // connessione
   $("conn").className = "conn " + mode;
   document.querySelector(".app").classList.toggle("stale", mode === "stale");
-  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "remote" ? "Da remoto" : mode === "usb" ? (cable && !cable.real ? "Cavo simulato" : "Cavo USB") : mode === "demo" ? "Demo" : !cable && unplugged ? "Cavo scollegato" : "Connessione persa";
+  $("conn-t").textContent = mode === "live" ? "In linea" : mode === "remote" ? "Da remoto" : mode === "demo" ? "Demo" : "Connessione persa";
   const n = $("notice");
   if (mode === "demo") {
     const k = (DEMO_ONLY ? "pages" : "demo") + (S.rem ? "r" : "");
-    if (n.dataset.k !== k + CAB_OK) { n.dataset.k = k + CAB_OK; n.className = "notice";
+    if (n.dataset.k !== k) { n.dataset.k = k; n.className = "notice";
       n.innerHTML = (DEMO_ONLY && S.rem ? "Collegata alla tua scheda, ma nelle ultime 3 ore non è arrivato nessun pacchetto: la scheda è spenta o non raggiunge internet. Intanto vedi dati simulati."
         : DEMO_ONLY ? "Versione di prova: senza la scheda mostra dati simulati. Quella collegata alle batterie si apre dall'indirizzo della scheda, in rete di casa."
-        : "Stai vedendo dati dimostrativi: la pagina non raggiunge ancora la scheda.") +
-        (CAB_OK ? ` Oppure collega al telefono il cavo USB delle batterie.<button class="set-btn" id="notice-cab" type="button">${ico(CAB_ICON)}Collega il cavo</button>` : ""); }
+        : "Stai vedendo dati dimostrativi: la pagina non raggiunge ancora la scheda."); }
     n.hidden = false; }
   else if (mode === "remote") {
     const age = (Date.now() / 1000 - nowOf(data)) / 60, old = age > 25;
@@ -4189,11 +3965,7 @@ function render(m){
     const min = Math.round((Date.now() - lastOk) / 60000);
     n.hidden = false; n.className = "notice lost"; n.dataset.k = "";
     const ago = min < 1 ? "" : min < 60 ? ` da ${min} min` : ` da ${dur(min / 60)}`;
-    if (!cable && unplugged) {
-      const t = new Date(unplugged * 1000), when = dkey(unplugged) === dkey(nowS()) ? "alle " + hm(unplugged) : t.toLocaleDateString("it-IT", { day: "numeric", month: "short" }) + " alle " + hm(unplugged);
-      n.innerHTML = `Cavo scollegato${ago}: vedi l'ultima lettura delle batterie (${when}), il tuo registro e il grafico. I dati raccolti sono salvati nel telefono.` +
-        (CAB_OK ? `<button class="set-btn" id="notice-cab" type="button">${ico(CAB_ICON)}Ricollega il cavo</button>` : "");
-    } else n.textContent = `${cable ? "Il BMS non risponde dal cavo" : "La scheda non risponde"}${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
+    n.textContent = `La scheda non risponde${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
   }
   else { n.hidden = true; n.dataset.k = ""; }
 
@@ -4275,12 +4047,12 @@ function render(m){
   drawPv(data.pv, k);
   try { drawCellH(); } catch (e) { console.error(e); }
   drawSw();
-  drawLearn();
   drawFlow(k);
   drawSolar(k, f);
   drawMon(k, f);
   try { drawWind(); } catch (e) { console.error(e); }
   try { drawInv(k); } catch (e) { console.error(e); }
+  try { drawToday(k, f); } catch (e) { console.error(e); }
   drawWeather(k);
   drawFw();
 
@@ -4704,7 +4476,7 @@ function learn(rows){
   });
   const H = [...hours.values()].map(o => ({ t: o.t, soc0: o.soc0, soc: o.soc, load: o.lmin >= 15 ? o.lwh / (o.lmin / 60) : null,
     pv: o.pmin >= 15 ? o.pwh / (o.pmin / 60) : null, pwh: o.pwh, chg: o.nmin ? o.cwh / (o.nmin / 60) : 0, dsg: o.nmin ? o.dwh / (o.nmin / 60) : 0,
-    acW: o.amin >= 45 ? o.awh / (o.amin / 60) : null, wnd: o.wnd }));
+    acW: o.amin >= 45 ? o.awh / (o.amin / 60) : null, awh: o.awh, amin: o.amin, wnd: o.wnd }));
   H.forEach(o => o.net = o.chg - o.dsg);
   const Hmap = new Map(H.map(o => [o.t, o]));
   const first = rows[0][0], last = rows[rows.length - 1][0] + rows[rows.length - 1][1] * 60;
@@ -5690,7 +5462,7 @@ function drawAlHist(){
     if (soc < thr) { mins += m; if (!under) { n++; under = true; } } else if (soc >= thr + 2) under = false;
   });
   if (!rows.length) {
-    read.innerHTML = logSrc === "live" ? (cable ? `Lo storico parte con la prima riga del registro, tra ${S.log} minuti col cavo collegato.` : "Lo storico parte appena la scheda salva le prime righe del registro.") : "In attesa dello storico.";
+    read.innerHTML = logSrc === "live" ? "Lo storico parte appena la scheda salva le prime righe del registro." : "In attesa dello storico.";
     svg.innerHTML = "";
   } else {
     const ore = mins / 60, oreTxt = ore < 1 ? `${Math.round(mins)} minuti` : `${nf(ore, ore < 10 ? 1 : 0)} ore`;
@@ -5723,57 +5495,6 @@ function drawAlHist(){
 /* ---------- «Cosa sto imparando» (pagina Abitudini): quanto hanno visto la app e la scheda, e che cosa si sblocca. Un nastro delle 24 ore (i quarti
    d'ora con la casa sulle batterie per ogni ora del giorno: le abitudini li usano tutti, i picchi ne vogliono 8 per ora, rkKnown) e una barra per
    ogni cosa che si impara, con le stesse soglie che usano i calcoli ---------- */
-const LRN_ICON = {
-  hab: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
-  hod: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-  pk: '<path d="M3 18h3l3-10 4 13 3-8h5"/>',
-  r: '<path d="M4 12h3l2-5 3 10 2-5h6"/><path d="M4 19h16"/>',
-  fc: '<path d="M3.5 19.5h17"/><path d="M4.5 15l4.5-5 3.5 3 6.5-7.5"/>',
-  vc: '<path d="M12 3v8"/><path d="M7.05 6.05a8 8 0 1 0 9.9 0"/>',
-  ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>' };
-let lrnC = null;
-function lrnHours(){   // quarti d'ora con la casa sulle batterie per ora del giorno, ultimi 60 giorni (registro della scheda; senza, le ore del modello × 4)
-  const key = STRESS.length + ":" + (model ? model.rows : 0); if (lrnC && lrnC.key === key) return lrnC.v;
-  const v = Array(24).fill(0), t0 = nowS() - 60 * DAY;
-  if (STRESS.length) STRESS.forEach(r => { if (r[8] && r[0] >= t0) v[new Date(r[0] * 1000).getHours()]++; });
-  else if (model && model.H) model.H.forEach(o => { if (o.load !== null && o.t >= t0 && bankAt(o.t + 1800)) v[new Date(o.t * 1000).getHours()] += 4; });
-  return (lrnC = { key, v }).v;
-}
-function drawLearn(){
-  const box = $("lrn"), read = $("lrn-read"); if (!box) return;
-  if (!data) { box.innerHTML = ""; read.innerHTML = ""; return; }
-  const M = model, L = M && M.load, inv = data.inv || {}, hrs = lrnHours(), h0 = new Date(nowOf(data) * 1000).getHours(), on = houseNow();
-  // il nastro
-  const W = 340, bw = W / 24, top = 40, y0 = 46, nMax = 8;
-  let g = "";
-  hrs.forEach((n, h) => { const x = h * bw + 1.5, w = bw - 3, f = Math.min(n, nMax) / nMax, hh = Math.max(n ? 3 : 0, f * top);
-    g += `<rect x="${x.toFixed(1)}" y="${y0 - top}" width="${w.toFixed(1)}" height="${top}" rx="2" fill="var(--line)" opacity=".35"/>`;
-    if (n) g += `<rect x="${x.toFixed(1)}" y="${(y0 - hh).toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}" rx="2" fill="${n >= nMax ? "var(--good)" : "var(--lith)"}" opacity="${n >= nMax ? 1 : .55 + .45 * f}"/>`;
-    if (!(h % 6)) g += `<text x="${(h * bw).toFixed(1)}" y="${y0 + 13}" font-size="9.5" fill="var(--muted)">${h}</text>`; });
-  g += `<text x="${W}" y="${y0 + 13}" text-anchor="end" font-size="9.5" fill="var(--muted)">24</text>`;
-  const xn = (h0 + .5) * bw; g += `<path d="M${xn.toFixed(1)} ${y0 - top - 2}l-4 -5h8z" fill="${on ? "var(--ink)" : "var(--muted)"}"/>`;
-  const rib = `<svg class="lrn-rib" viewBox="0 -8 ${W} 70" role="img" aria-label="Quarti d'ora visti con la casa sulle batterie per ogni ora del giorno">${g}</svg>` +
-    `<p class="lrn-leg"><span><i style="background:var(--lith)"></i>visti con la casa sulle batterie</span><span><i style="background:var(--good)"></i>abbastanza per i picchi (2 ore)</span><span>▼ adesso</span></p>`;
-  // le barre: [icona, titolo, valore, frazione 0–1, nota]; fatto = frazione 1
-  const R = [], hpk = hrs.filter(n => n >= nMax).length;
-  if (L) { const wd = L.byWd.filter(Boolean).length;
-    R.push(["hab", "Abitudini di consumo", `${L.days} ${L.days === 1 ? "giorno" : "giorni"} · ${wd} su 7`, wd / 7, wd >= 7 ? "Ogni giorno della settimana ha le sue abitudini; con le settimane contano anche le stagioni." : `Giorni della settimana visti per bene (almeno 6 ore con la casa sulle batterie): quelli che mancano valgono come un feriale o un festivo qualunque.`]);
-    R.push(["hod", "Ore del giorno", `${L.hod} su 24`, L.hod / 24, L.hod >= 24 ? "Tutte le ore viste almeno una volta." : "Le ore mai viste sono stimate da quelle vicine."]); }
-  else R.push(["hab", "Abitudini di consumo", "da cominciare", 0, `Servono ${AUTO_MIN} ore con la casa sulle batterie: poi «Batterie su solare» usa le tue abitudini.`]);
-  R.push(["pk", "Picchi di consumo per ora", `${hpk} su 24`, hpk / 24, hpk ? `Nelle ore in verde il rischio di stacco conta anche i picchi; nelle altre solo l'energia.` : "Servono 2 ore viste con la casa sulle batterie alla stessa ora: poi il rischio di stacco conta anche i picchi."]);
-  if (fin(inv.rn)) { const n = Math.min(inv.rn, 10), done = inv.rn >= 10;
-    R.push(["r", "Caduta di tensione delle batterie", done ? `${nf(inv.r * 1000, 1)} mΩ` : `${n} su 10`, n / 10, done ? `Misurata su ${inv.rn} salti di corrente: la usano la soglia in volt dell'automatico e l'allarme sul prossimo picco.`
-      : "La scheda la misura quando la corrente salta di almeno 30 A (un forno, un bollitore) con la casa sulle batterie. Poi si accende l'allarme sul prossimo picco."]); }
-  if (M) { const sp = Math.min(M.span, 9);
-    R.push(["fc", "Previsione e autoverifica", M.span >= 9 ? "attive" : `${nf(sp, sp < 1 ? 1 : 0)} giorni su 9`, sp / 9, M.span >= 9 ? "La previsione a 48 ore si controlla da sola e corregge sole e consumi." : M.span >= 7 ? "Previsione a 48 ore attiva; dai 9 giorni controlla le sue previsioni e si corregge." : "Dai 7 giorni di registro parte la previsione a 48 ore, dai 9 si corregge da sola."]); }
-  if (fin(inv.vcn)) R.push(["vc", "Tensione di stacco dell'inverter", inv.vcn ? `${nf(inv.vc, 1)} V · ${inv.vcn} ${inv.vcn === 1 ? "stacco" : "stacchi"}` : `stimata ${nf(inv.vc, 1)} V`, Math.min(inv.vcn, 3) / 3,
-    inv.vcn >= 3 ? "Misurata sugli ultimi 3 stacchi veri." : `${inv.vcn ? "Misurata" : "Stimata dalla soglia impostata"}${fin(inv.vh) ? `, mai sopra i ${nf(inv.vh, 1)} V già tenuti sotto carico` : ""}: si impara solo quando l'inverter stacca davvero.`]);
-  const seg = f => { const k = Math.round(clamp(f, 0, 1) * 12); return `<span class="lrn-bar" aria-hidden="true">${Array.from({ length: 12 }, (_, i) => `<i${i < k ? ' class="on"' : ""}></i>`).join("")}</span>`; };
-  const list = `<ul class="lrn">${R.map(([i, t, v, f, d]) => `<li class="${f >= 1 ? "ok" : f > 0 ? "" : "wait"}"><span class="ri">${ico(LRN_ICON[f >= 1 ? "ok" : i])}</span><b>${t}</b><em>${v}</em>${seg(f)}<small>${d}</small></li>`).join("")}</ul>`;
-  const html = rib + list;
-  read.innerHTML = on ? "Adesso la casa è <b>sulle batterie</b>: ogni quarto d'ora entra nelle abitudini e nei picchi di quest'ora." : "Adesso la casa è <b>su Enel</b>: i consumi della casa non si vedono, la scheda impara solo quanto consuma l'impianto da solo.";
-  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
-}
 const REL_ICON = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
   home: '<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
@@ -5861,7 +5582,7 @@ function drawHabits(){
     // 7 tacche, una per giorno: si riempiono col tempo passato dalla prima riga; sotto, le ore di dati davvero raccolte
     const span = model ? Math.max(0, model.span) : 0, got = LOG.reduce((a, r) => a + r[1], 0) / 60, left = 7 - span;
     read.innerHTML = logSrc === "live" && !LOG.length
-      ? (cable ? `Il registro parte adesso: la prima riga arriva entro ${S.log} minuti, finché il cavo resta collegato e la app aperta.` : "La scheda non ha ancora un registro: lo storico parte appena il firmware salva la prima riga.")
+      ? "La scheda non ha ancora un registro: lo storico parte appena il firmware salva la prima riga."
       : `Sto imparando le tue abitudini: registro di <b>${dur(span * 24) || "pochi minuti"}</b> su 7 giorni, con <b>${dur(got) || "0 min"}</b> di dati raccolti` +
         ` (${LOG.length} ${LOG.length === 1 ? "riga" : "righe"}). Le abitudini compaiono tra ${left >= 1 ? "circa " + dur(left * 24).replace(/ e .*/, "") : "meno di un giorno"}` +
         (!everLive && got < span * 24 * .6 ? ": più a lungo resta collegato il cavo, più saranno precise." : ".");
@@ -6342,16 +6063,15 @@ function wndCurve(hours){
    Batterie e uscita sono lette in istanti diversi e l'1% di errore su a vale 25–30 W a 2,5 kW: si fa la media dell'ultimo minuto e sotto
    WND_NOISE_B la stima è «incerta» (si mostra lo stesso, in bianco: richiesta dell'utente), sotto WND_LOW_B conta zero */
 const WND_NOISE_B = 150, WND_LOW_B = 50, WND_A0 = 1.17; let wbRing = [];
-// a e b: dal registro (acFit); se no dalla taratura fatta a mano coi watt dell'inverter (hcalFit: uscita = a × ingresso + b, qui girata);
-// se no la provvisoria. Il 19/11 alle 00:35 la taratura a mano (90 %, 186 W fissi) e le misure in diretta davano lo stesso ingresso entro 30 W.
+// a e b: dal registro (acFit); se no la provvisoria (a = 1,17 e le perdite a pala ferma con l'inverter acceso).
 // Li usano «adesso» (wndBat) e i minuti dell'ultima ora (drawW1): la stessa pala con gli stessi numeri
 function wndAB(pv, H){
-  const f = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null, h = f ? null : hcalFit();
-  return { a: f ? f.a : h ? 1 / h.a : WND_A0, b: f ? f.b : h ? h.loss : -(H || wndHours()).loss(1, pv), prov: !f };
+  const f = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null;
+  return { a: f ? f.a : WND_A0, b: f ? f.b : -(H || wndHours()).loss(1, pv), prov: !f };
 }
 function wndBat(k, pv){
   const ac = acNow(); if (ac === null) return null;
-  const { a, b, prov } = wndAB(pv), now = nowOf(data), t = outM().t6;
+  const { a, b, prov } = wndAB(pv), now = nowOf(data), t = outM().at;
   // batterie e uscita devono essere dello stesso momento: vale solo una misura dell'inverter di al massimo 6 secondi fa
   if (now - t <= 6 && (!wbRing.length || wbRing[wbRing.length - 1].t !== t)) wbRing.push({ t, w: k.p - pv + a * ac + b });
   wbRing = wbRing.filter(x => x.t >= now - 60);
@@ -6392,19 +6112,10 @@ const compass = d => fin(d) ? ["N", "NE", "E", "SE", "S", "SO", "O", "NO"][Math.
    W batterie, W pannelli, W in uscita dall'inverter], medie sulle stesse letture: la pala esce come in «adesso» (pala ≈ batterie − pannelli
    + a × uscita + b, wndAB). Servono almeno W1_NA letture nel minuto; la soglia è quella della casa sulle batterie (WND_NOISE_B), senza picco
    (l'uscita dell'inverter arriva ogni 2 s, un colpo di pochi secondi non si separa). Sotto la barra una riga segna quei minuti.
-   Con un firmware più vecchio li registra il telefono a ogni lettura mentre la app è aperta (mybattery.wnd1m: [minuto, somma W, letture, somma V,
-   letture con la casa sulle batterie]). Vale prima la scheda */
-const W1_KEY = "mybattery.wnd1m", W1B_KEY = "mybattery.wnd1b", W1_NA = 5;
-let W1 = null, W1B = null, w1Seen = 0, w1I = null, w1Timer = 0, w1G = null;
-function w1Add(nw){
-  if (!data || !isReal() || !fin(data.time) || data.time === w1Seen || !wndOn(nowOf(data)) || Array.isArray(data.m1)) return;
-  const now = nowOf(data); if (Math.abs(now - Date.now() / 1000) > 120) return;   // dati vecchi (scheda muta, pacchetto ritardato): non sono di questo minuto
-  w1Seen = data.time;
-  const m = Math.floor(now / 60) * 60; let r = W1.find(x => x[0] === m);
-  if (!r) { r = [m, 0, 0, 0, 0]; W1.push(r); }
-  if (nw.ok && !nw.bat) { r[1] += nw.raw; r[2]++; r[3] += nw.v; } else if (nw.bat || nw.why === "casa") r[4]++;
-  W1 = W1.filter(x => x[0] > m - HOUR).sort((a, b) => a[0] - b[0]); lsSet(W1_KEY, W1);
-}
+   Fino alla 2.56, per i firmware prima della 0.63, li registrava anche il telefono mentre la app era aperta (mybattery.wnd1m): tolto con la 2.57 */
+const W1B_KEY = "mybattery.wnd1b", W1_NA = 5;
+let W1B = null, w1I = null, w1Timer = 0, w1G = null;
+try { localStorage.removeItem("mybattery.wnd1m"); } catch (e) {}
 /* il picco della pala per quarto d'ora (firmware 0.63): sulla scheda gli ultimi 2 giorni, [quarto d'ora, W batterie − pannelli del minuto più alto,
    W pannelli in quel minuto, inverter acceso, dalla 0.65 il picco istantaneo batterie − pannelli o null]. In casa GET /api/wpk quando cambia wpk_at, da fuori casa nel pacchetto. La app ci toglie le
    perdite a pala ferma come per «adesso»: nel grafico delle 48 ore le raffiche brevi che nella media dell'ora sparirebbero */
@@ -6432,21 +6143,20 @@ function w1Merge(){                                   // i minuti della scheda: 
   if (ch) lsSet(W1B_KEY, W1B);
 }
 function drawW1(nw, H){
-  if (!W1) W1 = (v => Array.isArray(v) ? v.filter(r => Array.isArray(r) && r.length === 5) : [])(lsGet(W1_KEY));   // al primo uso: lsGet è più avanti
   if (!W1B) W1B = (v => v && typeof v === "object" && !Array.isArray(v) ? v : {})(lsGet(W1B_KEY));
-  w1Add(nw); w1Merge();
+  w1Merge();
   const svg = $("wnd-1h"); if (!svg) return;
   const now = nowOf(data), m1 = Math.floor(now / 60) * 60, m0 = m1 - 59 * 60, W = 340, top = 12, base = 120, cw = W / 60;
-  const mins = Array.from({ length: 60 }, (_, i) => { const t = m0 + i * 60, b = W1B[t], r = W1.find(x => x[0] === t);
+  const mins = Array.from({ length: 60 }, (_, i) => { const t = m0 + i * 60, b = W1B[t];
     if (!wndOn(t + 30)) return { t, k: "off" };
     // un minuto a cavallo di un passaggio ha letture di tutti e due i tipi: vale il tipo che ne ha di più
     if (b) { const nA = fin(b[8]) && fin(b[9]) && fin(b[10]) && fin(b[11]) ? b[8] : 0;
       if (b[4] && b[4] >= nA) { const st = b[6] * 2 >= b[4] ? 1 : 0, ls = H.loss(st, b[2]);
-        return { t, k: "w", w: Math.max(0, b[1] - b[2] - ls), pk: fin(b[7]) ? Math.max(0, b[7] - ls) : null, v: b[3] / 100, n: b[4], sch: 1, nz: WND_NOISE }; }
+        return { t, k: "w", w: Math.max(0, b[1] - b[2] - ls), pk: fin(b[7]) ? Math.max(0, b[7] - ls) : null, v: b[3] / 100, n: b[4], nz: WND_NOISE }; }
       if (nA >= W1_NA) { const q = wndAB(b[10], H);
-        return { t, k: "w", w: Math.max(0, b[9] - b[10] + q.a * b[11] + q.b), pk: null, v: null, n: nA, sch: 1, nz: WND_NOISE_B, bat: true, ac: b[11], prov: q.prov }; }
+        return { t, k: "w", w: Math.max(0, b[9] - b[10] + q.a * b[11] + q.b), pk: null, v: null, n: nA, nz: WND_NOISE_B, bat: true, ac: b[11], prov: q.prov }; }
       return { t, k: b[5] ? "na" : "gap" }; }
-    return !r ? { t, k: "gap" } : r[2] ? { t, k: "w", w: Math.max(0, r[1] / r[2]), pk: null, v: r[3] / r[2], n: r[2], nz: WND_NOISE } : r[4] ? { t, k: "na" } : { t, k: "gap" }; });
+    return { t, k: "gap" }; });
   const ws = mins.filter(x => x.k === "w"), wv = ws.filter(x => x.v !== null), kb = bank(data.batteries);
   const vAvg = wv.length ? wv.reduce((a, x) => a + x.v, 0) / wv.length : nw.ok ? nw.v : fin(kb.v) ? kb.v : 52;
   ws.forEach(x => { if (x.v === null) x.v = vAvg; });    // con la casa sulle batterie la scheda non tiene la tensione del minuto: per gli ampere basta quella dell'ora
@@ -6488,7 +6198,7 @@ function w1Read(){
       (n5 ? `; ${n5} ${n5 === 1 ? "minuto" : "minuti"} con colpi oltre 5 A` : "") + (ip.pk >= 250 && wh < ip.pk / 60 * 5 ? ": vento a raffiche, la pala picchia ma rende poco." : ".");
     el.innerHTML = !wndOn(nowOf(data)) ? "La pala è segnata come spenta: non registro niente."
       : !isReal() ? "In prova non c'è niente da registrare: i minuti li segna il telefono collegato alla scheda."
-      : !ws.length ? (nNa ? "In quest'ora la casa è stata sulle batterie senza l'uscita dell'inverter in tempo reale: minuto per minuto la pala non si separa dai consumi." : data && Array.isArray(data.m1) ? "La scheda sta raccogliendo i minuti: tra un minuto compare la prima barra." : "I minuti li registra questo telefono mentre la app è aperta (col firmware 0.63 li tiene la scheda): tra un minuto compare la prima barra.")
+      : !ws.length ? (nNa ? "In quest'ora la casa è stata sulle batterie senza l'uscita dell'inverter misurata: minuto per minuto la pala non si separa dai consumi." : "La scheda sta raccogliendo i minuti: tra un minuto compare la prima barra.")
       : `Nell'ultima ora (${ws.length} ${ws.length === 1 ? "minuto stimato" : "minuti stimati"}${nB ? `, ${nB} con la casa sulle batterie` : ""}${nNa ? `; ${nNa} ${m(nNa)} non ${nNa === 1 ? "stimabile" : "stimabili"}` : ""}) la pala ha dato circa <b>${nf(wh, 0)} Wh</b>` +
         (pk ? `, al massimo <b>${power(pk.w)}</b> (${nf(pk.w / pk.v, 1)} A) di media in un minuto alle ${hm(pk.t)}.` : ": di media sempre sotto la soglia.") + pkTxt +
         (nB ? ` <small>Con la casa sulle batterie la pala esce dall'uscita misurata dell'inverter${ws.some(x => x.bat && x.prov) ? " (taratura ancora provvisoria)" : ""} e conta da ${WND_NOISE_B} W in su.</small>` : "") + " <small>Tocca il grafico per i singoli minuti.</small>";
@@ -6499,8 +6209,8 @@ function w1Read(){
   $("w1-cb").setAttribute("x", (w1I * cw).toFixed(1)); $("w1-cb").setAttribute("width", cw.toFixed(1));
   $("w1-cl").setAttribute("x1", ((w1I + .5) * cw).toFixed(1)); $("w1-cl").setAttribute("x2", ((w1I + .5) * cw).toFixed(1));
   el.innerHTML = `<b>${w1I === 59 ? "Questo minuto" : "Alle " + hm(x.t)}</b><br>` + (x.k === "w" ? `Pala <b>${power(x.w)}</b> · <b>${nf(x.w / x.v, 1)} A</b> di media` + (x.bat ? "" : ` a ${nf(x.v, 1)} V`) + (x.w < x.nz ? ` (sotto i ${x.nz} W: conta zero)` : "") +
-      (x.pk !== null ? `<br>Picco <b>${power(x.pk)}</b> · <b>${nf(x.pk / x.v, 1)} A</b>` : "") + (x.bat ? `<br>Casa sulle batterie: l'inverter le dava <b>${power(x.ac)}</b>` : "") + ` <small>(${x.n} letture${x.sch ? " della scheda" : " del telefono"})</small>`
-    : x.k === "na" ? "Casa sulle batterie senza l'uscita dell'inverter in tempo reale: non stimabile" : x.k === "off" ? "Pala segnata spenta" : data && Array.isArray(data.m1) ? "Nessuna lettura: la scheda era spenta o senza batterie lette" : "Nessuna lettura: la app era chiusa");
+      (x.pk !== null ? `<br>Picco <b>${power(x.pk)}</b> · <b>${nf(x.pk / x.v, 1)} A</b>` : "") + (x.bat ? `<br>Casa sulle batterie: l'inverter le dava <b>${power(x.ac)}</b>` : "") + ` <small>(${x.n} letture)</small>`
+    : x.k === "na" ? "Casa sulle batterie senza l'uscita dell'inverter misurata: non stimabile" : x.k === "off" ? "Pala segnata spenta" : "Nessuna lettura: la scheda era spenta o senza batterie lette");
 }
 function w1At(e){ if (!w1G) return; const r = $("wnd-1h").getBoundingClientRect(); w1I = clamp(Math.floor((e.clientX - r.left) / r.width * 60), 0, 59); w1Read(); }
 { const el = $("wnd-1h");
@@ -6613,84 +6323,72 @@ function wndShown(nw){
   };
   return Object.assign(pick(), { err });
 }
-/* ---------- pagina Inverter (2.41, richiesta dell'utente) ----------
-   Il misuratore Tuya dopo lo Shelly (firmware 0.67, data.ac: v, a, w, kwh, hz, ok, code, ip, ver, at, n, bad, ms) misura l'uscita vera
-   dell'inverter, cioè la casa quando è sulle batterie. Si alimenta dalla stessa linea: con lo Shelly OFF o l'inverter fermo è spento anche lui.
-   Nei testi lo Shelly è sempre ON/OFF (regola dell'utente, 18/11/2026); ON non vuol dire casa sulle batterie: l'ATS può tenerla su Enel
-   Dalla 0.72 alla 0.78, con la casa sulle batterie, la scheda teneva il Tuya in tempo reale con un «refresh» ogni 50 s: tolto con la 0.79.
-   Rendimento: i watt in uscita contro quelli che entrano dal lato delle batterie (pannelli − carica delle batterie, houseLive): con la pala
-   accesa l'ingresso è stimato per difetto (la scheda non la vede), quindi il rendimento esce più alto del vero. Ultimi minuti: le letture
-   che arrivano mentre la app è aperta (la scheda non le registra ancora). Il contatore di oggi parte dalla prima lettura del giorno.
-   Dalla 2.54 (firmware 0.79) la misura principale è lo Shelly EM montato nello stesso punto (data.em, una lettura ogni 2 s senza chiederla):
-   tutta la pagina legge outM(), che dà lo Shelly EM quando risponde e se no il Tuya (sola lettura, medie ogni 5 minuti). In fondo lo stato di tutti e due e il confronto fra i
-   kWh contati da quando la scheda li ha visti insieme (em.cmp). Il contatore di oggi è tenuto per misuratore (invDay.s) */
-const INV_KEY = "mybattery.invday", AC_ERR = { "-1": "in attesa della prima lettura", 1: "non si riesce a mandare la domanda", 2: "non risponde all'accordo della chiave (chiave sbagliata?)",
-  3: "la chiave non torna", 4: "non risponde alla domanda (chiave sbagliata?)", 5: "risposta non leggibile", 6: "vuole un altro tipo di domanda", 7: "versione del protocollo non gestita",
-  10: "connessione rifiutata", 20: "ha chiuso il collegamento", 21: "muto da più di 35 secondi", 11: "non si sente in rete: è senza corrente o fuori dal WiFi", 12: "risposta senza dati", 13: "non trovato in rete, neanche indirizzo per indirizzo" };
+/* ---------- pagina Inverter (2.41, richiesta dell'utente; riscritta con la 2.57 sullo Shelly EM) ----------
+   Lo Shelly EM dopo lo Shelly Pro (firmware 0.79, data.em → outM) misura l'uscita vera dell'inverter, cioè la casa quando è sulle batterie, una
+   lettura ogni 2 s. Si alimenta dalla stessa linea: con lo Shelly OFF o l'inverter fermo è spento anche lui. Con la casa su Enel legge i
+   pochi watt di quello che resta sulla linea dell'inverter. Nei testi lo Shelly è sempre ON/OFF (regola dell'utente, 18/11/2026); ON non vuol
+   dire casa sulle batterie: l'ATS può tenerla su Enel.
+   Si mostra solo quello che lo Shelly EM misura o che se ne calcola (corrente e fattore da watt e var); dal misuratore Tuya, che resta di
+   confronto in sola lettura, vengono la frequenza e il fattore sotto i 20 VA, quando risponde. Fino alla 2.56 la pagina sapeva vivere anche del
+   solo Tuya (medie dai kWh ogni 5 minuti, codici d'errore): tolto.
+   Rendimento: prima quello imparato dal registro (learn → acFit: ingresso = a × uscita + b), che è quello che usano la pala e i consumi; sotto,
+   come riscontro, l'ultimo minuto: i watt in uscita contro quelli che entrano dal lato delle batterie (houseLive), mediati sulle stesse
+   letture. Con la pala accesa l'ingresso è stimato per difetto (la scheda non la vede), quindi quel riscontro esce più alto del vero.
+   Il contatore di oggi parte dalla prima lettura del giorno fatta da questo telefono */
+const INV_KEY = "mybattery.invday";
 let invRun = [], invDay = null, invEffR = [];
 function drawInv(k){
   const head = $("inv-head"); if (!head) return;
-  const a = outM(), ty = data && data.ac, em = data && data.em, cb = data && data.cb, now = nowOf(data), L = houseLive(k);
-  // ok = il misuratore risponde; fresh = tensione, corrente e potenza (dato 6) recenti. Il D52-2066 le manda di rado (alle 19:44 del 18/11 erano
-  // ferme dalle 19:16 con 1,7 kW sul suo display): numeri vecchi non si mostrano come se fossero di adesso
-  // avg = la potenza media dai kWh (firmware 0.70: wa W sugli ultimi wdt s, fino a wat), buona per un quarto d'ora; t6 recente = istantanea
-  const cbOff = cb && cb.ok && cb.on === false, linked = !!(a && a.ok), ok = linked && fin(a.w) && !!a.t6 && now - a.t6 <= 120;
-  const avg = linked && fin(a.wa) && a.wat && a.wdt >= 240 && now - a.wat <= 900 ? a.wa : null, six = linked && a.t6 && now - a.t6 <= 600;
-  const pt = ok ? { t: a.t6, w: a.w } : avg !== null ? { t: a.wat, w: a.wa } : null;
-  if (pt && pt.t >= (invRun.length ? invRun[invRun.length - 1].t : 0) + 5) {       // in tempo reale un punto ogni 5 s basta
-    invRun.push(pt); invRun.sort((x, y) => x.t - y.t); invRun = invRun.filter(x => x.t >= now - 3600); }
-  if (linked && fin(a.kwh)) {
-    if (!invDay) invDay = lsGet(INV_KEY); if (!invDay || invDay.d !== dkey(now) || !invDay.s) invDay = { d: dkey(now), s: {} };
-    const q = invDay.s[a.src]; if (!q || a.kwh < q.k) { invDay.s[a.src] = { k: a.kwh, t: now }; lsSet(INV_KEY, invDay); }
+  const a = outM(), em = data && data.em, ty = data && data.ac, cb = data && data.cb, now = nowOf(data), L = houseLive(k);
+  const isEm = !!(a && a.src === "em"), cbOff = cb && cb.ok && cb.on === false, ok = isEm && a.ok && fin(a.w) && now - a.at <= 30;
+  if (ok && a.at >= (invRun.length ? invRun[invRun.length - 1].t : 0) + 5) { invRun.push({ t: a.at, w: a.w }); invRun = invRun.filter(x => x.t >= now - 3600); }
+  if (ok && fin(a.kwh)) {
+    if (!invDay) invDay = lsGet(INV_KEY);
+    if (!invDay || invDay.d !== dkey(now) || !fin(invDay.k) || a.kwh < invDay.k) { invDay = { d: dkey(now), k: a.kwh, t: now }; lsSet(INV_KEY, invDay); }
   }
-  const day = a && invDay && invDay.s && invDay.d === dkey(now) ? invDay.s[a.src] : null;
-  // ---- adesso
-  // dove sta la casa lo dice la scheda (house), non i watt del misuratore; lo Shelly si scrive ON/OFF
-  const st = !a ? ["", "Misuratore da collegare"] : cbOff ? ["", "Shelly OFF"] : L.on ? [ok ? " now" : " min", ok ? "Casa sulle batterie" : "Casa sulle batterie · media"]
+  // ---- adesso: dove sta la casa lo dice la scheda (house), non i watt del misuratore
+  const st = !isEm ? ["", "Shelly EM da collegare"] : cbOff ? ["", "Shelly OFF"] : !ok ? ["", "Shelly EM muto"] : L.on ? [" now", "Casa sulle batterie"]
     : cb && cb.ok && cb.on ? [" min", "Shelly ON, casa su Enel"] : ["", "Inverter senza tensione"];
-  const w = ok ? a.w : avg !== null ? Math.round(avg) : null, big = w !== null ? `${w >= 1000 ? nf(w / 1000, 2) : nf(w, 0)}<small>${w >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
-  const today = linked && day && fin(a.kwh) ? a.kwh - day.k : null, from = day && day.t - midnight(now) > 600 ? ` dalle ${hm(day.t)}` : "";
-  const sub = !a ? "Serve uno Shelly EM dopo lo Shelly (firmware 0.79), o il misuratore Tuya con la sua chiave."
-    : cbOff ? "Lo Shelly è OFF: il misuratore, alimentato dalla stessa linea, è spento."
-    : !linked ? (a.src === "em" ? "Lo Shelly EM non risponde: è senza corrente o fuori dal WiFi." : esc(AC_ERR[a.code] || "codice " + a.code))
-    : !ok && avg !== null ? `<span>Media di <b>${nf(Math.max(1, a.wdt / 60), 0)}</b> min fino alle ${hm(a.wat)}, dai kWh</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 2) : "–"}</b> kWh${today !== null ? ` · oggi <b>${nf(today, 2)}</b>` : ""}</span>`
-    : !ok ? `<span>In attesa delle misure${a.t6 ? ": le ultime alle " + hm(a.t6) : ""}.</span><span>Il misuratore le manda circa ogni 5 minuti.</span>`
-    : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, a.src === "em" ? 2 : 1) : "–"}</b> kWh</span>`;
-  // gli ampere: misurati (dato 6, fino a 10 minuti), o con la sola media dai kWh i medi, watt ÷ tensione (l'ultima letta, se no 230 V)
-  // la tensione: quella del misuratore se recente, se no quella dello Shelly (stessa linea, la legge ogni 3 s)
-  const vSh = cb && cb.ok && cb.on && fin(cb.v) && cb.v > 150 ? cb.v : null, vNow = six && fin(a.v) ? a.v : vSh;
-  const ampAvg = !(six && fin(a.a)) && !ok && w !== null, amp = six && fin(a.a) ? a.a : ampAvg ? w / (vNow || 230) : null;
+  const w = ok ? a.w : null, big = w !== null ? `${w >= 1000 ? nf(w / 1000, 2) : nf(w, 0)}<small>${w >= 1000 ? "kW" : "W"}</small>` : `–<small>W</small>`;
+  const today = ok && invDay && fin(a.kwh) ? a.kwh - invDay.k : null, from = invDay && invDay.t - midnight(now) > 600 ? ` dalle ${hm(invDay.t)}` : "";
+  const sub = !isEm ? "L'uscita dell'inverter la misura uno Shelly EM dopo lo Shelly (firmware 0.79)."
+    : cbOff ? "Lo Shelly è OFF: lo Shelly EM, alimentato dalla stessa linea, è spento."
+    : !ok ? `Lo Shelly EM non risponde${em && em.at ? " dalle " + hm(em.at) : ""}: è senza corrente o fuori dal WiFi.`
+    : `<span>Oggi <b>${today !== null ? nf(today, 2) : "–"}</b> kWh${from}</span><span>Contatore <b>${fin(a.kwh) ? nf(a.kwh, 2) : "–"}</b> kWh</span>`;
+  // la tensione: quella dello Shelly EM, se no quella dello Shelly Pro (stessa linea, la legge ogni 3 s)
+  const vSh = cb && cb.ok && cb.on && fin(cb.v) && cb.v > 150 ? cb.v : null, vNow = ok && fin(a.v) ? a.v : vSh, amp = ok && fin(a.a) ? a.a : null;
   // anello: la potenza sulla scala dei 6 kW (un inverter da casa), con la radice come la barra della pala
   const f = w ? Math.sqrt(Math.min(1, w / 6000)) : 0, C = 2 * Math.PI * 38;
   const ring = `<svg class="inv-ring" viewBox="0 0 92 92" aria-hidden="true"><circle class="tr" cx="46" cy="46" r="38"/><circle class="fl" cx="46" cy="46" r="38" transform="rotate(-90 46 46)" stroke-dasharray="${(f * C).toFixed(1)} ${C.toFixed(1)}"/>` +
-    `<text x="46" y="48" text-anchor="middle">${amp !== null ? (ampAvg ? "≈" : "") + nf(amp, amp < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">${ampAvg ? "A MEDI" : "AMPERE"}</text></svg>`;
+    `<text x="46" y="48" text-anchor="middle">${amp !== null ? nf(amp, amp < 10 ? 1 : 0) : "–"}</text><text class="u" x="46" y="62" text-anchor="middle">AMPERE</text></svg>`;
   const tile = (t, v, u) => `<div><dt>${t}</dt><dd>${v}${u ? `<small>${u}</small>` : ""}</dd></div>`;
-  head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
-    `<dl class="wnd-g">${tile(six && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${tile("Frequenza", linked && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", linked && fin(a.pf) ? nf(a.pf, 2) : six && fin(a.v) && fin(a.a) && a.v * a.a > 30 ? nf(Math.min(1, a.w / (a.v * a.a)), 2) : "–", "")}</dl>`;
   /* le tre potenze dello Shelly EM (2.55): attiva (quella che la casa consuma davvero), reattiva (va e viene fra inverter e carichi: motori,
      alimentatori), apparente (quella che l'inverter deve reggere, e che decide gli ampere). Barre sulla stessa scala, l'apparente */
-  if (a && a.src === "em" && ok) {
-    const pb = (cls, t, v, u) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${a.va >= 20 ? (Math.min(1, Math.abs(v) / a.va) * 100).toFixed(1) : 0}%"></i></div><b>${nf(Math.abs(v), 0)} ${u}</b></div>`;
-    head.innerHTML += `<div class="inv-pw"><div class="inv-eff">${pb("ac", "Attiva", a.w, "W")}${pb("re", "Reattiva", a.var || 0, "var")}${pb("dc", "Apparente", a.va, "VA")}</div>` +
-      `<p>${a.va < 20 ? "Uscita quasi a vuoto: sotto i 20 VA il fattore di potenza non si calcola." : a.pf >= .95 ? "Quasi tutta potenza attiva: l'inverter lavora per quello che la casa consuma davvero."
-        : `L'inverter regge <b>${nf(a.va, 0)} VA</b> per darne <b>${nf(a.w, 0)} W</b> utili: il resto è potenza reattiva dei carichi (motori, alimentatori).`}</p></div>`;
-  }
-  // ---- rendimento
+  const pb = (cls, t, v, u) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${a.va >= 20 ? (Math.min(1, Math.abs(v) / a.va) * 100).toFixed(1) : 0}%"></i></div><b>${nf(Math.abs(v), 0)} ${u}</b></div>`;
+  head.innerHTML = `<div class="inv-top${st[0]}"><div class="wnd-live${st[0]}"><span class="wnd-tag"><i></i>${st[1]}</span><div class="wnd-big">${big}</div><div class="inv-sub">${sub}</div></div>${ring}</div>` +
+    `<dl class="wnd-g">${tile(ok && fin(a.v) ? "Tensione" : vSh ? "Tensione · Shelly" : "Tensione", vNow !== null ? nf(vNow, 1) : "–", "V")}${tile("Frequenza", ok && fin(a.hz) ? nf(a.hz, 1) : "–", "Hz")}${tile("Fattore", ok && fin(a.pf) ? nf(a.pf, 2) : "–", "")}</dl>` +
+    (ok ? `<div class="inv-pw"><div class="inv-eff">${pb("ac", "Attiva", a.w, "W")}${pb("re", "Reattiva", a.var || 0, "var")}${pb("dc", "Apparente", a.va, "VA")}</div>` +
+      `<p>${a.va < 20 ? "Uscita quasi a vuoto: sotto i 20 VA lo Shelly EM non basta a calcolare il fattore di potenza." : a.pf >= .95 ? "Quasi tutta potenza attiva: l'inverter lavora per quello che la casa consuma davvero."
+        : `L'inverter regge <b>${nf(a.va, 0)} VA</b> per darne <b>${nf(a.w, 0)} W</b> utili: il resto è potenza reattiva dei carichi (motori, alimentatori).`}</p></div>` : "");
+  // ---- rendimento: quello imparato, e sotto l'ultimo minuto come riscontro
   /* media dell'ultimo minuto (2.47, richiesta dell'utente): batterie e misuratore sono letti in istanti diversi, e quando parte o si ferma un
      carico grosso la differenza dell'istante schizza (perdite «da 800 W» che non esistono). Si mediano ingresso e uscita sulle stesse letture */
   const dcI = L.on && fin(L.dc) ? L.dc : null;
-  if (ok && dcI !== null && (!invEffR.length || invEffR[invEffR.length - 1].t !== a.t6)) invEffR.push({ t: a.t6, dc: dcI, w: a.w });
+  if (ok && dcI !== null && (!invEffR.length || invEffR[invEffR.length - 1].t !== a.at)) invEffR.push({ t: a.at, dc: dcI, w: a.w });
   invEffR = invEffR.filter(x => x.t >= now - 60);
   const effN = ok && dcI !== null ? invEffR.length : 0, dc = effN ? invEffR.reduce((q, x) => q + x.dc, 0) / effN : null, wE = effN ? invEffR.reduce((q, x) => q + x.w, 0) / effN : null;
-  const eff = effN >= 3 && dc > 150 && wE > 50 ? wE / dc : null;
+  const eff = effN >= 3 && dc > 150 && wE > 50 ? wE / dc : null, fit = model && model.acFit && model.acFit.n >= 3 ? model.acFit : null, at = x => x / (fit.a * x + fit.b);
   const top = Math.max(500, dc || 0, wE || 0), bar = (cls, t, v) => `<div class="inv-row ${cls}"><span>${t}</span><div class="wnd-bar"><i style="--f:${v ? (Math.min(1, v / top) * 100).toFixed(1) : 0}%"></i></div><b>${v !== null ? power(v) : "–"}</b></div>`;
-  $("inv-eff").innerHTML = eff !== null
-    ? `<div class="inv-big"><b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b><span>perdite circa <b>${power(Math.max(0, dc - wE))}</b></span></div><div class="inv-eff">${bar("dc", "Entra", dc)}${bar("ac", "Esce (casa)", wE)}</div>` +
-      `<p class="set-note">Media dell'ultimo minuto. «Entra» è quello che danno insieme batterie e pannelli. Se la pala sta producendo, anche la sua corrente va all'inverter ma la scheda non la misura: in quel caso le perdite vere sono più alte di quelle scritte qui.</p>` + invLearnTxt()
-    : invLearnTxt() + `<p class="inv-empty">${!linked ? "Si vede quando il misuratore risponde." : !L.on ? "Si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : ok && effN < 3 ? "Sto raccogliendo le misure dell'ultimo minuto." : !ok ? "Serve una misura di adesso, cioè lo Shelly EM: il misuratore Tuya dà solo medie ogni 5 minuti." : "Serve un carico di almeno 50 W."}</p>`;
-  // ---- ultimi minuti
+  $("inv-eff").innerHTML =
+    (fit ? `<div class="inv-big"><b>${nf(at(1000) * 100, 0)}%</b><span>a 1 kW in uscita · imparato su <b>${fit.n}</b> ore</span></div>` +
+        `<p class="set-note">Per dare 1 kW alla casa prende dalle batterie circa <b>${power(fit.a * 1000 + fit.b)}</b> (a 3 kW rende il ${nf(at(3000) * 100, 0)}%), e <b>${power(fit.b)}</b> se ne vanno comunque: inverter a vuoto e impianto. È il rendimento che usano la stima della pala e i consumi.</p>`
+      : `<p class="inv-empty">Il rendimento vero lo imparo dal registro: servono <b>tre ore</b> con la casa sulle batterie, senza pala o con calma di vento. Intanto uso <b>${nf(100 / WND_A0, 0)}%</b>, misurato il 19/11.</p>`) +
+    (eff !== null ? `<div class="inv-eff inv-chk">${bar("dc", "Entra", dc)}${bar("ac", "Esce (casa)", wE)}</div>` +
+        `<p class="set-note">Ultimo minuto: <b>${nf(clamp(eff, 0, 1.2) * 100, 0)}%</b>, perdite circa <b>${power(Math.max(0, dc - wE))}</b>. «Entra» è quello che danno insieme batterie e pannelli: se la pala sta producendo la scheda non la vede, e le perdite vere sono più alte di così.</p>`
+      : `<p class="set-note">${!ok ? "Il riscontro sull'ultimo minuto si vede quando lo Shelly EM risponde." : !L.on ? "Il riscontro sull'ultimo minuto si vede con la <b>casa sulle batterie</b>: adesso l'inverter non porta la casa." : effN < 3 ? "Sto raccogliendo le misure dell'ultimo minuto." : "Per il riscontro sull'ultimo minuto serve un carico di almeno 50 W."}</p>`);
+  // ---- ultima ora
   drawInvRun(now);
-  // ---- interruttore e misuratore
+  // ---- Shelly e misuratori
   const row = (t, v, c) => `<div><dt>${t}</dt><dd${c ? ` class="${c}"` : ""}>${v}</dd></div>`;
   const seen = x => { const g = Math.max(0, now - x.at); return g < 5 ? "letto adesso" : g < 60 ? `letto ${nf(g, 0)} s fa` : "letto alle " + hm(x.at); };
   const tyOk = !!(ty && ty.ok), emV = em && em.ver ? (/v[\d.]+/.exec(em.ver) || [em.ver])[0] : "";
@@ -6699,25 +6397,14 @@ function drawInv(k){
   $("inv-dev").innerHTML = `<dl class="inv-dl">` +
     row("Interruttore Shelly", !cb ? "–" : !cb.ok ? "non risponde" : cb.on ? "ON" : "OFF", cb && cb.ok ? (cb.on ? "ok" : "") : "bad") +
     (cb && cb.ok && fin(cb.t) ? row("Temperatura dello Shelly", nf(cb.t, 0) + " °C", cb.t >= 70 ? "bad" : "") : "") +
-    (em ? row("Shelly EM", em.ok ? seen(em) + " · la misura è la sua" : em.at ? "non risponde dalle " + hm(em.at) : "non risponde", em.ok ? "ok" : "bad") +
+    (em ? row("Shelly EM", em.ok ? seen(em) : em.at ? "non risponde dalle " + hm(em.at) : "non risponde", em.ok ? "ok" : "bad") +
       row("Shelly EM in rete", em.ip ? esc(em.ip) + (emV ? " · firmware " + esc(emV) : "") : "lo sto cercando", "") +
       (em.rev ? row("Pinza dello Shelly EM", "montata al contrario: i watt li conto lo stesso", "") : "") +
-      row("Letture dello Shelly EM", `${nf(em.n || 0, 0)} buone · ${nf(em.bad || 0, 0)} fallite`, "") : "") +
-    row(em ? "Tuya · confronto" : "Misuratore", !ty ? "non collegato" : tyOk ? seen(ty) : esc(AC_ERR[ty.code] || "codice " + ty.code), !ty ? "" : tyOk ? "ok" : "bad") +
-    (ty ? row(em ? "Tuya in rete" : "In rete", ty.ip ? `${esc(ty.ip)}${ty.ver ? " · protocollo " + esc(ty.ver) : ""}` : "non ancora trovato", "") +
-      row("Tensione e potenza" + (em ? " del Tuya" : ""), ty.t6 ? "misurate alle " + hm(ty.t6) + " · ogni 5 minuti" : "non ancora arrivate", !em && ty.t6 && now - ty.t6 > 900 ? "bad" : "") +
-      (fin(ty.wa) && ty.wat && ty.wdt >= 240 ? row("Potenza media dai kWh", `${power(ty.wa)} su ${nf(Math.max(1, ty.wdt / 60), 0)} min, alle ${hm(ty.wat)}`, "") : "") +
-      row("Letture" + (em ? " del Tuya" : ""), `${nf(ty.n || 0, 0)} buone · ${nf(ty.bad || 0, 0)} fallite`, "") : "") +
-    (cmp ? row("Confronto dal " + new Date(cmp[0] * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" }),
+      row("Letture dello Shelly EM", `${nf(em.n || 0, 0)} buone · ${nf(em.bad || 0, 0)} fallite`, "") : row("Shelly EM", "non collegato", "")) +
+    (ty ? row("Misuratore Tuya · confronto", tyOk ? seen(ty) + (fin(ty.hz) ? ` · ${nf(ty.hz, 1)} Hz` : "") : "non risponde", tyOk ? "ok" : "bad") : "") +
+    (cmp ? row("Contatori dal " + new Date(cmp[0] * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" }),
         `Shelly EM <b>${nf(cmp[1], 2)}</b> · Tuya <b>${nf(cmp[2], 2)}</b> kWh <small>(${Math.abs(cmpD) < .5 ? "uguali" : (cmpD > 0 ? "+" : "−") + nf(Math.abs(cmpD), 0) + " %"})</small>`, Math.abs(cmpD) > 5 ? "bad" : "ok")
-      : em && ty ? row("Confronto", "da mezzo kWh contato da tutti e due", "") : "") + `</dl>`;
-}
-// quello che la app ha imparato sull'inverter dalle ore con l'uscita misurata (learn → M.acFit): ingresso = a × uscita + b
-function invLearnTxt(){
-  const f = model && model.acFit; if (!f || !(f.n >= 3)) return "";
-  const at = w => w / (f.a * w + f.b);
-  return `<p class="set-note">Imparato su <b>${f.n}</b> ore con la casa sulle batterie: a 1 kW in uscita prende dalle batterie circa <b>${power(f.a * 1000 + f.b)}</b> ` +
-    `(rendimento <b>${nf(at(1000) * 100, 0)}%</b>; a 3 kW ${nf(at(3000) * 100, 0)}%), e <b>${power(f.b)}</b> se ne vanno comunque, inverter a vuoto e impianto.</p>`;
+      : em && ty ? row("Contatori a confronto", "da mezzo kWh contato da tutti e due", "") : "") + `</dl>`;
 }
 /* ultima ora (2.55): i minuti li tiene la scheda (data.m1, in coda l'uscita dell'inverter misurata con la casa sulle batterie; la app li
    conserva in W1B), quindi il grafico c'è anche appena aperta la app; in più le letture arrivate adesso, per i minuti non ancora chiusi.
@@ -7114,381 +6801,83 @@ $("tabs").addEventListener("keydown", e => {
   e.preventDefault(); goPos(pageIdx + d); tabEls[pageIdx].focus();
 });
 addEventListener("resize", () => pagesEl.scrollTo({ left: pageIdx * pagesEl.clientWidth }));
-{ let p0 = 0; try { p0 = +localStorage.getItem("mybattery.page") || 0; } catch (e) {} requestAnimationFrame(() => goPage(p0, false)); }
+{ let p0 = 7; try { const v = localStorage.getItem("mybattery.page"); if (v !== null && PG.includes(+v)) p0 = +v; } catch (e) {} requestAnimationFrame(() => goPage(p0, false)); }   // senza una pagina ricordata si apre su Oggi
 
-/* ---------- cavo USB–RS485 delle batterie: la app legge da sola il BMS, senza la scheda, e tiene il registro sul telefono ---------- */
-// Stesso protocollo di diagnosi.html e tools/frame.py (docs/protocollo.md). Whitelist: solo 42H (dati) e 4FH (versione).
-const BMS_READ = new Set(["42", "4F"]), BMS_ADRS = [0, 1, 2, 3, 4];
-const CAB_KEY = "mybattery.cable.v1", UHIST_KEY = "mybattery.usbhist.v1", UACC_KEY = "mybattery.usbacc.v1", ULAST_KEY = "mybattery.usblast.v1";
-const SIM_REC = location.hash === "#simrec"; // solo per le prove: il cavo simulato scrive nel registro vero
-// Sul telefono WebUSB coi nostri driver (così ha funzionato la diagnosi col CH340); Web Serial solo sul computer
-const MOBILE = /Android|Mobi/i.test(navigator.userAgent) || !!(navigator.userAgentData && navigator.userAgentData.mobile);
-const CAB_OK = window.isSecureContext && ("serial" in navigator || "usb" in navigator);
-const pause = ms => new Promise(r => setTimeout(r, ms));
-const hx = (n, w = 4) => (n >>> 0).toString(16).toUpperCase().padStart(w, "0").slice(-w);
-const lchk = n => (-(((n >> 8) & 15) + ((n >> 4) & 15) + (n & 15))) & 15;
-const chk = s => hx((-[...s].reduce((a, c) => a + c.charCodeAt(0), 0)) & 0xFFFF);
-function bmsFrame(cid2, adr, info = ""){
-  if (!BMS_READ.has(cid2)) throw new Error("comando " + cid2 + "H non ammesso");
-  const body = "22" + hx(adr, 2) + "4A" + cid2 + hx((lchk(info.length) << 12) | info.length) + info;
-  return "~" + body + chk(body);
-}
-function bmsSplit(line){ // null se il pacchetto non torna (checksum, lunghezza)
-  const s = line.slice(1);
-  if (s.length < 16 || !/^[0-9A-Fa-f]+$/.test(s)) return null;
-  const body = s.slice(0, -4); if (chk(body) !== s.slice(-4).toUpperCase()) return null;
-  const len = parseInt(body.slice(8, 12), 16), n = len & 0xFFF, info = body.slice(12);
-  if (len >> 12 !== lchk(n) || info.length !== n) return null;
-  const b = new Uint8Array(n / 2); for (let i = 0; i < b.length; i++) b[i] = parseInt(info.substr(i * 2, 2), 16);
-  return { adr: parseInt(body.slice(2, 4), 16), rtn: parseInt(body.slice(6, 8), 16), info: b };
-}
-// blocco del 42H, campo per campo come docs/protocollo.md (verificato sulle 5 batterie: corrente in 0,01 A)
-const bmsTemp = raw => (raw & 0x8000 ? raw - 0x10000 : raw > 1500 ? raw - 2731 : raw) / 10; // 0,1 °C; Kelvin×10 su certi firmware
-function bmsBlock(b, at){
-  let i = at; const d = {};
-  const u8 = () => { if (i >= b.length) throw "eof"; return b[i++]; };
-  const u16 = () => { if (i + 2 > b.length) throw "eof"; const v = b[i] << 8 | b[i + 1]; i += 2; return v; };
-  try {
-    d.soc = u16() / 100; d.v = u16() / 100;
-    const m = u8(); d.cells = []; for (let k = 0; k < m; k++) d.cells.push(u16());
-    d.tAmb = bmsTemp(u16()); d.tPack = bmsTemp(u16()); d.tMos = bmsTemp(u16());
-    const n = u8(); d.tCells = []; for (let k = 0; k < n; k++) d.tCells.push(bmsTemp(u16()));
-    let iRaw = u16(); if (iRaw & 0x8000) iRaw -= 0x10000;
-    u16(); d.soh = u16(); const flag = u8(); d.i = iRaw / (flag & 1 ? 10 : 100);
-    d.full = u16() / 100; d.rem = u16() / 100; d.cycles = u16();
-    d.stV = u16(); d.stI = u16(); d.stT = u16(); d.stA = u16(); u16();
-    for (let k = 0; k < 4; k++) u16();
-    d.bal = u16();
-  } catch (e) { if (e !== "eof") throw e; }
-  return d;
-}
-function bmsDecode(info){ // con gruppo 01 manca il byte M, con FF c'è: provo le due forme
-  for (const at of [1, 2]) {
-    const d = bmsBlock(info, at);
-    if (d.cells && d.cells.length >= 4 && d.cells.length <= 32 && d.cells.every(x => x > 1500 && x < 4500) && fin(d.full)
-      && Math.abs(d.cells.reduce((a, x) => a + x, 0) / 1000 - d.v) < 3) return d;
-  }
-  return null;
-}
-const bitOn = (w, b) => fin(w) && (w >> b & 1) === 1;
-function bmsBattery(adr, d){
-  const prot = [], alarms = [], add = (a, c) => { if (!a.includes(c)) a.push(c); };
-  [[0, "CELL_OV"], [1, "CELL_UV"], [2, "PACK_OV"], [3, "PACK_UV"]].forEach(([b, c]) => bitOn(d.stV, b) && add(prot, c));
-  [[4, "CELL_HIGH"], [5, "CELL_LOW"], [8, "CELL_DIFF"]].forEach(([b, c]) => bitOn(d.stV, b) && add(alarms, c));
-  [[2, "CHG_OC"], [3, "SHORT"], [4, "DSG_OC"], [5, "DSG_OC"]].forEach(([b, c]) => bitOn(d.stI, b) && add(prot, c));
-  [[6, "CHG_OC"], [7, "DSG_OC"]].forEach(([b, c]) => bitOn(d.stI, b) && add(alarms, c));
-  // temperature: bit 0–7 protezioni, 8–15 allarmi; l'ordine carica alta/bassa, scarica alta/bassa è da verificare sul BMS vero
-  ["CHG_OT", "CHG_UT", "DSG_OT", "DSG_UT"].forEach((c, b) => { if (bitOn(d.stT, b)) add(prot, c); else if (bitOn(d.stT, b + 8)) add(alarms, c); });
-  if (bitOn(d.stA, 7)) add(alarms, "LOW_SOC");
-  if (bitOn(d.stA, 8)) add(alarms, "MOS_OT");
-  if ([11, 12, 13, 14, 15].some(b => bitOn(d.stA, b))) add(prot, "FAULT");
-  return { addr: adr, name: adr === 0 ? "Master" : "Batteria " + (adr + 1), online: true,
-    soc: d.soc, soh: d.soh, v: d.v, i: +d.i.toFixed(2), rem_ah: d.rem, full_ah: d.full, cycles: d.cycles,
-    cells: d.cells, bal: d.cells.map((_, j) => bitOn(d.bal, j) ? 1 : 0), t_cells: d.tCells, t_mos: d.tMos, t_env: d.tAmb, alarms, prot };
-}
-
-/* driver: Web Serial (Chrome su computer) o WebUSB (Chrome su Android, il driver del chip lo facciamo noi), come diagnosi.html */
-const CHIPS = { "1a86": ["WCH CH340", "ch34x"], "10c4": ["Silicon Labs CP210x", "cp210x"], "0403": ["FTDI", "ftdi"], "067b": ["Prolific PL2303", "pl2303"] };
-async function serialLink(port, onData, onLost){
-  await port.open({ baudRate: 9600, dataBits: 8, parity: "none", stopBits: 1 });
-  const inf = port.getInfo ? port.getInfo() : {}, vid = inf.usbVendorId != null ? hx(inf.usbVendorId).toLowerCase() : "";
-  let rd = null, alive = true;
-  (async () => {
-    while (alive && port.readable) {
-      rd = port.readable.getReader();
-      try { for (;;) { const { value, done } = await rd.read(); if (done) break; if (value) onData(value); } }
-      catch (e) { if (alive) { alive = false; onLost("lettura interrotta"); } }
-      finally { rd.releaseLock(); }
-    }
-    if (alive) { alive = false; onLost("cavo scollegato"); }
-  })();
-  return { chip: CHIPS[vid] ? CHIPS[vid][0] : "porta seriale", api: "Web Serial", port,
-    async write(b){ const w = port.writable.getWriter(); try { await w.write(b); } finally { w.releaseLock(); } },
-    async close(){ alive = false; try { await rd?.cancel(); } catch (e) {} try { await port.close(); } catch (e) {} } };
-}
-async function usbLink(dev, onData, onLost){
-  await dev.open();
-  if (dev.configuration === null) await dev.selectConfiguration(1);
-  const vid = hx(dev.vendorId).toLowerCase(), ifs = dev.configuration.interfaces;
-  const alt = i => i.alternate || i.alternates[0], bulk = (i, dir) => alt(i).endpoints.find(e => e.type === "bulk" && e.direction === dir);
-  let kind = CHIPS[vid] ? CHIPS[vid][1] : ifs.some(i => alt(i).interfaceClass === 0x0A) ? "cdc" : null;
-  if (!kind) throw new Error(`chip USB ${hx(dev.vendorId).toLowerCase()}:${hx(dev.productId).toLowerCase()} non riconosciuto`);
-  const dat = kind === "cdc" ? ifs.find(i => alt(i).interfaceClass === 0x0A) : ifs.find(i => bulk(i, "in") && bulk(i, "out"));
-  const ctl = kind === "cdc" ? ifs.find(i => alt(i).interfaceClass === 0x02) || dat : dat;
-  for (const i of new Set([ctl, dat])) await dev.claimInterface(i.interfaceNumber);
-  const epIn = bulk(dat, "in"), epOut = bulk(dat, "out");
-  const out = (o, buf) => dev.controlTransferOut(o, buf).then(r => { if (r.status !== "ok") throw new Error("il chip rifiuta la configurazione"); });
-  const vin = (o, len) => dev.controlTransferIn(o, len);
-  const coding = () => { const b = new DataView(new ArrayBuffer(7)); b.setUint32(0, 9600, true); b.setUint8(6, 8); return b.buffer; };
-  if (kind === "ch34x") {
-    const w = (request, value, index) => out({ requestType: "vendor", recipient: "device", request, value, index });
-    let f = Math.floor(1532620800 / 9600), dv = 3;
-    while (f > 0xFFF0 && dv > 0) { f >>= 3; dv--; }
-    f = 0x10000 - f;
-    const baud = async () => { await w(0x9A, 0x1312, (f & 0xFF00) | dv | 0x80); await w(0x9A, 0x0F2C, f & 0xFF); };
-    await w(0xA1, 0, 0); await baud(); await w(0x9A, 0x2518, 0xC3); await w(0xA1, 0x501F, 0xD90A); await baud();
-    await w(0xA4, ~0x60 & 0xFFFF, 0);
-  } else if (kind === "cp210x") {
-    const n = ctl.interfaceNumber, w = (request, value, buf) => out({ requestType: "vendor", recipient: "interface", request, value, index: n }, buf);
-    const b = new DataView(new ArrayBuffer(4)); b.setUint32(0, 9600, true);
-    await w(0x00, 1); await w(0x1E, 0, b.buffer); await w(0x03, 0x0800); await w(0x07, 0x0303);
-  } else if (kind === "ftdi") {
-    const w = (request, value, index) => out({ requestType: "vendor", recipient: "device", request, value, index });
-    await w(0x00, 0, 1); await w(0x03, 0x4138, 0); await w(0x04, 0x0008, 1); await w(0x01, 0x0303, 1);
-  } else if (kind === "pl2303") {
-    const r1 = v => vin({ requestType: "vendor", recipient: "device", request: 1, value: v, index: 0 }, 1);
-    const w1 = (v, i) => out({ requestType: "vendor", recipient: "device", request: 1, value: v, index: i });
-    await r1(0x8484); await w1(0x0404, 0); await r1(0x8484); await r1(0x8383);
-    await r1(0x8484); await w1(0x0404, 1); await r1(0x8484); await r1(0x8383);
-    await w1(0, 1); await w1(1, 0); await w1(2, 0x44);
-    await out({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: 0 }, coding());
-    await out({ requestType: "class", recipient: "interface", request: 0x22, value: 3, index: 0 });
-  } else {
-    const n = ctl.interfaceNumber;
-    await out({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: n }, coding());
-    await out({ requestType: "class", recipient: "interface", request: 0x22, value: 3, index: n });
-  }
-  let alive = true; const pkt = epIn.packetSize || 64;
-  (async () => {
-    while (alive) {
-      try {
-        const r = await dev.transferIn(epIn.endpointNumber, pkt * 4);
-        if (!r.data || !r.data.byteLength) continue;
-        let b = new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
-        if (kind === "ftdi") { const p = []; for (let o = 0; o < b.length; o += pkt) p.push(...b.slice(o + 2, o + pkt)); b = new Uint8Array(p); } // 2 byte di stato per pacchetto
-        if (b.length) onData(b);
-      } catch (e) { if (alive) { alive = false; onLost("cavo scollegato"); } return; }
-    }
-  })();
-  return { chip: CHIPS[vid] ? CHIPS[vid][0] : "USB seriale standard", api: "WebUSB", dev,
-    write: b => dev.transferOut(epOut.endpointNumber, b),
-    async close(){ alive = false; try { await dev.close(); } catch (e) {} } };
-}
-// cavo simulato: un BMS finto per indirizzo che risponde al 42H con i dati del simulatore della demo, a pezzi e con l'eco come i cavi veri
-function simLink(onData){
-  const enc = s => new TextEncoder().encode(s), w = v => hx(Math.round(v) & 0xFFFF), tc = c => w(c * 10);
-  const reply = (adr, info) => { const body = "22" + hx(adr, 2) + "4A00" + hx((lchk(info.length) << 12) | info.length) + info; return "~" + body + chk(body) + "\r"; };
-  const block = b => {
-    const bal = (b.bal || []).reduce((m, x, j) => m | (x ? 1 << j : 0), 0), stV = (b.alarms || []).includes("CELL_DIFF") ? 1 << 8 : 0;
-    return w(b.soc * 100) + w(b.v * 100) + hx(b.cells.length, 2) + b.cells.map(w).join("") + tc(b.t_env) + tc(b.t_cells[0]) + tc(b.t_mos)
-      + hx(b.t_cells.length, 2) + b.t_cells.map(tc).join("") + w(b.i * 100) + w(0) + w(b.soh) + "00" + w(b.full_ah * 100) + w(b.rem_ah * 100)
-      + w(b.cycles) + w(stV) + w(b.i > 0 ? 1 : 2) + w(0) + w(0) + w(3) + w(0).repeat(4) + w(bal) + w(0) + w(0).repeat(4) + "00" + w(0);
-  };
-  let open = true, st = null, stAt = 0;
-  return { chip: "BMS simulato", api: "simulazione",
-    async write(bytes){
-      const s = new TextDecoder().decode(bytes).trim(), adr = parseInt(s.slice(3, 5), 16), cid = s.slice(7, 9);
-      setTimeout(() => open && onData(enc(s + "\r")), 30);
-      if (Date.now() - stAt > 900) { st = simulate(); stAt = Date.now(); }
-      const b = st.batteries.find(x => x.addr === adr);
-      if (!b) return;
-      const out = enc(cid === "42" ? reply(adr, "01" + block(b)) : reply(adr, ""));
-      setTimeout(() => { if (open) for (let o = 0; o < out.length; o += 64) onData(out.slice(o, o + 64)); }, 160);
-    },
-    async close(){ open = false; } };
-}
-
-/* sessione: una domanda al secondo, giro sulle 5 batterie, poi registro e disegno */
-let cable = null, cabErr = "", wakeLock = null;
-const isReal = () => mode === "live" || mode === "remote" || (mode === "usb" && cable && cable.real) || (mode === "stale" && (!cable || cable.real));
+/* ---------- quello che resta del blocco del cavo USB ----------
+   Fino alla 2.56 la app sapeva leggere da sola il BMS col cavo USB–RS485, senza la scheda, e tenere il registro sul telefono (modo «usb»).
+   Tolto con la 2.57: il BMS lo legge la scheda, e per un controllo col cavo c'è diagnosi.html. Restano qui i servizi che usava tutta la app */
+let wakeLock = null;
+const isReal = () => mode === "live" || mode === "remote" || mode === "stale";
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
-function cabRx(c, bytes){
-  c.rx += new TextDecoder("latin1").decode(bytes);
-  for (;;) {
-    const cr = c.rx.indexOf("\r");
-    if (cr < 0) { if (c.rx.length > 4000) c.rx = c.rx.slice(-2000); return; }
-    let line = c.rx.slice(0, cr); c.rx = c.rx.slice(cr + 1);
-    const s = line.search(/[~>]/); if (s < 0) continue;
-    line = line.slice(s).trim();
-    if (line === c.sent) continue; // eco del cavo
-    if (c.waiter) { const w = c.waiter; c.waiter = null; w(line); }
-  }
-}
-async function cabAsk(c, cid, adr, info){
-  const wait = 1000 - (Date.now() - c.lastAt); if (wait > 0) await pause(wait);
-  if (cable !== c) return null;
-  const frame = bmsFrame(cid, adr, info);
-  c.sent = frame; c.lastAt = Date.now(); c.rx = "";
-  const got = new Promise(res => { c.waiter = res; setTimeout(() => { if (c.waiter === res) { c.waiter = null; res(null); } }, 1500); });
-  await c.link.write(new TextEncoder().encode(frame + "\r"));
-  const line = await got;
-  return line ? bmsSplit(line) : null;
-}
-async function cabLoop(c){
-  while (cable === c) {
-    const t0 = Date.now();
-    for (const adr of BMS_ADRS) {
-      let r;
-      try { r = await cabAsk(c, "42", adr, "01"); } catch (e) { return cabLost(c, "scrittura sul cavo non riuscita"); }
-      if (cable !== c) return;
-      const d = r && r.rtn === 0 && r.adr === adr ? bmsDecode(r.info) : null;
-      if (d) { c.bs[adr] = bmsBattery(adr, d); c.miss[adr] = 0; c.lastOk = Date.now(); }
-      else if (c.bs[adr] && ++c.miss[adr] >= 3) c.bs[adr].online = false; // tre giri senza risposta: non raggiungibile
-    }
-    cabSweep(c);
-    const rest = S.poll * 1000 - (Date.now() - t0); if (rest > 0) await pause(rest);
-  }
-}
-function cabSweep(c){
-  const now = Date.now() / 1000, bs = Object.values(c.bs).sort((a, b) => a.addr - b.addr);
-  c.sweeps++;
-  if (!bs.length) { cabErr = c.sweeps >= 2 ? "Il BMS non risponde: il cavo va nella porta RS485 della master (non CAN). Se l'hai fatto tu, prova a invertire A e B." : ""; fillCab(); return; }
-  cabErr = "";
-  const k = bank(bs);
-  cabHist(c, now, k);
-  if (c.real) cabLog(c, now, k);
-  data = { time: Math.round(now), log_min: S.log, batteries: bs.map(b => ({ ...b })), history: { step: 300, soc: [...c.hist.soc], p: [...c.hist.p] } };
-  lastOk = c.lastOk;
-  render(Date.now() - c.lastOk > 30e3 ? "stale" : "usb");
-  if ($("settings").open) fillCab();
-}
-// grafico delle 24 ore: un punto ogni 5 minuti, l'ultimo è adesso; i buchi restano vuoti
-function cabHist(c, now, k){
-  const H = c.hist, slot = Math.floor(now / 300) * 300;
-  if (!H.t || slot - H.t >= 288 * 300) { H.t = slot; H.soc = Array(288).fill(null); H.p = Array(288).fill(null); }
-  while (H.t < slot) { H.t += 300; H.soc.push(null); H.p.push(null); H.soc.shift(); H.p.shift(); }
-  H.soc[287] = fin(k.soc) ? +k.soc.toFixed(1) : null; H.p[287] = k.on ? Math.round(k.p) : null;
-  if (c.real && now - (c.histSaved || 0) > 60) { c.histSaved = now; lsSet(UHIST_KEY, H); cabKeepLast(c); }
-}
-// registro: una riga ogni S.log minuti con l'energia entrata e uscita; senza regolatori i pannelli restano null
-// Se la app si ferma (schermo spento, cavo staccato) la riga si chiude dove arrivano i dati: niente energia inventata nei buchi.
-function cabLog(c, now, k){
-  const ok = k.on > 0 && fin(k.p) && fin(k.soc), step = S.log * 60;
-  const add = (A, t, p) => { const wh = (A.p + p) / 2 * (t - A.last) / 3600; if (wh > 0) A.chg += wh; else A.dsg -= wh; A.last = t; A.p = p; };
-  const fresh = (t, p, soc) => ({ t, last: t, end: (Math.floor(t / step) + 1) * step, p, soc, chg: 0, dsg: 0 });
-  let A = c.acc;
-  if (A && (!ok || now - A.last > 120)) { cabRow(c, A); A = c.acc = null; }
-  if (!ok) { lsSet(UACC_KEY, null); return; }
-  if (!A) A = c.acc = fresh(now, k.p, k.soc);
-  else {
-    if (now >= A.end) { add(A, A.end, k.p); A.soc = k.soc; cabRow(c, A); A = c.acc = fresh(A.end, k.p, k.soc); }
-    add(A, now, k.p); A.soc = k.soc;
-  }
-  lsSet(UACC_KEY, A); // ricaricando la pagina la riga a metà non va persa
-}
-// l'ultima lettura vera del cavo: a cavo scollegato la app mostra questa (e il registro vero) invece della demo
-function cabKeepLast(c){
-  const bs = Object.values(c.bs).sort((a, b) => a.addr - b.addr);
-  if (c.real && c.lastOk && bs.some(b => b.online)) lsSet(ULAST_KEY, { t: Math.round(c.lastOk / 1000), batteries: bs });
-}
-function cabRow(c, A){
-  const min = (A.last - A.t) / 60;
-  if (min < 5) return; // pezzi troppo corti: più rumore che dato
-  const row = [Math.round(A.t), Math.round(min), +A.soc.toFixed(1), Math.round(A.chg), Math.round(A.dsg), null];
-  if (LOG.length && row[0] < LOG[LOG.length - 1][0] + LOG[LOG.length - 1][1] * 60 - 60) return; // si sovrappone a righe già presenti
-  LOG.push(row); db.put([row]); c.rows++;
-  relearn();
-}
-async function cabOpen(kind, dev){
-  if (cable) await cabClose(true);
-  cabErr = "";
-  const c = { kind, real: kind !== "sim" || SIM_REC, rx: "", sent: "", waiter: null, lastAt: 0, bs: {}, miss: {}, lastOk: 0, sweeps: 0, rows: 0, since: Date.now() };
-  const lost = msg => cabLost(c, msg);
-  try {
-    c.link = kind === "sim" ? simLink(b => cabRx(c, b))
-      : kind === "serial" ? await serialLink(dev || await navigator.serial.requestPort(), b => cabRx(c, b), lost)
-      : await usbLink(dev || await navigator.usb.requestDevice({ filters: [] }), b => cabRx(c, b), lost);
-  } catch (e) {
-    // NotFoundError = elenco chiuso senza scegliere: spesso perché il cavo non c'era
-    cabErr = e.name !== "NotFoundError" ? "Il cavo non si è aperto: " + e.message
-      : kind === "serial" && navigator.usb && !MOBILE ? "Il cavo non era nell'elenco? Tocca «Non lo trova? Usa WebUSB»: ha i driver dei chip CH340, CP210x, FTDI e PL2303."
-      : kind === "serial" ? "Il cavo non era nell'elenco? Riprova con «Collega il cavo», che usa WebUSB."
-      : "Nessun cavo scelto. Se l'elenco era vuoto: adattatore OTG inserito bene, cavo nella porta USB del telefono, e se Android chiede di aprire l'USB con un'app, rispondi annulla.";
-    toast(cabErr.split(":")[0].split("?")[0].replace(/\.$/, "")); fillCab(); return;
-  }
-  const H = c.real && lsGet(UHIST_KEY);
-  c.hist = H && Array.isArray(H.soc) && H.soc.length === 288 && Array.isArray(H.p) && H.p.length === 288 ? H : { t: 0, soc: [], p: [] };
-  cable = c; clearInterval(pollTimer); // da qui la demo e la scheda si fermano: comanda il cavo
-  if (c.real) {
-    lsSet(CAB_KEY, kind);
-    await realLog();
-    const A = lsGet(UACC_KEY); // riga lasciata a metà: se è di pochi minuti fa si continua, se no si chiude lì
-    if (A && fin(A.t) && fin(A.last) && fin(A.end) && S.log * 60 === A.end - Math.floor(A.t / (S.log * 60)) * (S.log * 60)) {
-      if (nowS() - A.last <= 120) c.acc = A; else cabRow(c, A);
-    }
-    lsSet(UACC_KEY, c.acc || null);
-  }
-  keepAwake(); fillCab();
-  toast(kind === "sim" ? "Cavo simulato: dati di prova, il registro non si tocca" : `Cavo collegato: ${c.link.chip}`);
-  cabLoop(c);
-}
-async function cabClose(keep){
-  const c = cable; if (!c) return;
-  cable = null;
-  if (c.acc) { cabRow(c, c.acc); lsSet(UACC_KEY, null); }
-  if (c.real) { lsSet(UHIST_KEY, c.hist); cabKeepLast(c); }
-  if (!keep) lsSet(CAB_KEY, null);
-  try { await c.link.close(); } catch (e) {}
-  if (wakeLock && !monOn && !monAway) { wakeLock.release().catch(() => {}); wakeLock = null; }
-  if (!keep) { lastOk = 0; schedule(); poll(); fillCab(); }
-}
-function cabLost(c, why){
-  if (cable !== c) return;
-  cabClose(true).then(() => { cabErr = "Cavo scollegato (" + why + "). Lo ricollego da solo appena lo rimetti."; lastOk = 0; schedule(); poll(); fillCab(); });
-}
-// rimesso il cavo (o riaperta la app) riparte da solo, se il browser se lo ricorda già autorizzato
-async function cabAuto(){
-  const kind = lsGet(CAB_KEY);
-  if (cable || !kind || !CAB_OK) return;
-  try {
-    if (kind === "serial" && navigator.serial) { const [p] = await navigator.serial.getPorts(); if (p) await cabOpen("serial", p); }
-    else if (kind === "usb" && navigator.usb) { const [d] = await navigator.usb.getDevices(); if (d) await cabOpen("usb", d); }
-  } catch (e) {}
-}
-// col cavo la app è la scheda: lo schermo resta acceso, se no il telefono la addormenta e il registro si ferma. Anche in modalità Monitor
-async function keepAwake(){
-  if ((!cable && !monOn && !monAway) || document.hidden || wakeLock || !navigator.wakeLock) return;
+try { ["mybattery.cable.v1", "mybattery.usbhist.v1", "mybattery.usbacc.v1", "mybattery.usblast.v1"].forEach(k => localStorage.removeItem(k)); } catch (e) {}
+async function keepAwake(){                           // lo schermo acceso in modalità Monitor
+  if ((!monOn && !monAway) || document.hidden || wakeLock || !navigator.wakeLock) return;
   try { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } catch (e) {}
 }
 document.addEventListener("visibilitychange", keepAwake);
-if (CAB_OK) {
-  if (navigator.serial) navigator.serial.addEventListener("connect", cabAuto);
-  if (navigator.usb) {
-    navigator.usb.addEventListener("connect", cabAuto);
-    navigator.usb.addEventListener("disconnect", e => { if (cable && cable.link.dev === e.device) cabLost(cable, "cavo scollegato"); });
-  }
+/* ---------- pagina Oggi (2.57, idea condivisa con l'utente il 21/11/2026) ----------
+   La giornata in cinque riquadri, e tutto il resto un livello sotto: ogni riquadro porta alla sua pagina. Non calcola niente di suo, prende i
+   numeri dove li prendono le altre pagine, così non possono dire cose diverse:
+   - Carica: quella vera (bank), con lo stato di adesso;
+   - Sole: i kWh di oggi dal registro e quelli non usati a batterie piene (lostDays), i watt di adesso dei regolatori;
+   - Casa: dove sta (houseNow) e quanto prende adesso (houseLive: misurato dallo Shelly EM se è sulle batterie), i kWh che l'inverter le ha dato
+     oggi (i Wh misurati nel registro, H.awh);
+   - Pala: i kWh stimati oggi nelle ore stimabili (wndHours) e i watt di adesso (wndShown);
+   - Autonomia: lo stesso motore di «Batterie su solare» e della previsione (autonomy).
+   In testa una riga sola: gli avvisi aperti, se no il sole in più previsto per oggi (spareOf), se no «tutto regolare» */
+const TDY_ICO = {
+  bat: '<rect x="3" y="7" width="16" height="10" rx="1.5"/><path d="M21 10.5v3M7 10v4M10.5 10v4M14 10v4"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+  home: '<path d="M3.5 11.5 12 4l8.5 7.5M6 10v9.5h12V10M10 19.5v-5h4v5"/>',
+  wind: '<path d="M12 12v9.5M12 12 6.5 4.5M12 12l8.5-2M12 12l-7 6"/><circle cx="12" cy="12" r="1.6"/>',
+  time: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/>' };
+function drawToday(k, f){
+  const box = $("tdy"); if (!box) return;
+  const now = nowOf(data), m0 = midnight(now), M = model, L = houseLive(k), kwh = v => `${nf(v, v < 10 ? 1 : 0)}<small>kWh</small>`;
+  const big = w => `${Math.abs(w) >= 1000 ? nf(Math.abs(w) / 1000, 1) : nf(Math.abs(w), 0)}<small>${Math.abs(w) >= 1000 ? "kW" : "W"}</small>`;
+  const tile = (cls, go, ico, t, v, sub, bar) => `<button type="button" class="tdy-t ${cls}" data-go="${go}"><span class="tdy-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TDY_ICO[ico]}</svg>${t}</span><span class="tdy-v">${v}</span>${bar || ""}<span class="tdy-s">${sub}</span></button>`;
+  // carica
+  const fullT = data.bank && fin(data.bank.full_t) && data.bank.full_t >= m0 ? data.bank.full_t : null;
+  const cSub = !k.on ? "nessuna batteria risponde" : (k.i > .5 ? `in carica, ${power(k.p)}` : k.i < -.5 ? `in scarica, ${power(k.p)}` : "a riposo") + ` · ${nf(k.v, 1)} V` + (fullT ? ` · piene dalle ${hm(fullT)}` : "");
+  const cBar = `<span class="tdy-bar"><i style="width:${k.on && fin(k.soc) ? clamp(k.soc, 0, 100).toFixed(0) : 0}%"></i></span>`;
+  // sole
+  const days = lostDays(M, now), D = days ? days[days.length - 1] : null, pvNow = L.prod;
+  const sSub = (pvNow !== null ? `adesso ${power(pvNow)}` : "regolatori non letti") + (D && D.lost >= .3 ? ` · <b>${nf(D.lost, 1)} kWh</b> non usati` : "");
+  // casa
+  const Hd = M && M.H ? M.H.filter(o => o.t >= m0) : [], outK = Hd.reduce((a, o) => a + (o.awh || 0), 0) / 1000, outH = Hd.reduce((a, o) => a + (o.amin || 0), 0) / 60;
+  const hV = !L.on ? "Enel" : L.w !== null ? big(L.w) : "–";
+  const hSub = (L.on ? (L.meas ? "sulle batterie, misurati" : "sulle batterie, stima") : "le batterie tengono solo l'impianto") + (outH >= .25 ? ` · oggi <b>${nf(outK, 1)} kWh</b> dall'inverter` : "");
+  // pala
+  const wOn = wndOn(now), hrs = wndHours(), wd = hrs.filter(h => h.t >= m0 && h.w !== null && !h.off), wK = wd.reduce((a, h) => a + (h.w >= WND_NOISE ? h.w : 0), 0) / 1000;
+  const ws = wOn ? wndShown(wndNow()) : { w: null };
+  const wV = !wOn ? "spenta" : wd.length ? kwh(wK) : "–";
+  const wSub = !wOn ? "segnata spenta nelle impostazioni" : (ws.w !== null ? `adesso circa ${power(ws.w)}` : "adesso non stimabile") + (wd.length ? ` · ${wd.length} ${wd.length === 1 ? "ora stimata" : "ore stimate"}` : "");
+  // autonomia
+  const a = k.on ? autonomy(k, f) : null, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
+  let aV = "–", aSub = "servono le batterie lette", aCls = "";
+  if (a && a.hab) {
+    if (fin(a.at)) { aV = dur(Math.max(0, (a.at - now) / HOUR)); aSub = `stacco dell'inverter ${ora(a.at)}`; aCls = (a.at - now) / HOUR < 6 ? " warn" : ""; }
+    else { aV = `${nf(a.min, 0)}<small>%</small>`; aSub = `non arriva allo stacco: il punto più basso ${ora(a.minAt)}`; aCls = " ok"; }
+    if (!L.on) aSub += " · se la casa fosse sulle batterie";
+  } else if (a && fin(a.dark)) { aV = dur(a.dark); aSub = `al buio, al consumo ${L.on ? "di adesso" : "solito"}: stima senza abitudini`; }
+  else if (a) aSub = "non ancora stimabile: mancano i consumi";
+  // la riga in testa
+  const nAl = document.querySelectorAll("#alerts > li").length, sp = f ? spareOf(f, now) : null;
+  const top = nAl ? `<button type="button" class="tdy-top al" data-go="0"><b>${nAl} ${nAl === 1 ? "avviso aperto" : "avvisi aperti"}</b><span>guardali nella Dashboard</span></button>`
+    : sp && sp.kwh >= 1 ? `<button type="button" class="tdy-top sun" data-go="2"><b>Sole in più: circa ${nf(sp.kwh, sp.kwh < 10 ? 1 : 0)} kWh</b><span>${sp.at > now ? "dalle " + hm(q15(sp.at)) : "da adesso"} a stasera, a batterie piene${L.on ? "" : ": con la casa su Enel va perso"}</span></button>`
+    : `<div class="tdy-top ok"><b>Tutto regolare</b><span>nessun avviso aperto</span></div>`;
+  const h = top + `<div class="tdy-g">` +
+    tile("bat", 1, "bat", "Carica", k.on && fin(k.soc) ? `${nf(k.soc, 0)}<small>%</small>` : "–", cSub, cBar) +
+    tile("sun", 2, "sun", "Sole di oggi", D && D.seen ? kwh(D.made) : pvNow !== null ? big(pvNow) : "–", D && D.seen ? sSub : pvNow !== null ? "adesso · i kWh di oggi arrivano col registro" : sSub) +
+    tile("wind", 5, "wind", "Pala di oggi", wV, wSub) +
+    tile("home" + (L.on ? " on" : ""), 6, "home", "Casa", hV, hSub) +
+    tile("time" + aCls, 3, "time", "Autonomia", aV, aSub) + `</div>`;
+  if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
 }
-const CAB_ICON = '<path d="M9 2.5v4M15 2.5v4M7 6.5h10v4a5 5 0 0 1-10 0v-4zM12 15.5v3a3 3 0 0 0 3 3h2"/>';
-function fillCab(){
-  const el = $("set-cab"); if (!el) return;
-  const c = cable, days = LOG.length && logSrc === "live" ? (LOG[LOG.length - 1][0] - LOG[0][0]) / DAY : 0;
-  let html;
-  if (c) {
-    const bs = Object.values(c.bs), on = bs.filter(b => b.online).length, last = c.lastOk ? new Date(c.lastOk).toLocaleTimeString("it-IT") : "–";
-    const next = c.acc ? hm(c.acc.end) : "–";
-    html = `<div class="usb-card on"><span class="usb-ico">${ico(CAB_ICON)}</span><span class="usb-t"><b>${esc(c.link.chip)}</b>` +
-      `<small>${c.lastOk ? `${on} ${on === 1 ? "batteria" : "batterie"} · ultima lettura ${last}` : "Chiedo i dati al BMS…"} · ${esc(c.link.api)}</small></span></div>` +
-      (c.real ? `<dl class="usb-stats"><div><dt>Nuove righe</dt><dd>${c.rows}</dd></div><div><dt>Registro</dt><dd>${days >= 1 ? nf(days, 0) + " gg" : LOG.length + " righe"}</dd></div>` +
-        `<div><dt>Prossima</dt><dd>${next}</dd></div></dl>` : `<p class="set-note">Simulazione: si vede tutto come col cavo vero, ma il registro e la cronologia restano intatti.</p>`) +
-      `<div class="ntfy-row"><button class="set-btn" id="cab-off" type="button">Scollega</button></div>`;
-  } else if (!CAB_OK) {
-    html = `<div class="usb-card"><span class="usb-ico">${ico(CAB_ICON)}</span><span class="usb-t"><b>Qui l'USB non si può usare</b>` +
-      `<small>${window.isSecureContext ? "Serve Chrome su Android (con adattatore OTG) o su computer." : "Serve la pagina in HTTPS: aprila dall'indirizzo GitHub Pages."}</small></span></div>` +
-      `<div class="ntfy-row"><button class="set-btn" id="cab-sim" type="button">Prova senza cavo</button></div>`;
-  } else {
-    const was = lsGet(CAB_KEY);
-    html = `<div class="usb-card${cabErr ? " err" : ""}"><span class="usb-ico">${ico(cabErr ? AL_ICON.alarm : CAB_ICON)}</span><span class="usb-t"><b>${cabErr ? "Cavo non collegato" : "Nessun cavo collegato"}</b>` +
-      `<small>${esc(cabErr || (was ? "Lo ricollego da solo appena lo rimetti, oppure tocca qui sotto." : "Il cavo va nella porta RS485 libera della master."))}</small></span></div>` +
-      `<div class="ntfy-row"><button class="set-btn" id="cab-on" type="button">${ico(CAB_ICON)}Collega il cavo</button>` +
-      `<button class="set-btn" id="cab-sim" type="button">Prova senza cavo</button>` +
-      ("serial" in navigator && "usb" in navigator ? `<button class="link-btn plain" id="${MOBILE ? "cab-ser" : "cab-usb"}" type="button">${MOBILE ? "Non lo trova? Usa Web Serial" : "Non lo trova? Usa WebUSB"}</button>` : "") + `</div>`;
-  }
-  el.innerHTML = html;
-}
-const cabStart = () => cabOpen("usb" in navigator && (MOBILE || !("serial" in navigator)) ? "usb" : "serial");
-$("set-cab").addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
-  if (b.id === "cab-on") cabStart();
-  else if (b.id === "cab-usb") cabOpen("usb");
-  else if (b.id === "cab-ser") cabOpen("serial");
-  else if (b.id === "cab-sim") cabOpen("sim");
-  else if (b.id === "cab-off") cabClose(false);
-});
-$("notice").addEventListener("click", e => { if (e.target.closest("#notice-cab")) cabStart(); });
-
+$("tdy").addEventListener("click", e => { const b = e.target.closest("[data-go]"); if (b) goPage(+b.dataset.go); });
 /* ---------- backup completo: impostazioni, registro, previsioni archiviate, cronologia degli allarmi, quello che ha imparato ---------- */
-const BK_LS = [ALH_KEY, UHIST_KEY, ULAST_KEY, "mybattery.page", PVMAX_KEY, VCAL_KEY, VOCD_KEY]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
+const BK_LS = [ALH_KEY, "mybattery.page", PVMAX_KEY, VCAL_KEY, VOCD_KEY]; // oltre alle impostazioni; meteo e notifiche programmate si rifanno da sole
 const LEARN_SKIP = new Set(["H", "Hmap", "days", "socT", "socV", "lblocks"]); // si ricalcolano dal registro
 const BK_SECRET = ["rem", "ntfy"];   // canale e chiave da fuori casa, canale delle notifiche
 let bkPending = null;
@@ -7536,7 +6925,6 @@ async function backupIn(file){
 }
 async function backupApply(){
   const p = bkPending; if (!p) return;
-  if (cable) await cabClose(false);
   if (p.log.length) await db.put(p.log);
   if (p.fcs.length) await db.put(p.fcs, "fc", r => r.t0);
   await stMerge((Array.isArray(p.j.stress) ? p.j.stress : []).filter(stOk));
@@ -7551,8 +6939,6 @@ async function backupApply(){
     A.ev.filter(e => e && typeof e.k === "string" && fin(e.s) && !seen.has(e.k + "@" + e.s)).forEach(e => alh.ev.push(e));
     alh.ev.sort((a, b) => a.s - b.s); alh.ev = alh.ev.slice(-1000); saveAlh();
   }
-  const H = st[UHIST_KEY], mine = lsGet(UHIST_KEY);
-  if (H && Array.isArray(H.soc) && H.soc.length === 288 && (!mine || H.t > mine.t)) lsSet(UHIST_KEY, H);
   { const o = st[PVMAX_KEY], m = lsGet(PVMAX_KEY); // picchi dei regolatori: se qui non ce ne sono
     if (o && typeof o === "object" && !Array.isArray(o) && (!m || !Object.keys(m).length)) lsSet(PVMAX_KEY, o); }
   // albe e taratura no: le tiene la scheda, e alla prossima lettura arrivano da lei
@@ -7842,7 +7228,7 @@ document.addEventListener("keydown", e => { if (monOn && e.key === "Escape") mon
 document.addEventListener("visibilitychange", () => { if (monOn && !document.hidden) monClock(); });
 if (lsGet(MON_KEY)) monSet(true);
 $("open-set").addEventListener("click", () => {
-  fillSettings(); fillLoc(); fillCab(); bkShow();
+  fillSettings(); fillLoc(); bkShow();
   $("set-csv").disabled = !LOG.length;
   const d = $("settings"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
   d.querySelector(".sheet").scrollTop = 0;
@@ -7861,9 +7247,8 @@ $("settings").addEventListener("change", e => {
   const t = e.target;
   if (t.type === "checkbox" && AL_BOOL.includes(t.name)) { S[t.name] = t.checked; saveSettings(); fillAoNote(); nightMemo = {}; fc = null; fcAt = 0; if (data) render(mode); return; }
   if (t.type !== "radio") return;
-  S[t.name] = ["theme", "palette", "style"].includes(t.name) ? t.value : +t.value;
+  S[t.name] = +t.value;
   saveSettings();
-  if (["theme", "palette", "style"].includes(t.name)) { applyTheme(); if (data) render(mode); }
   if (t.name === "poll") { schedule(); poll(); }
   if (t.name === "aoBack" || t.name === "aoWarn" || t.name === "alLow") fillAoNote();
   if (t.name === "inv") { fillInvNote(); nightMemo = {}; fc = null; fcAt = 0; if (data) render(mode); }
@@ -7881,7 +7266,7 @@ $("settings").addEventListener("change", e => {
 });
 $("set-reset").addEventListener("click", () => {
   S = { ...DEF, names: {}, pv: {} }; saveSettings(); wx = null; fcAt = 0; fcNull = false;
-  applyTheme(); schedule(); fillSettings(); fillLoc(); if (logSrc === "demo") { LOG = demoLog(); relearn(); } else if (data) render(mode);
+  schedule(); fillSettings(); fillLoc(); if (logSrc === "demo") { LOG = demoLog(); relearn(); } else if (data) render(mode);
 });
 
 $("ver").textContent = APP_VERSION;
@@ -7922,10 +7307,8 @@ let updatedFrom = null;
 try { updatedFrom = sessionStorage.getItem(UPD_KEY); sessionStorage.removeItem(UPD_KEY); } catch (e) {}
 if (updatedFrom && updatedFrom !== APP_VERSION) toast(`MyBattery aggiornata alla versione ${APP_VERSION}`);
 
-applyTheme();
 poll();
 schedule();
-cabAuto();
 loadWx();
 setInterval(() => loadWx(), 3600e3);
 })();
