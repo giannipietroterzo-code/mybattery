@@ -1902,16 +1902,21 @@ button.tdy-top{cursor:pointer}
 const API = "/api/status";
 /* ogni domanda alla scheda passa da qui (2.49): il tempo massimo copre tutta la risposta, corpo compreso. Con fetch da sola, se la scheda si
    riavvia a metà risposta il telefono aspetta il resto per sempre (non manda niente, quindi non si accorge che la connessione è morta) e il
-   giro di lettura resta occupato: il 19/11/2026 il Monitor è rimasto fermo all'ora del riavvio delle 04:30. Rende una risposta già letta. */
+   giro di lettura resta occupato: il 19/11/2026 il Monitor è rimasto fermo all'ora del riavvio delle 04:30. Rende una risposta già letta.
+   2.62: il 22/11/2026 il Monitor (un telefono vecchio) è rimasto fermo alle 11:15 con la scheda viva, e ricaricando ripartiva: il tempo massimo
+   non si affida più all'interruzione di fetch (che su quel browser può non chiudere la lettura del corpo), scade per conto suo. */
 async function bFetch(url, opt, ms){
-  const ctrl = new AbortController(), t = setTimeout(() => ctrl.abort(), ms || 20000);
-  try {
+  const ctrl = new AbortController(); let t;
+  const late = new Promise((_, no) => { t = setTimeout(() => { ctrl.abort(); no(new Error("tempo scaduto")); }, ms || 20000); });
+  const read = (async () => {
     const r = await fetch(url, Object.assign({}, opt, { signal: ctrl.signal })), b = await r.arrayBuffer();
     return new Response(r.status === 204 || r.status === 205 || r.status === 304 ? null : b, { status: r.status, statusText: r.statusText, headers: r.headers });
-  } finally { clearTimeout(t); }
+  })();
+  read.catch(() => {});                                  // se arriva dopo la scadenza non la aspetta più nessuno
+  try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.61"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.62"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3448,7 +3453,7 @@ function setVal(el, text){
 function schedule(){ clearInterval(pollTimer); pollTimer = setInterval(poll, S.poll * 1000); }
 
 /* ---------- stato ---------- */
-let lastOk = 0, everLive = false, data = null, mode = "", busy = false;
+let lastOk = 0, everLive = false, data = null, mode = "", busy = false, pollWhy = "";   // pollWhy: perché l'ultima lettura della scheda è fallita
 let openIdx = null, selCell = null, scrubI = null, scrubTimer = 0, hist = null;
 
 // Su GitHub Pages la scheda non è raggiungibile (e una pagina HTTPS non può chiamare la scheda in HTTP): solo demo
@@ -3778,11 +3783,14 @@ async function poll(){
   if (DEMO_ONLY) { if (S.rem) { if (await remHome()) return; remotePoll(); } else offline(); return; }
   busy = true;
   try {
-    const r = await bFetch(API, {cache:"no-store"}, 4000);
-    if (!r.ok) throw new Error(r.status);
-    const j = await r.json();
-    if (!j || !Array.isArray(j.batteries)) throw new Error("formato");
-    data = j; lastOk = Date.now(); everLive = true; mqStop();
+    let r, j, step = "non si raggiunge";                 // a che punto si ferma: lo dice l'avviso dei dati fermi (2.62)
+    try {
+      r = await bFetch(API, {cache:"no-store"}, 4000);
+      step = "risponde " + r.status; if (!r.ok) throw 0;
+      step = "risposta non leggibile"; j = await r.json();
+      if (!j || !Array.isArray(j.batteries)) throw 0;
+    } catch (e) { pollWhy = e && e.message === "tempo scaduto" ? "nessuna risposta in 4 secondi" : step; throw e; }
+    data = j; lastOk = Date.now(); everLive = true; pollWhy = ""; mqStop();
     if (fin(j.cfg_at) && j.cfg_at !== cfgAt) pullShared();               // prima le impostazioni della scheda, poi ogni salvataggio automatico
     if (OPT.log.includes(j.log_min) && j.log_min !== S.log) { S.log = j.log_min; try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} } // comanda la scheda: non serve rimandarglielo
     render("live");
@@ -3978,7 +3986,7 @@ function render(m){
     const min = Math.round((Date.now() - lastOk) / 60000);
     n.hidden = false; n.className = "notice lost"; n.dataset.k = "";
     const ago = min < 1 ? "" : min < 60 ? ` da ${min} min` : ` da ${dur(min / 60)}`;
-    n.textContent = `La scheda non risponde${ago}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
+    n.textContent = `La scheda non risponde${ago}${pollWhy ? " (" + pollWhy + ")" : ""}. I valori sono quelli dell'ultimo aggiornamento riuscito.`;
   }
   else { n.hidden = true; n.dataset.k = ""; }
 
