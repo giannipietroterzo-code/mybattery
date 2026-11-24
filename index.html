@@ -777,7 +777,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .pv-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 /* i gruppi come tre regolatori, stilizzati e nello stile Mecha (2.70; l'utente: «che richiami gli Epever AN 100 A», poi «stilizzati e sempre
    in stile Mecha»): le alette del dissipatore come righe in alto, lo schermo come un riquadro scuro a spigoli tagliati coi numeri nel colore
-   dello stato, due spie e i due tasti in basso. Niente colori dal vero. Si toccano: aprono lo specchietto delle impostazioni */
+   dello stato, e in basso le due spie col loro nome, PV e BATT come sul regolatore (i due tasti disegnati l'utente li ha fatti togliere). Niente colori dal vero. Si toccano: aprono lo specchietto delle impostazioni */
 .pv-col{--f:0;--c:var(--sun);--ln:color-mix(in srgb,var(--lith) 55%,#000);position:relative;min-width:0;padding:0 0 14px;border-radius:14px;text-align:center;overflow:hidden;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
 .pv-col:active{transform:scale(.97)}
 .pv-fin{display:block;height:22px;margin:6px 9px 0 16px;background:repeating-linear-gradient(90deg,var(--ln) 0 2px,transparent 2px 6px);opacity:.8}
@@ -801,7 +801,8 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .pv-led.g{background:var(--good);box-shadow:0 0 6px var(--good)}
 .pv-led.y{background:var(--sun);box-shadow:0 0 6px var(--sun)}
 .pv-led.r{background:var(--alert);box-shadow:0 0 6px var(--alert)}
-.pv-key{width:9px;height:9px;margin-left:2px;border:1.5px solid var(--ln);transform:rotate(45deg)}
+.pv-ft small{margin:0 5px 0 -3px;font-size:.58rem;font-weight:600;letter-spacing:.1em;color:var(--muted)}
+.pv-ft small:last-child{margin-right:0}
 [data-mecha] .pv-col .pv-st{letter-spacing:.02em;padding-left:9px;padding-right:9px}   /* «Mantenimento» ci sta intero */
 .pv-st{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-top:7px;padding:3px 7px;border-radius:999px;font-size:.7rem;font-weight:600;
   color:var(--muted);background:color-mix(in srgb,var(--ink) 7%,var(--surface));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1993,7 +1994,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.71"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.72"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5890,7 +5891,7 @@ function drawPv(pv, k){
       `<span class="pv-bar" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i${i < lit ? ' class="on"' : ""}></i>`).join("")}</span>` +
       `<span class="pv-s">${fin(g.kwh_today) ? `<b>${nf(g.kwh_today, 1)}</b> kWh oggi` : "&nbsp;"}</span></span>` +
       `<span class="pv-st">${esc(stTxt)}</span>` +
-      `<span class="pv-ft" aria-hidden="true"><i class="pv-led ${pvLed}"></i><i class="pv-led ${batLed}"></i><i class="pv-key"></i><i class="pv-key"></i></span></div>`;
+      `<span class="pv-ft" aria-hidden="true"><i class="pv-led ${pvLed}"></i><small>PV</small><i class="pv-led ${batLed}"></i><small>BATT</small></span></div>`;
   }).join("");
 
   $("pv-day").innerHTML = `<div id="lost-box"></div><div id="voc-box"></div><div id="vocw-box"></div>` +
