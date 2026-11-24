@@ -805,7 +805,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 
 .panel{background:var(--surface);border-radius:18px;padding:14px 14px 12px}
 footer{border-top:0;padding-top:0}
-.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:10;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:70;transform:translate(-50%,20px);opacity:0;pointer-events:none;
   background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:.9rem;font-weight:500;white-space:nowrap;
   box-shadow:0 8px 24px rgba(0,0,0,.25);transition:opacity .3s,transform .3s}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -1270,6 +1270,31 @@ footer{border-top:0;padding-top:0}
 .inv-dl div:first-child{border-top:0}
 .inv-dl dt{color:var(--muted)}.inv-dl dd{margin:0;text-align:right;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .inv-dl dd.bad{color:var(--warn)}.inv-dl dd.ok{color:var(--good)}
+/* salute della scheda (2.65): lo stato in una riga, la memoria interna su una barra con la tacca dove scatta il guardiano e il segno del minimo
+   toccato dall'avvio, poi i numeri e gli ultimi avvii col motivo */
+.brd-top{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-left:3px solid var(--c,var(--good));background:var(--bg);clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)}
+.brd-top.warn{--c:var(--warn)}.brd-top.off{--c:var(--muted)}
+.brd-top i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--c,var(--good));box-shadow:0 0 0 4px color-mix(in srgb,var(--c,var(--good)) 22%,transparent)}
+.brd-top b{display:block;font-size:.95rem;color:var(--ink)}.brd-top span span{display:block;font-size:.76rem;color:var(--muted);margin-top:1px}
+.brd-mem{margin:14px 0 4px}
+.brd-mem p{margin:0 0 9px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.brd-mem p b{font-size:1.25rem;letter-spacing:0;text-transform:none;color:var(--ink);font-variant-numeric:tabular-nums}.brd-mem p b small{font-size:.7rem;color:var(--muted);margin-left:2px}
+.brd-bar{display:block;position:relative;height:10px;border-radius:2px;background:var(--bg);border:1px solid var(--line)}
+.brd-bar i{position:absolute;left:0;top:0;bottom:0;width:var(--f,0%);background:var(--lith);border-radius:1px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.brd-bar.low i{background:var(--warn)}
+.brd-bar b{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--warn)}
+.brd-bar u{position:absolute;top:50%;width:9px;height:9px;margin:-5px 0 0 -5px;transform:rotate(45deg);background:var(--bg);border:2px solid var(--ink)}
+.brd-bar u.low{border-color:var(--warn)}
+.brd-sc{position:relative;height:1.1rem;margin-top:5px;font-size:.62rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.brd-sc span{position:absolute;top:0;white-space:nowrap}.brd-sc span:last-child{right:0}
+.brd-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin:2px 0 0;font-size:.7rem;color:var(--muted)}
+.brd-key span{display:inline-flex;align-items:center;gap:6px}
+.brd-key i{width:10px;height:6px;background:var(--lith);border-radius:1px}.brd-key u{width:7px;height:7px;transform:rotate(45deg);border:2px solid var(--ink)}.brd-key b{width:2px;height:11px;background:var(--warn)}
+.brd-boots{list-style:none;margin:4px 0 0;padding:0}
+.brd-boots li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:.8rem}
+.brd-boots time{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.brd-boots span{text-align:right;color:var(--ink)}.brd-boots li.g span{color:var(--warn);font-weight:600}.brd-boots li.e span{color:var(--alert);font-weight:600}
+.brd h4{margin:16px 0 0;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .inv-empty{margin:6px 0 2px;font-size:.84rem;color:var(--muted);line-height:1.45}.inv-empty b{color:var(--ink)}
 [data-mecha] .inv-big b,[data-mecha] .inv-ring text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
 :is([data-mecha]) .inv-row .wnd-bar,:is([data-mecha]) .inv-row .wnd-bar i{border-radius:0}
@@ -1877,6 +1902,9 @@ button.tdy-top{cursor:pointer}
     <p class="set-note">Pannelli rivolti a sud: serve a chiedere il sole sul loro piano. Ombre e piccoli errori li impara la app confrontando la produzione vera.</p>
     </div>
 
+    <h3>Salute della scheda</h3>
+    <div id="brd" class="brd"></div>
+
     <h3>Diagnosi</h3>
     <a class="set-btn" href="diagnosi.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg>Diagnosi BMS col cavo USB</a>
     <p class="set-note">Prova il protocollo del BMS dal telefono col cavo USB–RS485 delle batterie, senza la scheda (Chrome su Android, con adattatore OTG).</p>
@@ -1916,7 +1944,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.64"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.65"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4085,6 +4113,8 @@ function render(m){
   try { drawToday(k, f); } catch (e) { console.error(e); }
   drawWeather(k);
   drawFw();
+  try { drawBoard(); } catch (e) { console.error(e); }
+  try { updTick(); } catch (e) { console.error(e); }
 
   const lowSoc = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
   drawCabinet(bs, lowSoc); drawCabNote(bs);
@@ -7209,7 +7239,54 @@ function fillInvNote(){
     (Math.abs(vc - S.inv) >= .05 ? ` Lette dal BMS, quando lui stacca le batterie sono un po' più su: la scheda conta <b>${nf(vc, 1)} V</b> (il segno rosso del cursore)${meas ? ", dagli stacchi misurati" : ", cioè 0,8 V in più finché non misura uno stacco vero"}.` : "") +
     " Autonomia e previsioni si fermano lì.";
 }
+/* ---------- salute della scheda (2.65, firmware 0.86; chiesta dall'utente il 24/11/2026 dopo le 18 ore di scheda muta). Nelle Impostazioni:
+   la memoria interna (heap, heap_min dall'avvio, heap_max il blocco più grande; sotto GUARD_HEAP per 5 minuti il guardiano riavvia), i riavvii
+   del guardiano (data.wd = [quando, motivo, quanti]: 2 muta da mezz'ora, 3 memoria quasi finita, 4 mai collegata in 6 ore), l'ultimo errore
+   (data.crash) e gli ultimi avvii (data.boots = [quando, motivo di esp_reset_reason]). Si ridisegna a ogni lettura, solo con le Impostazioni aperte */
+const GUARD_HEAP = 16384, GUARD_WHY = { 2: "da mezz'ora non riusciva a mandare dati", 3: "la memoria era quasi finita", 4: "in 6 ore non si era mai collegata" };
+const BOOT_WHY = { 1: "accensione", 3: "riavvio voluto", 4: "errore del firmware", 5: "bloccata: watchdog", 6: "bloccata: watchdog", 7: "bloccata: watchdog", 9: "calo di tensione" };
+function drawBoard(){
+  const box = $("brd"), dlg = $("settings"); if (!box || !dlg || !dlg.open) return;
+  const d = data || {}, now = nowOf(d), kB = v => nf(v / 1024, v < 10240 ? 1 : 0), dmh = t => `${new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" })} alle ${hm(t)}`;
+  const set = h => { if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
+  const top = (cls, t, sub) => `<div class="brd-top${cls ? " " + cls : ""}"><i></i><span><b>${t}</b><span>${sub}</span></span></div>`;
+  if (!isReal()) return set(top("off", "Scheda non collegata", "qui si vede come sta la scheda vera: memoria, riavvii, avvii"));
+  if (!fin(d.heap)) return set(top("off", "Dati non ancora arrivati", "la scheda li manda con lo stato, dal firmware 0.84"));
+  const wd = Array.isArray(d.wd) && d.wd[2] > 0 ? d.wd : null, hasWd = parseFloat(d.fw) >= .86, min = fin(d.heap_min) ? d.heap_min : null;
+  const wdNew = wd && fin(wd[0]) && wd[0] > 0 && now - wd[0] < 7 * DAY, low = min !== null && min < GUARD_HEAP / 2, lowNow = d.heap < GUARD_HEAP * 2;   // il minimo è di un istante (uno scarico, un avvio): stretta solo sotto metà soglia
+  const crash = d.crash && fin(d.crash.t) ? d.crash : null, crashNew = crash && now - crash.t < 7 * DAY && crash.fw === d.fw;
+  // lo stato in una riga: la cosa più seria
+  const head = lowNow ? top("warn", "Memoria quasi finita", `${kB(d.heap)} kB liberi adesso: sotto ${kB(GUARD_HEAP)} kB per 5 minuti la scheda si riavvia da sola`)
+    : wdNew ? top("warn", `Si è riavviata da sola il ${dmh(wd[0])}`, `${GUARD_WHY[wd[1]] || "motivo " + wd[1]}${wd[2] > 1 ? ` · ${wd[2]} volte in tutto` : ""}`)
+    : crashNew ? top("warn", `Errore del firmware il ${dmh(crash.t)}`, "la scheda è ripartita da sola: il dettaglio è qui sotto")
+    : low ? top("warn", "Memoria stretta dall'ultimo avvio", `è scesa fino a ${kB(min)} kB: adesso ne ha ${kB(d.heap)} e lavora regolare`)
+    : top("", "Tutto regolare", `accesa da ${dur(d.up / 3600)}${fin(d.up) ? ", dal " + dmh(now - d.up) : ""}`);
+  // la memoria: scala fino a 128 kB (o al valore di adesso, se è di più)
+  const scale = Math.max(131072, d.heap), pc = v => (clamp(v / scale, 0, 1) * 100).toFixed(1);
+  const mem = `<div class="brd-mem"><p><span>Memoria libera</span><b>${kB(d.heap)}<small>kB</small></b></p>` +
+    `<span class="brd-bar${lowNow ? " low" : ""}" role="img" aria-label="Memoria libera ${kB(d.heap)} kB${min !== null ? `, minimo dall'avvio ${kB(min)} kB` : ""}, il guardiano riavvia sotto ${kB(GUARD_HEAP)} kB">` +
+    `<i style="--f:${pc(d.heap)}%"></i><b style="left:${pc(GUARD_HEAP)}%"></b>${min !== null ? `<u class="${low ? "low" : ""}" style="left:${pc(min)}%"></u>` : ""}</span>` +
+    `<div class="brd-sc"><span style="left:0">0</span><span style="left:${pc(GUARD_HEAP)}%;transform:translateX(-50%)">${kB(GUARD_HEAP)}</span><span>${kB(scale)} kB</span></div>` +
+    `<div class="brd-key"><span><i></i>libera adesso</span>${min !== null ? "<span><u></u>minimo dall'avvio</span>" : ""}<span><b></b>riavvio del guardiano</span></div></div>`;
+  const row = (t, v, c) => `<div><dt>${t}</dt><dd${c ? ` class="${c}"` : ""}>${v}</dd></div>`;
+  const list = `<dl class="inv-dl">` +
+    row("Firmware e app", `${esc(d.fw || "–")} · ${esc(d.app_v || "–")}${d.fw_trial ? " <small>(firmware in prova)</small>" : ""}`, "") +
+    row("Accesa da", fin(d.up) ? `${dur(d.up / 3600)} <small>· dal ${dmh(now - d.up)}</small>` : "–", "") +
+    (min !== null ? row("Memoria minima dall'avvio", `${kB(min)} kB`, low ? "bad" : min >= GUARD_HEAP ? "ok" : "") : "") +
+    (fin(d.heap_max) ? row("Blocco libero più grande", `${kB(d.heap_max)} kB`, d.heap_max < 40960 ? "bad" : "") : "") +
+    row("Riavvii del guardiano", !hasWd ? "dal firmware 0.86" : wd ? `${nf(wd[2], 0)} <small>· ultimo ${wd[0] > 0 ? "il " + dmh(wd[0]) : "senza l'ora"}: ${GUARD_WHY[wd[1]] || "motivo " + wd[1]}</small>` : "mai", !hasWd ? "" : wd ? "bad" : "ok") +
+    row("Ultimo errore del firmware", crash ? `${dmh(crash.t)} <small>· firmware ${esc(crash.fw || "?")}${crash.task ? ", compito " + esc(crash.task) : ""}</small>` : "nessuno", crashNew ? "bad" : crash ? "" : "ok") +
+    (fin(d.rssi) ? row("WiFi verso il router", `${nf(d.rssi, 0).replace("-", "−")} dBm`, d.rssi < -80 ? "bad" : "") : "") +
+    (Array.isArray(d.tls_bad) && d.tls_bad[0] > 0 ? row("Chiusure di rete anomale", nf(d.tls_bad[0], 0), "bad") : "") + `</dl>`;
+  // gli avvii: quello subito dopo un riavvio del guardiano porta il suo motivo
+  const bs = Array.isArray(d.boots) ? d.boots.filter(b => Array.isArray(b) && fin(b[0]) && b[0] > 0) : [];
+  const boots = bs.length ? `<h4>Ultimi avvii</h4><ul class="brd-boots">` + bs.map(b => { const g = wd && wd[0] > 0 && b[1] === 3 && b[0] >= wd[0] && b[0] - wd[0] < 180, e = b[1] === 4 || (b[1] >= 5 && b[1] <= 7);
+    return `<li class="${g ? "g" : e ? "e" : ""}"><time>${dmh(b[0])}</time><span>${g ? "guardiano: " + (GUARD_WHY[wd[1]] || "motivo " + wd[1]) : BOOT_WHY[b[1]] || "motivo " + b[1]}</span></li>`; }).join("") + `</ul>` : "";
+  set(head + mem + list + boots +
+    `<p class="set-note">La memoria interna serve alla rete: se resta sotto ${kB(GUARD_HEAP)} kB per 5 minuti, o se la scheda non riesce a mandare dati per mezz'ora, si riavvia da sola e manda una notifica. «Riavvio voluto» è un aggiornamento, un comando o il guardiano; «accensione» è la corrente che torna (anche a ogni passaggio dell'ATS sulle batterie).</p>`);
+}
 function fillSettings(){
+  drawBoard();
   AL_BOOL.forEach(k => { const el = document.querySelector(`#settings input[name="${k}"]`); if (el) el.checked = !!S[k]; });
   fillNtfy(); fillRem();
   Object.keys(OPT).forEach(k => { const el = document.querySelector(`#settings input[name="${k}"][value="${S[k]}"]`); if (el) el.checked = true; });
@@ -7338,6 +7415,7 @@ $("open-set").addEventListener("click", () => {
   fillSettings(); fillLoc(); bkShow();
   $("set-csv").disabled = !LOG.length;
   const d = $("settings"); if (d.showModal) d.showModal(); else d.setAttribute("open","");
+  drawBoard();                                   // si disegna solo a Impostazioni aperte
   d.querySelector(".sheet").scrollTop = 0;
 });
 $("set-close").addEventListener("click", () => $("settings").close());
@@ -7384,14 +7462,21 @@ $("g-tick").innerHTML = Array.from({length: 54}, (_, i) => {
   return `<line style="--j:${i}" x1="${(120 + 84 * c).toFixed(1)}" y1="${(120 + 84 * sn).toFixed(1)}" x2="${(120 + 106 * c).toFixed(1)}" y2="${(120 + 106 * sn).toFixed(1)}"/>`;
 }).join("");
 
-/* ---------- app installabile: service worker solo in HTTPS (GitHub Pages), non dalla scheda ---------- */
-// Aggiornamento automatico: quando un service worker nuovo prende il controllo la pagina si ricarica
-// (aspettando che si chiudano i pannelli aperti) e poi dice con quale versione è ripartita.
-const UPD_KEY = "mybattery.updatedFrom";
-let reloadPending = false, reloading = false;
+/* ---------- aggiornamenti senza chiudere la app. La pagina aperta resta quella caricata: chi la tiene sempre aperta (il telefono Monitor)
+   restava alla versione vecchia finché qualcuno non la chiudeva e riapriva. Ora la pagina si ricarica da sola, secondo da dove viene:
+   - dalla scheda (HTTP, senza service worker; 2.65): la scheda dice in app_v la versione che ha in flash. Se non è questa, la app scarica la
+     pagina, guarda che sia arrivata intera e che sia di un'altra versione, e solo allora si ricarica: mai alla cieca, una ricarica fallita
+     lascerebbe il Monitor sulla pagina d'errore del browser. Una ricarica sola per versione;
+   - dal sito (HTTPS, app installata): un service worker nuovo prende il controllo e la pagina si ricarica. Lo si cerca quando la app torna in
+     primo piano, ogni mezz'ora se resta aperta e (2.65) appena la scheda dice di avere una versione più nuova di questa.
+   In tutti e due i casi si aspetta che si chiudano i pannelli aperti, e dopo la app dice con quale versione è ripartita. Il firmware non
+   chiede niente alla pagina: la scheda si riavvia, la app riprende a leggerla e dice il firmware nuovo. ---------- */
+const UPD_KEY = "mybattery.updatedFrom", UPD_TRY = "mybattery.updTry";
+let reloadPending = false, reloading = false, swReg = null, swAt = 0, updAt = 0, updBusy = false, updSame = "", fwSeen = "";
 function toast(text){
-  const el = $("toast"), tb = $("tabs").getBoundingClientRect(); el.textContent = text;
-  el.style.bottom = tb.height ? Math.round(innerHeight - tb.top + 12) + "px" : "";   // sempre sopra il menu in basso
+  const el = $("toast"), tb = $("tabs").getBoundingClientRect(), mon = $("mon").hidden ? null : document.querySelector(".mon-top"); el.textContent = text;
+  // sempre sopra il menu in basso; col Monitor aperto sotto la sua riga in alto, dove non copre i numeri
+  el.style.bottom = mon ? Math.round(innerHeight - mon.getBoundingClientRect().bottom - el.offsetHeight - 10) + "px" : tb.height ? Math.round(innerHeight - tb.top + 12) + "px" : "";
   el.classList.add("show");
   clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 4000);
 }
@@ -7403,12 +7488,40 @@ function reloadForUpdate(){
   location.reload();
 }
 ["settings", "sheet"].forEach(id => $(id).addEventListener("close", () => { if (reloadPending) reloadForUpdate(); }));
+// cerca un service worker nuovo, non più spesso di ogni min minuti
+function swCheck(min){ if (!swReg || document.hidden || Date.now() - swAt < min * 60e3) return; swAt = Date.now(); swReg.update().catch(() => {}); }
+// la versione della pagina che la scheda serve adesso; null se non arriva intera
+async function boardPage(){
+  try {
+    const r = await bFetch("/", { cache: "no-store" }, 30000), t = r.ok ? await r.text() : "", m = /const APP_VERSION = "([\d.]+)"/.exec(t);
+    return m && /<\/html>\s*$/.test(t) ? m[1] : null;
+  } catch (e) { return null; }
+}
+// a ogni disegno coi dati veri: firmware cambiato, app della scheda diversa da questa
+function updTick(){
+  const d = data; if (!d || reloading || (mode !== "live" && mode !== "remote")) return;
+  if (d.fw) { if (fwSeen && d.fw !== fwSeen) toast(verCmp(d.fw, fwSeen) > 0 ? `Scheda aggiornata al firmware ${d.fw}` : `La scheda è tornata al firmware ${d.fw}`); fwSeen = d.fw; }
+  const v = d.app_v, u = d.app_upd;
+  if (!v || v === APP_VERSION || (u && (u.st === 1 || u.st === 2))) return;      // mentre la scheda scarica la app si aspetta che finisca
+  if (DEMO_ONLY) { if (verCmp(v, APP_VERSION) > 0) swCheck(10); return; }        // dal sito: se la scheda ha già la versione nuova, il sito ce l'ha di sicuro
+  if (mode !== "live" || updBusy || v === updSame || Date.now() - updAt < 60e3) return;   // se la pagina non arriva intera si riprova tra un minuto
+  updBusy = true; updAt = Date.now();
+  boardPage().then(p => {
+    if (!p) return;
+    updAt = 0;                                                                  // arrivata intera: l'attesa di un minuto vale solo per le prove fallite
+    let tried = null; try { tried = sessionStorage.getItem(UPD_TRY); } catch (e) {}
+    if (p === APP_VERSION || p === tried) { updSame = v; return; }               // la scheda serve già questa pagina, o la ricarica non l'ha cambiata: basta così
+    try { sessionStorage.setItem(UPD_TRY, p); } catch (e) { updSame = v; return; }   // senza poterlo annotare non si ricarica: girerebbe in tondo
+    reloadForUpdate();
+  }).finally(() => { updBusy = false; });
+}
 if ("serviceWorker" in navigator && window.isSecureContext && location.hostname !== "localhost") {
   const hadController = !!navigator.serviceWorker.controller; // alla prima installazione non serve ricaricare
   navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadController) reloadForUpdate(); });
   navigator.serviceWorker.register("sw.js").then(reg => {
-    // l'app installata può restare aperta per giorni: ricontrolla quando torna in primo piano
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) reg.update().catch(() => {}); });
+    swReg = reg; swAt = Date.now();
+    document.addEventListener("visibilitychange", () => swCheck(0));
+    setInterval(() => swCheck(30), 600e3);
   }).catch(() => {});
 }
 let updatedFrom = null;
