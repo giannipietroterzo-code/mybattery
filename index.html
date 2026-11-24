@@ -775,31 +775,33 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .pv-h .pv-k svg{width:15px;height:15px;color:var(--sun)}
 .pv-h b{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.92rem;font-weight:600;color:var(--ink)}
 .pv-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-/* i gruppi come tre regolatori (2.69, voluto dall'utente: «che richiami gli Epever AN 100 A»): le alette del dissipatore in alto, lo schermo
-   retroilluminato coi numeri, le due spie e i due tasti in basso. Si toccano: aprono lo specchietto delle impostazioni */
-.pv-col{--f:0;--c:var(--sun);position:relative;min-width:0;padding:0 0 9px;border-radius:14px;text-align:center;overflow:hidden;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+/* i gruppi come tre regolatori, stilizzati e nello stile Mecha (2.70; l'utente: «che richiami gli Epever AN 100 A», poi «stilizzati e sempre
+   in stile Mecha»): le alette del dissipatore come righe in alto, lo schermo come un riquadro scuro a spigoli tagliati coi numeri nel colore
+   dello stato, due spie e i due tasti in basso. Niente colori dal vero. Si toccano: aprono lo specchietto delle impostazioni */
+.pv-col{--f:0;--c:var(--sun);--ln:color-mix(in srgb,var(--lith) 55%,#000);position:relative;min-width:0;padding:0 0 9px;border-radius:14px;text-align:center;overflow:hidden;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
 .pv-col:active{transform:scale(.97)}
-.pv-fin{display:block;height:12px;background:repeating-linear-gradient(90deg,#343434 0 3px,#0a0a0a 3px 7px);border-bottom:1px solid #000}
-.pv-n{display:flex;align-items:center;justify-content:center;gap:5px;margin:7px 6px 0;font-size:.78rem;color:var(--ink);white-space:nowrap}
+.pv-fin{display:block;height:11px;margin:5px 9px 0 16px;background:repeating-linear-gradient(90deg,var(--ln) 0 2px,transparent 2px 6px);opacity:.8}
+.pv-n{display:flex;align-items:center;justify-content:center;gap:5px;margin:6px 6px 0;font-size:.78rem;color:var(--ink);white-space:nowrap}
 .pv-n span{overflow:hidden;text-overflow:ellipsis}
 .pv-n svg{flex:none;width:13px;height:13px;color:var(--c)}
-.pv-lcd{display:block;margin:6px 7px 0;padding:7px 4px 5px;border-radius:5px;line-height:1.12;color:#0c2b2e;font-family:var(--mono);font-variant-numeric:tabular-nums;
-  background:linear-gradient(180deg,#c9e8e3,#9fcfca);box-shadow:inset 0 0 0 1px rgba(0,0,0,.55),inset 0 3px 8px rgba(0,0,0,.28),0 0 14px -4px #9fcfca;transition:background .4s,color .4s}
-.pv-w{display:block;font-size:1.36rem;font-weight:700;letter-spacing:-.03em;white-space:nowrap}
-.pv-w small{margin-left:2px;font-size:.58em;font-weight:600;letter-spacing:0}
-.pv-va,.pv-s{display:block;font-size:.62rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pv-bar{display:grid;grid-template-columns:repeat(10,1fr);gap:1.5px;height:5px;margin:4px 3px 3px}
-.pv-bar i{background:rgba(12,43,46,.16)}
-.pv-bar i.on{background:#0c2b2e}
-.pv-col.off .pv-lcd{background:linear-gradient(180deg,#86aaa6,#6b8f8b);box-shadow:inset 0 0 0 1px rgba(0,0,0,.55),inset 0 3px 8px rgba(0,0,0,.3)}
-.pv-col.mute .pv-lcd{background:#222928;color:#5b6765;box-shadow:inset 0 0 0 1px #000}
+.pv-lcd{display:block;position:relative;margin:6px 7px 0;padding:8px 4px 6px;line-height:1.12;background:var(--ln);clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);isolation:isolate}
+.pv-lcd::before{content:"";position:absolute;inset:1.5px;z-index:-1;background:#090909;clip-path:polygon(6.5px 0,100% 0,100% calc(100% - 6.5px),calc(100% - 6.5px) 100%,0 100%,0 6.5px)}
+.pv-w{display:block;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.42rem;font-weight:700;letter-spacing:-.01em;white-space:nowrap;color:var(--c)}
+.pv-w small{margin-left:2px;font-size:.56em;font-weight:600;color:var(--muted)}
+.pv-va,.pv-s{display:block;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv-s b{color:var(--ink);font-weight:600}
+.pv-bar{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;height:4px;margin:5px 4px 4px}
+.pv-bar i{background:color-mix(in srgb,var(--ink) 11%,transparent)}
+.pv-bar i.on{background:var(--c)}
+.pv-col.off .pv-w{color:var(--muted)}
+.pv-col.mute .pv-lcd{opacity:.5}
 .pv-ft{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px}
-.pv-led{width:6px;height:6px;border-radius:50%;background:#2b2b2b;box-shadow:inset 0 0 0 1px #000}
+.pv-led{width:5px;height:5px;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 .pv-led.g{background:var(--good);box-shadow:0 0 6px var(--good)}
 .pv-led.y{background:var(--sun);box-shadow:0 0 6px var(--sun)}
 .pv-led.r{background:var(--alert);box-shadow:0 0 6px var(--alert)}
-.pv-key{width:11px;height:11px;margin-left:2px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4c4c4c,#151515);box-shadow:0 0 0 1px #000}
-[data-mecha] .pv-lcd .pv-w{font-family:var(--mono)}
+.pv-key{width:9px;height:9px;margin-left:2px;border:1.5px solid var(--ln);transform:rotate(45deg)}
+[data-mecha] .pv-col .pv-st{letter-spacing:.02em;padding-left:9px;padding-right:9px}   /* «Mantenimento» ci sta intero */
 .pv-st{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-top:7px;padding:3px 7px;border-radius:999px;font-size:.7rem;font-weight:600;
   color:var(--muted);background:color-mix(in srgb,var(--ink) 7%,var(--surface));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pv-st::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:currentColor}
@@ -1990,7 +1992,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.69"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.70"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5801,14 +5803,13 @@ function pvInAdv(g){
    Epever le impostazioni di carica (pv[].cfg: 18 valori come stanno nei registri, tensioni in centesimi di volt; 65535 = non letto) e qui
    si vedono una volta sola: una riga per voce col valore comune, e dove un regolatore è diverso i tre valori con quello fuori posto in
    evidenza. Per ora si guarda soltanto: la scheda agli Epever manda solo letture. */
-const PS_BAT = { 0: "Utente", 1: "Sigillata", 2: "Gel", 3: "Piombo aperto" }, PS_RATED = { 0: "Automatica", 1: "12 V", 2: "24 V", 3: "36 V", 4: "48 V", 5: "60 V", 6: "110 V", 7: "120 V", 8: "220 V", 9: "240 V" };
+const PS_BAT = { 0: "User", 1: "Sealed", 2: "Gel", 3: "Flooded" }, PS_RATED = { 0: "Auto", 1: "12 V", 2: "24 V", 3: "36 V", 4: "48 V", 5: "60 V", 6: "110 V", 7: "120 V", 8: "220 V", 9: "240 V" };
 const psV = r => `${nf(r / 100, 2)} V`, psCell = r => `${nf(r / 1600, 3)} V per cella`, psMin = r => `${nf(r, 0)} min`;
-// [posto nei valori, nome, come si scrive, nota piccola]
-const PS_ROWS = [
-  ["Carica", [[7, "Boost", psV, psCell], [17, "Durata del boost", psMin], [8, "Float", psV, psCell], [9, "Ritorno al boost", psV, psCell], [6, "Equalizzazione", psV, psCell], [16, "Durata dell'equalizzazione", psMin],
-    [4, "Limite di carica", psV, psCell], [3, "Stacco per tensione alta", psV, psCell], [5, "Rientro dalla tensione alta", psV, psCell]]],
-  ["Uscita del carico", [[13, "Stacco per tensione bassa", psV], [10, "Rientro dalla tensione bassa", psV], [12, "Avviso di tensione bassa", psV], [11, "Rientro dall'avviso", psV], [14, "Limite di scarica", psV]]],
-  ["Batteria", [[0, "Tipo", r => PS_BAT[r] || `Codice ${r}`], [1, "Capacità", r => `${nf(r, 0)} Ah`], [15, "Tensione nominale", r => PS_RATED[r] || `Codice ${r}`], [2, "Compensazione di temperatura", r => r ? `${nf(r / 100, 2)} mV/°C` : "Nessuna"]]]];
+// [posto nei valori, nome, come si scrive, nota piccola]. Nomi e ordine sono quelli del display MT50 (2.70, voluto dall'utente): sono le
+// scritte che conosce, e quelle che ritroverà sul display se lo ricollega
+const PS_ROWS = [["Control Para", [[0, "Batt Type", r => PS_BAT[r] || `Codice ${r}`], [1, "Batt AH", r => `${nf(r, 0)} Ah`], [2, "Temp Comp Coeff", r => `${r ? "−" : ""}${nf(r / 100, 2)} mV/°C/2V`], [15, "Rated Voltage", r => PS_RATED[r] || `Codice ${r}`],
+  [3, "Over Volt. Disc", psV, psCell], [4, "Charge Limit", psV, psCell], [5, "Over Volt. Rect", psV, psCell], [6, "Equalize Charge", psV, psCell], [7, "Boost Charge", psV, psCell], [8, "Float Charge", psV, psCell], [9, "Boost Volt Rect", psV, psCell],
+  [10, "Low Volt. Rect", psV], [11, "Under Volt. Rcvr", psV], [12, "Under Volt. Warn", psV], [13, "Low Volt. Disc", psV], [14, "Discharge Limit", psV], [16, "Equalize Time", psMin], [17, "Boost Time", psMin]]]];
 function drawPvSet(){
   const dlg = $("pvset"); if (!dlg.open) return;
   const pv = data && Array.isArray(data.pv) ? data.pv.slice().sort((a, b) => pvPos(a) - pvPos(b)) : [], has = pv.filter(g => Array.isArray(g.cfg) && g.cfg.length >= 18);
@@ -5886,7 +5887,7 @@ function drawPv(pv, k){
       `<span class="pv-lcd"><span class="pv-w">${num}${off ? "" : `<small>${unit}</small>`}</span>` +
       `<span class="pv-va">${!off && fin(g.v) && fin(g.a) ? `${nf(g.v, 0)} V · ${nf(g.a, 1)} A` : "&nbsp;"}</span>` +
       `<span class="pv-bar" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i${i < lit ? ' class="on"' : ""}></i>`).join("")}</span>` +
-      `<span class="pv-s">${fin(g.kwh_today) ? `${nf(g.kwh_today, 1)} kWh oggi` : "&nbsp;"}</span></span>` +
+      `<span class="pv-s">${fin(g.kwh_today) ? `<b>${nf(g.kwh_today, 1)}</b> kWh oggi` : "&nbsp;"}</span></span>` +
       `<span class="pv-st">${esc(stTxt)}</span>` +
       `<span class="pv-ft" aria-hidden="true"><i class="pv-led ${pvLed}"></i><i class="pv-led ${batLed}"></i><i class="pv-key"></i><i class="pv-key"></i></span></div>`;
   }).join("");
