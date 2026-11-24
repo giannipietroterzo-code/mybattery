@@ -1759,7 +1759,7 @@ button.tdy-top{cursor:pointer}
 <div class="mon" id="mon" role="dialog" aria-label="Monitor delle batterie" hidden>
   <div class="mon-top"><button class="mon-badge" id="mon-badge" type="button"></button><span class="mon-clk" id="mon-clk"></span>
     <button class="mon-x" id="mon-x" type="button" aria-label="Esci dal monitor" title="Esci dal monitor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-  <div class="mon-g" id="mon-g"><svg viewBox="0 2 240 216" role="img" id="mon-gs">
+  <div class="mon-g" id="mon-g"><svg viewBox="0 2 240 222" role="img" id="mon-gs">
     <g class="g-ticks"><line x1="42.2" y1="197.8" x2="37.3" y2="202.7"/><line x1="120" y1="10" x2="120" y2="3"/><line x1="197.8" y1="197.8" x2="202.7" y2="202.7"/></g>
     <circle class="g-deco g-deco-in" cx="120" cy="120" r="78"/>
     <circle class="g-deco g-deco-out" cx="120" cy="120" r="113"/>
@@ -1769,7 +1769,7 @@ button.tdy-top{cursor:pointer}
     <g class="g-comet" mask="url(#mon-mask)"><circle cx="120" cy="120" r="96" stroke-dasharray="64 603.2" style="--L:64px;opacity:0.07"/><circle cx="120" cy="120" r="96" stroke-dasharray="42 603.2" style="--L:42px;opacity:0.12"/><circle cx="120" cy="120" r="96" stroke-dasharray="26 603.2" style="--L:26px;opacity:0.22"/><circle cx="120" cy="120" r="96" stroke-dasharray="14 603.2" style="--L:14px;opacity:0.42"/><circle cx="120" cy="120" r="96" stroke-dasharray="6 603.2" style="--L:6px;opacity:0.9"/></g>
     <text class="pc" id="mon-pc" x="120" y="136" text-anchor="middle" font-size="66"></text>
     <text class="pw" id="mon-pw" x="120" y="172" text-anchor="middle"></text>
-    <text class="sb" id="mon-sb" x="120" y="211" text-anchor="middle"></text>
+    <text class="sb" id="mon-sb" x="120" y="218" text-anchor="middle"></text>
   </svg></div>
   <div class="eta volt" id="mon-v" role="img"></div>
   <div class="mon-cut" id="mon-cut"></div>
@@ -1957,7 +1957,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.67"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.68"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2001,6 +2001,7 @@ const MSG = {
   WIND_FAST:   () => { const sh = data ? wndShown(wndNow()) : null, g = sh && sh.w > 0 ? Math.round(wndRpm(sh.w) / 10) * 10 : 0;
     return ["La pala gira vicino al massimo", `In un minuto ha dato abbastanza da stimare più di ${nf(Math.round(WND_FAST * WND_RPM_MAX), 0)} giri/min, l'${Math.round(WND_FAST * 100)}% dei ${nf(WND_RPM_MAX, 0)} del massimo${g ? `; adesso circa ${nf(g, 0)}` : ""}. Nelle raffiche va più veloce della media. Se il vento rinforza ancora, inserisci il freno sul regolatore Tesup.`]; },
   IDLE_DRAIN:  () => ["Le batterie scendono anche su Enel", "L'inverter acceso a vuoto le scarica" + (data && data.batteries && data.batteries.length ? `: adesso ${nf(bank(data.batteries).v, 2)} V` : "") + ". Mettilo in STOP (o spegnilo) finché il sole non le ricarica."],
+  EM_FLIP:     ["La pinza dello Shelly EM ha cambiato verso", "Misura la potenza al contrario di prima: qualcuno ha girato la pinza o i suoi fili. I watt la scheda li conta lo stesso, in positivo. Se l'hai girata tu non serve fare niente: dopo un giorno la scheda prende il verso nuovo per buono."],
   CB_HOT:      () => ["Interruttore caldo", `Lo Shelly dopo l'inverter è${data && data.cb && fin(data.cb.t) ? " a " + Math.round(data.cb.t) + " °C," : ""} sopra i 70 °C: controlla il quadro e i serraggi dei morsetti.`],
   PV_OFFLINE:  ["Regolatore non raggiungibile", "Controlla il cavo RS485 tra i regolatori."],
   PV_NOIN:     ["Non vede i pannelli", "Risponde ma legge 0 V mentre c'è sole: ingresso aperto o stringa staccata. Se l'hai staccato tu, abbassa la sua leva nella pagina Pannelli."],
@@ -5240,7 +5241,7 @@ function alSinceKeep(){
   const now = nowOf(data); Object.keys(alStart).forEach(x => { if (now - alStart[x][1] > 2 * DAY) delete alStart[x]; });
   if (isReal() && Date.now() - alStartSaved > 6e4) { alStartSaved = Date.now(); lsSet(AL_SINCE_KEY, alStart); }
 }
-const whoName = (who, bs) => who < 0 ? "Batterie" : who === 20 ? "Interruttore" : who === 21 ? "Pala" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
+const whoName = (who, bs) => who < 0 ? "Batterie" : who === 20 ? "Interruttore" : who === 21 ? "Pala" : who === 22 ? "Shelly EM" : who >= 10 ? (g => g ? pvName(g) : "Regolatore " + (who - 10))(Array.isArray(data.pv) && data.pv.find(x => x.addr === who - 10)) : nameOf(bs[who] || {}, who);
 // senza scheda: le stesse regole della scheda (evTick, invTick, pvHiTick), con lo stesso formato di data.open
 function localOpen(bs, k){
   const o = [], add = (code, sev, who) => o.push([code, sev, who, alSince("o" + code + who)]);
@@ -6522,7 +6523,8 @@ function drawInv(k){
     (cb && cb.ok && fin(cb.t) ? row("Temperatura dello Shelly", nf(cb.t, 0) + " °C", cb.t >= 70 ? "bad" : "") : "") +
     (em ? row("Shelly EM", em.ok ? seen(em) : em.at ? "non risponde dalle " + hm(em.at) : "non risponde", em.ok ? "ok" : "bad") +
       row("Shelly EM in rete", em.ip ? esc(em.ip) + (emV ? " · firmware " + esc(emV) : "") : "lo sto cercando", "") +
-      (em.rev ? row("Pinza dello Shelly EM", "montata al contrario: i watt li conto lo stesso", "") : "") +
+      (em.flip ? row("Pinza dello Shelly EM", "ha cambiato verso" + (em.flip > 1 ? ` ${dayWord(em.flip) === "oggi" ? "" : dayWord(em.flip) + " "}alle ${hm(em.flip)}` : "") + ": controllala", "bad")
+        : em.rev ? row("Pinza dello Shelly EM", "al contrario: i watt li conto in positivo", "") : "") +
       row("Letture dello Shelly EM", `${nf(em.n || 0, 0)} buone · ${nf(em.bad || 0, 0)} fallite`, "") : row("Shelly EM", "non collegato", "")) +
     (ty ? row("Misuratore Tuya · confronto", tyOk ? seen(ty) + (fin(ty.hz) ? ` · ${nf(ty.hz, 1)} Hz` : "") : "non risponde", tyOk ? "ok" : "bad") : "") +
     (cmp ? row("Contatori dal " + new Date(cmp[0] * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" }),
