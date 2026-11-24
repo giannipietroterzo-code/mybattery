@@ -778,24 +778,25 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 /* i gruppi come tre regolatori, stilizzati e nello stile Mecha (2.70; l'utente: «che richiami gli Epever AN 100 A», poi «stilizzati e sempre
    in stile Mecha»): le alette del dissipatore come righe in alto, lo schermo come un riquadro scuro a spigoli tagliati coi numeri nel colore
    dello stato, due spie e i due tasti in basso. Niente colori dal vero. Si toccano: aprono lo specchietto delle impostazioni */
-.pv-col{--f:0;--c:var(--sun);--ln:color-mix(in srgb,var(--lith) 55%,#000);position:relative;min-width:0;padding:0 0 9px;border-radius:14px;text-align:center;overflow:hidden;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.pv-col{--f:0;--c:var(--sun);--ln:color-mix(in srgb,var(--lith) 55%,#000);position:relative;min-width:0;padding:0 0 14px;border-radius:14px;text-align:center;overflow:hidden;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
 .pv-col:active{transform:scale(.97)}
-.pv-fin{display:block;height:11px;margin:5px 9px 0 16px;background:repeating-linear-gradient(90deg,var(--ln) 0 2px,transparent 2px 6px);opacity:.8}
-.pv-n{display:flex;align-items:center;justify-content:center;gap:5px;margin:6px 6px 0;font-size:.78rem;color:var(--ink);white-space:nowrap}
+.pv-fin{display:block;height:22px;margin:6px 9px 0 16px;background:repeating-linear-gradient(90deg,var(--ln) 0 2px,transparent 2px 6px);opacity:.8}
+.pv-n{display:flex;align-items:center;justify-content:center;gap:5px;margin:10px 6px 0;font-size:.78rem;color:var(--ink);white-space:nowrap}
 .pv-n span{overflow:hidden;text-overflow:ellipsis}
 .pv-n svg{flex:none;width:13px;height:13px;color:var(--c)}
-.pv-lcd{display:block;position:relative;margin:6px 7px 0;padding:8px 4px 6px;line-height:1.12;background:var(--ln);clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);isolation:isolate}
+.pv-lcd{display:block;position:relative;margin:9px 7px 0;padding:13px 4px 11px;line-height:1.2;background:var(--ln);clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);isolation:isolate}
 .pv-lcd::before{content:"";position:absolute;inset:1.5px;z-index:-1;background:#090909;clip-path:polygon(6.5px 0,100% 0,100% calc(100% - 6.5px),calc(100% - 6.5px) 100%,0 100%,0 6.5px)}
 .pv-w{display:block;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.42rem;font-weight:700;letter-spacing:-.01em;white-space:nowrap;color:var(--c)}
 .pv-w small{margin-left:2px;font-size:.56em;font-weight:600;color:var(--muted)}
 .pv-va,.pv-s{display:block;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.68rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pv-s b{color:var(--ink);font-weight:600}
-.pv-bar{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;height:4px;margin:5px 4px 4px}
+.pv-bar{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;height:5px;margin:8px 4px 7px}
 .pv-bar i{background:color-mix(in srgb,var(--ink) 11%,transparent)}
 .pv-bar i.on{background:var(--c)}
 .pv-col.off .pv-w{color:var(--muted)}
 .pv-col.mute .pv-lcd{opacity:.5}
-.pv-ft{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px}
+.pv-ft{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:13px}
+.pv-col .pv-st{margin-top:11px}
 .pv-led{width:5px;height:5px;background:color-mix(in srgb,var(--ink) 14%,transparent)}
 .pv-led.g{background:var(--good);box-shadow:0 0 6px var(--good)}
 .pv-led.y{background:var(--sun);box-shadow:0 0 6px var(--sun)}
@@ -1992,7 +1993,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.70"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.71"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
