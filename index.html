@@ -775,31 +775,54 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .pv-h .pv-k svg{width:15px;height:15px;color:var(--sun)}
 .pv-h b{font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.92rem;font-weight:600;color:var(--ink)}
 .pv-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.pv-col{--f:0;--c:var(--sun);position:relative;min-width:0;padding:10px 8px 10px;border-radius:16px;text-align:center;overflow:hidden;
-  background:radial-gradient(90% 70% at 50% 108%,color-mix(in srgb,var(--c) calc(var(--f) * 26%),transparent),transparent 70%) var(--surface)}
-.pv-n{display:flex;align-items:center;justify-content:center;gap:5px;font-size:.78rem;color:var(--muted);white-space:nowrap}
+/* i gruppi come tre regolatori (2.69, voluto dall'utente: «che richiami gli Epever AN 100 A»): le alette del dissipatore in alto, lo schermo
+   retroilluminato coi numeri, le due spie e i due tasti in basso. Si toccano: aprono lo specchietto delle impostazioni */
+.pv-col{--f:0;--c:var(--sun);position:relative;min-width:0;padding:0 0 9px;border-radius:14px;text-align:center;overflow:hidden;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s}
+.pv-col:active{transform:scale(.97)}
+.pv-fin{display:block;height:12px;background:repeating-linear-gradient(90deg,#343434 0 3px,#0a0a0a 3px 7px);border-bottom:1px solid #000}
+.pv-n{display:flex;align-items:center;justify-content:center;gap:5px;margin:7px 6px 0;font-size:.78rem;color:var(--ink);white-space:nowrap}
 .pv-n span{overflow:hidden;text-overflow:ellipsis}
 .pv-n svg{flex:none;width:13px;height:13px;color:var(--c)}
-.pv-g{display:block;position:relative;width:min(100%,92px);margin:4px auto 0}
-.pv-g svg{display:block;width:100%;height:auto}
-.pv-g circle{fill:none;stroke-width:8;stroke-linecap:round}
-.pv-g .t{stroke:color-mix(in srgb,var(--ink) 10%,var(--surface))}
-.pv-g .f{stroke:var(--c);transition:stroke-dasharray .8s ease,stroke .3s}
-.pv-gv{position:absolute;left:0;right:0;top:57%;transform:translateY(-50%);line-height:1}
-.pv-w{display:block;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:1.3rem;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
-.pv-p{display:block;margin-top:4px;white-space:nowrap;font-family:var(--num);font-variant-numeric:tabular-nums;font-size:.7rem;color:var(--muted)}
-.pv-s{display:block;margin-top:-4px;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.pv-s b{color:var(--ink);font-weight:600}
+.pv-lcd{display:block;margin:6px 7px 0;padding:7px 4px 5px;border-radius:5px;line-height:1.12;color:#0c2b2e;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,#c9e8e3,#9fcfca);box-shadow:inset 0 0 0 1px rgba(0,0,0,.55),inset 0 3px 8px rgba(0,0,0,.28),0 0 14px -4px #9fcfca;transition:background .4s,color .4s}
+.pv-w{display:block;font-size:1.36rem;font-weight:700;letter-spacing:-.03em;white-space:nowrap}
+.pv-w small{margin-left:2px;font-size:.58em;font-weight:600;letter-spacing:0}
+.pv-va,.pv-s{display:block;font-size:.62rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pv-bar{display:grid;grid-template-columns:repeat(10,1fr);gap:1.5px;height:5px;margin:4px 3px 3px}
+.pv-bar i{background:rgba(12,43,46,.16)}
+.pv-bar i.on{background:#0c2b2e}
+.pv-col.off .pv-lcd{background:linear-gradient(180deg,#86aaa6,#6b8f8b);box-shadow:inset 0 0 0 1px rgba(0,0,0,.55),inset 0 3px 8px rgba(0,0,0,.3)}
+.pv-col.mute .pv-lcd{background:#222928;color:#5b6765;box-shadow:inset 0 0 0 1px #000}
+.pv-ft{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px}
+.pv-led{width:6px;height:6px;border-radius:50%;background:#2b2b2b;box-shadow:inset 0 0 0 1px #000}
+.pv-led.g{background:var(--good);box-shadow:0 0 6px var(--good)}
+.pv-led.y{background:var(--sun);box-shadow:0 0 6px var(--sun)}
+.pv-led.r{background:var(--alert);box-shadow:0 0 6px var(--alert)}
+.pv-key{width:11px;height:11px;margin-left:2px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4c4c4c,#151515);box-shadow:0 0 0 1px #000}
+[data-mecha] .pv-lcd .pv-w{font-family:var(--mono)}
 .pv-st{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-top:7px;padding:3px 7px;border-radius:999px;font-size:.7rem;font-weight:600;
   color:var(--muted);background:color-mix(in srgb,var(--ink) 7%,var(--surface));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pv-st::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:currentColor}
 .pv-col.boost .pv-st,.pv-col.equalize .pv-st{color:var(--sun);background:var(--sun-tint)}
 .pv-col.float{--c:var(--good)}
 .pv-col.float .pv-st{color:var(--good);background:var(--good-tint)}
-.pv-col.off .pv-w{color:var(--muted)}
 .pv-col.low{--c:var(--warn)}
 .pv-col.low .pv-st{color:var(--warn);background:var(--warn-tint)}
-.pv-col.mute{opacity:.55}
+/* lo specchietto delle impostazioni dei regolatori */
+.ps-sum{display:flex;align-items:center;gap:9px;margin:12px 0 4px;padding:10px 12px;border:1px solid var(--line);font-size:.9rem}
+.ps-sum i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
+.ps-sum.dif{border-color:color-mix(in srgb,var(--warn) 60%,transparent)}.ps-sum.dif i{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.ps-sum small{display:block;color:var(--muted);font-size:.76rem}
+.ps h3{margin:18px 0 2px;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--lith)}
+.ps-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent);font-size:.92rem}
+.ps-row>span:first-child{min-width:0;color:var(--muted)}
+.ps-v{flex:none;text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink)}
+.ps-v small{display:block;font-weight:500;font-size:.72rem;color:var(--muted)}
+.ps-row.dif{padding-left:9px;box-shadow:inset 3px 0 0 var(--warn)}
+.ps-3{flex:none;display:grid;grid-template-columns:repeat(3,auto);gap:12px;text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums;font-weight:700}
+.ps-3 span small{display:block;font-weight:500;font-size:.66rem;color:var(--muted);max-width:5.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-3 span.odd{color:var(--warn)}.ps-3 span.odd small{color:var(--warn)}
+.ps-foot{margin:14px 0 0;font-size:.78rem;color:var(--muted)}
 
 .notice{border-radius:14px}
 
@@ -938,7 +961,6 @@ footer{border-top:0;padding-top:0}
 [data-mecha] .tab[aria-selected="true"]{color:var(--lith)}
 [data-mecha] .tab[aria-selected="true"] .ti{background:var(--lith);color:#111}
 [data-mecha] :is(.pv-rows,.pv-tab){border-radius:0;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
-[data-mecha] .pv-g circle{stroke-linecap:butt}
 [data-mecha] .pv-day h3{color:var(--lith)}
 
 /* Cyber: spazio nero con il bordo di un pianeta arancione, linee al neon giallo-oro col bagliore, numeri digitali
@@ -1776,6 +1798,17 @@ button.tdy-top{cursor:pointer}
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<dialog id="pvset" aria-labelledby="ps-title">
+  <div class="sheet">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="ps-title">Impostazioni dei regolatori</h2>
+      <button class="close" id="ps-close" type="button">Chiudi</button>
+    </div>
+    <div class="ps" id="ps-body"></div>
+  </div>
+</dialog>
+
 <dialog id="sheet" aria-labelledby="s-title">
   <div class="sheet">
     <div class="grab" aria-hidden="true"></div>
@@ -1957,7 +1990,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.68"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.69"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2299,7 +2332,7 @@ function drawVoc(pv){
   const first = Math.min(dayAdd(m0, -6), ear), lastFc = Math.max(0, ...ser.flatMap(s => s.fc.map(f => dayIdx(f.t, m0))));
   const nPast = dayIdx(m0 + 12 * HOUR, first) + 1, N = nPast + lastFc;           // colonne: giorni passati + oggi + previsione
   ser.forEach(s => { s.hist = s.all.filter(h => h.t >= first); s.pfp = s.lr.pts.filter(q => q.t >= first); });
-  const head = `<h3>Tensione a vuoto all'alba</h3><p class="note">La Voc di ogni gruppo: la tensione più alta dei pannelli al mattino, entro le 11. Più fa freddo, più sale. Contano anche le mattine coperte: ogni lettura si corregge con la luce di quell'ora. I punti chiari sono sotto i 30 W/m²: restano nel grafico ma non tarano la previsione.</p>`;
+  const head = `<h3>Tensione a vuoto all'alba</h3>`;
   if (!ser.some(s => s.hist.length || s.fc.length)) {
     box.innerHTML = head + `<p class="vocw-empty">Il grafico si riempie da domattina: la scheda registra ogni mattina la tensione più alta. Con località e Voc di targa impostate compare subito anche la previsione.</p>`;
     return;
@@ -2358,14 +2391,10 @@ function drawVoc(pv){
   }).join("");
   const dt = dayAdd(m0, day) + 12 * HOUR, fcDay = !ser.some(s => s.hist.some(h => dayIdx(h.t, m0) === day));
   const when = `${day === 0 ? "Oggi" : day === 1 ? "Domani" : day === -1 ? "Ieri" : vDay(dt)[0].toUpperCase() + vDay(dt).slice(1)}${tt ? (fcDay ? " · alba verso le " : " · alle ") + hm(tt) : ""}${fin(air) ? " · aria " + nf(air, 0).replace("-", "−") + " °C" : ""}${fin(lux) ? " · luce " + nf(lux, 0) + " W/m²" : ""}${fcDay ? " · previsione" : ""}`;
-  const how = ser.filter(s => s.fc.length).map(s => s.md.how);
-  const foot = !ser.some(s => s.fc.length) ? (S.loc || logSrc === "demo" ? "Previsione: servono 3 mattine lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.")
-    : how.every(h => h === "albe") ? "Previsione da temperatura e luce attese e dalle tue albe lette; la fascia arriva fin dove salirebbe se il cielo si apre." : "Previsione dal meteo e dalla Voc di targa finché non ci sono 3 mattine lette; la fascia arriva fin dove salirebbe se il cielo si apre.";
-  const lrs = ser.filter(s => s.lr.n), sg = v => (v >= 0 ? "+" : "−") + nf(Math.abs(v) * 100, 1) + "%";
-  const pfTxt = lrs.length ? ` Rispetto alla previsione della sera prima (cerchi vuoti) la Voc letta è venuta ${lrs.map(s => `${esc(pvName(s.g))} ${sg(s.lr.med - 1)} su ${s.lr.n} ${s.lr.n === 1 ? "alba" : "albe"}`).join(", ")}: la previsione ora ne tiene conto${lrs.some(s => s.lr.n < 6) ? ", un po' alla volta" : ""}.`
-    : isReal() && S.loc && !vocPfRows().length ? " Dal firmware 0.36 la scheda segna ogni sera la Voc prevista, per confrontarla con l'alba vera e imparare quanto sbaglia." : "";
+  // sotto il grafico resta solo quello che c'è da fare quando la previsione manca (2.69: le spiegazioni lunghe le ha fatte togliere l'utente)
+  const foot = ser.some(s => s.fc.length) ? "" : S.loc || logSrc === "demo" ? "Previsione: servono 3 mattine lette (o la Voc di targa nel gruppo) e il meteo delle prossime mattine." : "Imposta la località per vedere la previsione delle prossime albe.";
   box.innerHTML = head + `<div class="vocw"><svg class="vocg" viewBox="0 0 ${W} ${H}" data-n="${N}" data-l="${L}" data-r="${R}" data-t="${tIdx}" role="img" aria-label="Voc all'alba degli ultimi giorni e prevista per i prossimi">${g}</svg>` +
-    `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div><p class="note voc-foot">${foot}${pfTxt}</p>`;
+    `<p class="voc-when">${when}</p><div class="voc-leg">${rows}</div></div>${foot ? `<p class="note voc-foot">${foot}</p>` : ""}`;
 }
 // tocca o trascina sul grafico per leggere un giorno; un secondo tocco sullo stesso giorno torna all'ultimo
 function vocPick(e, tap){
@@ -2664,8 +2693,7 @@ function drawSw(){
   $("q-state").textContent = on ? `Sulle batterie${hl.w === null ? "" : hl.meas ? ` · ${power(hl.w)} misurati` : ` · circa ${power(hl.w)}`}` : "Su Enel";
   $("q-sub").textContent = cut ? `L'inverter ha staccato${fin(cutAt) ? " il " + alWhen(cutAt) : ""}: l'ATS ha portato la casa su Enel finché non riparte.`
     : on ? "La casa prende corrente dall'inverter, cioè dalle batterie." : `Le batterie alimentano solo l'impianto (circa ${power(plantW())}).`;
-  const last = $("q-last"); let r = null; for (let i = SW.rows.length - 1; i >= 0 && !r; i--) if (SW.rows[i][1] !== SW.rows[i][2]) r = SW.rows[i];
-  last.innerHTML = r ? `<span>Il ${alWhen(swT(r))} è passata ${r[1] & 1 ? "sulle batterie" : "su Enel"}${fin(r[3]) && Math.abs(r[3]) >= 50 ? ` · ${r[1] & 1 ? "+" : "−"}${power(Math.abs(r[3]))}` : ""}</span>` : SW.board ? "" : "<span>Senza la scheda la casa si considera sulle batterie.</span>";
+  $("q-last").innerHTML = SW.board ? "" : "<span>Senza la scheda la casa si considera sulle batterie.</span>";
   drawCb();
   const chip = $("q-chip");
   chip.innerHTML = `<i></i><span>Casa <b>${on ? "sulle batterie" : "su Enel"}</b>${cut ? " <small>· l'inverter ha staccato</small>" : on && hl.w !== null ? ` <small>· ${hl.meas ? "" : "~"}${power(hl.w)}</small>` : ""}</span><small>Casa ›</small>`;
@@ -2761,7 +2789,7 @@ function drawCbCtl(){
   b.setAttribute("aria-label", `Interruttore ${c.ok ? (on ? "ON" : "OFF") : "non raggiungibile"}. ${cbArmAt ? "Tocca di nuovo per confermare" : "Tocca due volte per " + (on ? "spegnere" : "accendere")}`);
   const p = $("cb-msg");
   const h = ph ? `<span class="cb-ph ${ph[0]}">${ph[1]}</span><span>${esc(ph[2])}</span>`
-    : `<span>${mode === "remote" ? "Da fuori casa il comando arriva cifrato. " : ""}Due tocchi: il primo arma, il secondo esegue. Un comando ogni 30 s.</span>`;
+    : mode === "remote" ? "<span>Da fuori casa il comando arriva cifrato.</span>" : "";
   if (p.dataset.h !== h) { p.dataset.h = h; p.innerHTML = h; }
 }
 /* il registro dei passaggi tra banco ed Enel, dalle righe della scheda (/switch.bin): gli ultimi 7 giorni come nastri (giallo = casa sulle batterie),
@@ -5769,6 +5797,45 @@ function pvInAdv(g){
   if (f.a === 1) return { c: "wait", est, h: `<b>${n}</b>: ricollega ora, ma stacca entro stasera. ${whenW(f.nt)[0].toUpperCase() + whenW(f.nt).slice(1)} ${V(f.n)}, limite ${V(f.l)}.` };
   return { c: "ok", est, h: `<b>${n}</b>: puoi ricollegare. Massimo ${V(f.v)}${f.nt ? `, ${whenW(f.nt)} ${V(f.n)}` : ""}, limite ${V(f.l)}.` };
 }
+/* ---------- lo specchietto delle impostazioni dei regolatori (2.69, firmware 0.89; voluto dall'utente il 24/11/2026). La scheda legge da ogni
+   Epever le impostazioni di carica (pv[].cfg: 18 valori come stanno nei registri, tensioni in centesimi di volt; 65535 = non letto) e qui
+   si vedono una volta sola: una riga per voce col valore comune, e dove un regolatore è diverso i tre valori con quello fuori posto in
+   evidenza. Per ora si guarda soltanto: la scheda agli Epever manda solo letture. */
+const PS_BAT = { 0: "Utente", 1: "Sigillata", 2: "Gel", 3: "Piombo aperto" }, PS_RATED = { 0: "Automatica", 1: "12 V", 2: "24 V", 3: "36 V", 4: "48 V", 5: "60 V", 6: "110 V", 7: "120 V", 8: "220 V", 9: "240 V" };
+const psV = r => `${nf(r / 100, 2)} V`, psCell = r => `${nf(r / 1600, 3)} V per cella`, psMin = r => `${nf(r, 0)} min`;
+// [posto nei valori, nome, come si scrive, nota piccola]
+const PS_ROWS = [
+  ["Carica", [[7, "Boost", psV, psCell], [17, "Durata del boost", psMin], [8, "Float", psV, psCell], [9, "Ritorno al boost", psV, psCell], [6, "Equalizzazione", psV, psCell], [16, "Durata dell'equalizzazione", psMin],
+    [4, "Limite di carica", psV, psCell], [3, "Stacco per tensione alta", psV, psCell], [5, "Rientro dalla tensione alta", psV, psCell]]],
+  ["Uscita del carico", [[13, "Stacco per tensione bassa", psV], [10, "Rientro dalla tensione bassa", psV], [12, "Avviso di tensione bassa", psV], [11, "Rientro dall'avviso", psV], [14, "Limite di scarica", psV]]],
+  ["Batteria", [[0, "Tipo", r => PS_BAT[r] || `Codice ${r}`], [1, "Capacità", r => `${nf(r, 0)} Ah`], [15, "Tensione nominale", r => PS_RATED[r] || `Codice ${r}`], [2, "Compensazione di temperatura", r => r ? `${nf(r / 100, 2)} mV/°C` : "Nessuna"]]]];
+function drawPvSet(){
+  const dlg = $("pvset"); if (!dlg.open) return;
+  const pv = data && Array.isArray(data.pv) ? data.pv.slice().sort((a, b) => pvPos(a) - pvPos(b)) : [], has = pv.filter(g => Array.isArray(g.cfg) && g.cfg.length >= 18);
+  let h;
+  if (!has.length) h = `<p class="ps-foot">${!isReal() ? "Con la scheda collegata qui compaiono le impostazioni lette dai regolatori." : parseFloat(data.fw) >= .89 ? "La scheda non le ha ancora lette: arrivano entro dieci minuti dall'avvio, coi regolatori che rispondono." : "Serve il firmware 0.89 della scheda."}</p>`;
+  else {
+    let dif = 0;
+    const body = PS_ROWS.map(([sec, rows]) => `<h3>${sec}</h3>` + rows.map(([i, name, fmt, note]) => {
+      const vals = has.map(g => g.cfg[i]), read = vals.filter(v => v !== 65535);
+      if (!read.length) return `<div class="ps-row"><span>${name}</span><span class="ps-v">–</span></div>`;
+      const cnt = v => vals.filter(x => x === v).length, top = Math.max(...vals.map(cnt)), same = vals.every(v => v === vals[0]);
+      if (same) return `<div class="ps-row"><span>${name}</span><span class="ps-v">${fmt(vals[0])}${note ? `<small>${note(vals[0])}</small>` : ""}</span></div>`;
+      dif++;
+      return `<div class="ps-row dif"><span>${name}</span><span class="ps-3">${has.map((g, k) => `<span${cnt(vals[k]) < top || top === 1 ? ' class="odd"' : ""}>${vals[k] === 65535 ? "–" : fmt(vals[k])}<small>${esc(pvName(g))}</small></span>`).join("")}</span></div>`;
+    }).join("")).join("");
+    const miss = pv.filter(g => !has.includes(g)), at = Math.min(...has.map(g => g.cfg_at || 0));
+    h = `<div class="ps-sum${dif || miss.length ? " dif" : ""}"><i></i><span>${dif ? `<b>${dif} ${dif === 1 ? "valore diverso" : "valori diversi"}</b> fra i regolatori` : `<b>${has.length === 1 ? esc(pvName(has[0])) : has.length === pv.length ? "Tutti uguali" : "Uguali"}</b>${has.length > 1 ? ` · ${has.map(g => esc(pvName(g))).join(", ")}` : ""}`}` +
+      `<small>${miss.length ? `${miss.map(g => esc(pvName(g))).join(", ")}: non ${miss.length > 1 ? "letti" : "letto"} · ` : ""}${at > 1e9 ? `letti ${dayWord(at) === "oggi" ? "" : dayWord(at) + " "}alle ${hm(at)}` : "appena letti"}</small></span></div>` +
+      body + `<p class="ps-foot">Sola lettura: da qui per ora non si cambia niente.</p>`;
+  }
+  const box = $("ps-body"); if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
+}
+{ const open = () => { const d = $("pvset"); if (d.showModal) d.showModal(); else d.setAttribute("open", ""); drawPvSet(); d.querySelector(".sheet").scrollTop = 0; };
+  $("pv-cols").addEventListener("click", e => { if (e.target.closest(".pv-col")) open(); });
+  $("pv-cols").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".pv-col")) { e.preventDefault(); open(); } });
+  $("ps-close").addEventListener("click", () => $("pvset").close());
+  $("pvset").addEventListener("click", e => { if (e.target === $("pvset")) $("pvset").close(); }); }
 function drawPvIn(pv){
   const box = $("pv-in"); if (!box) return;
   const sec = $("pvin-sec"); sec.hidden = !data || !fin(data.pv_off);
@@ -5812,14 +5879,16 @@ function drawPv(pv, k){
     const stTxt = off ? (cut ? "Staccato" : "Non risponde") : g.sus ? "Staccato?" : g.fault ? "Guasto" : low ? `Rende −${nf((1 - yr / best) * 100, 0)}%`
       : g.w < 5 ? (night ? "Notte" : PV_ST[g.state] && g.state !== "boost" ? PV_ST[g.state] : "Fermo") : PV_ST[g.state] || "In carica";
     const [num, unit] = off ? ["–", ""] : power(g.w).split(" ");
-    const arc = (fill / 100 * 179.1).toFixed(1); // 270° di un cerchio di raggio 38 = 179,1 su 238,8
-    return `<div class="pv-col ${st}${low ? " low" : ""}" style="--f:${(fill / 100).toFixed(2)}" role="group" aria-label="${esc(pvName(g))}: ${cut ? "staccato" : off ? "non risponde" : power(g.w) + ", " + nf(fill, 0) + "% della potenza installata" + (low ? ", rende meno degli altri gruppi" : "")}">` +
+    const lit = Math.round(fill / 10), pvLed = !off && fin(g.v) && g.v >= 20 ? "g" : "", batLed = off ? "" : g.fault ? "r" : g.w < 5 ? "" : g.state === "float" ? "g" : "y";
+    return `<div class="pv-col ${st}${low ? " low" : ""}" style="--f:${(fill / 100).toFixed(2)}" role="button" tabindex="0" aria-label="${esc(pvName(g))}: ${cut ? "staccato" : off ? "non risponde" : power(g.w) + ", " + nf(fill, 0) + "% della potenza installata" + (low ? ", rende meno degli altri gruppi" : "")}. Tocca per le impostazioni dei regolatori">` +
+      `<span class="pv-fin" aria-hidden="true"></span>` +
       `<span class="pv-n">${PV_ICON}<span>${esc(pvName(g))}</span></span>` +
-      `<span class="pv-g" aria-hidden="true"><svg viewBox="0 0 100 88"><circle class="t" cx="50" cy="50" r="38" stroke-dasharray="179.1 238.8" transform="rotate(135 50 50)"/>` +
-      `<circle class="f" cx="50" cy="50" r="38" stroke-dasharray="${arc} 238.8" transform="rotate(135 50 50)"/></svg>` +
-      `<span class="pv-gv"><span class="pv-w">${num}</span><span class="pv-p">${off ? "&nbsp;" : unit + " · " + nf(fill, 0) + "%"}</span></span></span>` +
-      `<span class="pv-s">${fin(g.kwh_today) ? `<b>${nf(g.kwh_today, 1)}</b> kWh oggi` : "&nbsp;"}</span>` +
-      `<span class="pv-st">${esc(stTxt)}</span></div>`;
+      `<span class="pv-lcd"><span class="pv-w">${num}${off ? "" : `<small>${unit}</small>`}</span>` +
+      `<span class="pv-va">${!off && fin(g.v) && fin(g.a) ? `${nf(g.v, 0)} V · ${nf(g.a, 1)} A` : "&nbsp;"}</span>` +
+      `<span class="pv-bar" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i${i < lit ? ' class="on"' : ""}></i>`).join("")}</span>` +
+      `<span class="pv-s">${fin(g.kwh_today) ? `${nf(g.kwh_today, 1)} kWh oggi` : "&nbsp;"}</span></span>` +
+      `<span class="pv-st">${esc(stTxt)}</span>` +
+      `<span class="pv-ft" aria-hidden="true"><i class="pv-led ${pvLed}"></i><i class="pv-led ${batLed}"></i><i class="pv-key"></i><i class="pv-key"></i></span></div>`;
   }).join("");
 
   $("pv-day").innerHTML = `<div id="lost-box"></div><div id="voc-box"></div><div id="vocw-box"></div>` +
@@ -5829,6 +5898,7 @@ function drawPv(pv, k){
   drawLost();
   drawVoc(pv);
   drawVocWinter();
+  drawPvSet();
 }
 /* ---------- sole non usato (2.53, richiesta dell'utente il 20/11/2026) ----------
    Con le batterie piene i regolatori fermano i pannelli: il 20/11 dalle 14:29, con la casa su Enel. Quanta energia avrebbero dato si stima ora per
@@ -5926,27 +5996,17 @@ function drawVocWinter(){
   if (!cold || cold.lat !== S.loc.lat || cold.lon !== S.loc.lon || !cold.mins.length) { box.innerHTML = head + `<p class="vocw-empty">${coldBusy ? "Leggo le minime degli ultimi inverni…" : "Le minime degli ultimi inverni non sono arrivate: serve internet, riprovo più tardi."}</p>`; return; }
   const ts = cold.mins.map(m => m[1]), typ = quant(ts, .5), rec = cold.mins.reduce((a, m) => m[1] < a[1] ? m : a), deg = t => nf(t, 0).replace("-", "−") + " °C";
   const recD = new Date(rec[2] + "T12:00:00").toLocaleDateString("it-IT", { month: "short", year: "numeric" });
-  const bad = [], near = [];
   const rows = ser.map(s => {
     const lim = pvLim(s.vmax), a = vocWorst(s.md, typ), b = vocWorst(s.md, rec[1]);
     const under = key => { let lo = -40, hi = 40; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (vocWorst(s.md, m)[key] >= lim) lo = m; else hi = m; } return lo; };
     const tC = under("v"), tH = under("hi");            // sotto queste temperature tocca il limite: con la stima centrale, e col margine del modello
     const cls = b.v >= lim ? "hot" : b.hi >= lim ? "near" : "ok";   // la stima centrale lo supera; lo supera solo col margine del modello
-    if (cls === "hot") bad.push([s, tC, tH]); else if (cls === "near") near.push([s, tH, tH]);
     return `<tr><td>${esc(pvName(s.g))}</td><td>${nf(a.v, 0)} V<small>fino a ${nf(a.hi, 0)}</small></td><td>${nf(b.v, 0)} V<small>fino a ${nf(b.hi, 0)}</small></td>` +
       `<td>${nf(lim, 0)} V<small class="${cls}">${cls === "hot" ? "lo supera" : cls === "near" ? "può superarlo" : `margine ${nf(lim - b.hi, 0)} V`}</small><small>${tC > -39 ? `sotto ${deg(tC)}` : tH > -39 ? `col margine, sotto ${deg(tH)}` : "&nbsp;"}</small></td></tr>`;
   }).join("");
-  const and = l => l.length > 1 ? l.slice(0, -1).join(", ") + " e " + l[l.length - 1] : l[0] || "", nm = l => `<b>${and(l.map(([s]) => esc(pvName(s.g))))}</b>`;
-  const under = (l, j) => and(l.map(x => deg(x[j]) + (l.length > 1 ? ` (${esc(pvName(x[0].g))})` : "")));
-  const lim5 = [...new Set(ser.map(s => s.vmax))].map(m => { const lo = m === 100 ? 92 : m === 200 ? 180 : 138; return nf(lo + (m - lo) * 20 / 50, 0); }).join(" / ");
-  const say = (bad.length ? `${nm(bad)}: nell'inverno più freddo ${bad.length > 1 ? "superano" : "supera"} il limite del regolatore. Succede sotto ${under(bad, 1)}; col margine del modello può succedere già sotto ${under(bad, 2)}. ` : "") +
-    (near.length ? `${nm(near)}: ${near.length > 1 ? "restano" : "resta"} sotto con la stima centrale, ma col margine del modello ${near.length > 1 ? "possono" : "può"} superarlo sotto ${under(near, 1)}. ` : "") +
-    (bad.length || near.length ? `La scheda avvisa la sera prima quando serve staccare l'ingresso; il rimedio che chiude il problema è un pannello in meno per stringa. Con la stanza a 5 °C il limite sale a ~${lim5} V.`
-      : "Tutti i gruppi restano sotto il limite anche nell'inverno più freddo degli ultimi anni.");
   box.innerHTML = head + `<p class="note">La tensione a vuoto più alta che ogni gruppo può dare col freddo: all'alba, o di giorno con le batterie piene e i pannelli fermi. ` +
     `Dalle minime degli ultimi ${cold.mins.length} inverni a ${esc(S.loc.name || "casa")}; il limite è quello di oggi, con la stanza a ${nf(pvEnv(), 0)} °C.</p>` +
-    `<table class="pv-tab"><thead><tr><th>Gruppo</th><th>Inverno tipico<small>${deg(typ)}</small></th><th>Il più freddo<small>${deg(rec[1])}, ${recD}</small></th><th>Limite</th></tr></thead><tbody>${rows}</tbody></table>` +
-    `<p class="note" style="margin-top:10px">${say}</p>`;
+    `<table class="pv-tab"><thead><tr><th>Gruppo</th><th>Inverno tipico<small>${deg(typ)}</small></th><th>Il più freddo<small>${deg(rec[1])}, ${recD}</small></th><th>Limite</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 /* ---------- salute delle celle e capacità vera (2.53, richiesta dell'utente il 20/11/2026) ----------
    L'archivio dei pieni della scheda (firmware 0.78, GET /api/full quando cambia full_at, da fuori casa nel pacchetto): per ogni pieno
@@ -7503,12 +7563,12 @@ function toast(text){
 }
 function reloadForUpdate(){
   if (reloading) return;
-  if ($("settings").open || $("sheet").open) { reloadPending = true; return; }
+  if ($("settings").open || $("sheet").open || $("pvset").open) { reloadPending = true; return; }
   reloading = true;
   try { sessionStorage.setItem(UPD_KEY, APP_VERSION); } catch (e) {}
   location.reload();
 }
-["settings", "sheet"].forEach(id => $(id).addEventListener("close", () => { if (reloadPending) reloadForUpdate(); }));
+["settings", "sheet", "pvset"].forEach(id => $(id).addEventListener("close", () => { if (reloadPending) reloadForUpdate(); }));
 // cerca un service worker nuovo, non più spesso di ogni min minuti
 function swCheck(min){ if (!swReg || document.hidden || Date.now() - swAt < min * 60e3) return; swAt = Date.now(); swReg.update().catch(() => {}); }
 // la versione della pagina che la scheda serve adesso; null se non arriva intera
