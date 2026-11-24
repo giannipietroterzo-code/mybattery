@@ -751,7 +751,7 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .g-arc{fill:none;stroke-width:16;stroke-linecap:round;transform:rotate(135deg);transform-origin:120px 120px}
 .g-track{stroke:var(--line);stroke-dasharray:452.4 603.2}
 .g-fill{stroke:var(--lith);stroke-dasharray:0 603.2;transition:stroke-dasharray .8s ease,stroke .4s}
-.gauge.low .g-fill{stroke:var(--warn)}
+:is(.gauge,.mon-g).low .g-fill{stroke:var(--warn)}
 .g-ticks line{stroke:var(--muted);stroke-width:1.5;stroke-linecap:round;opacity:.5}
 .g-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
 .g-center .soc{justify-content:center;align-items:center;line-height:1}
@@ -1382,9 +1382,9 @@ footer{border-top:0;padding-top:0}
 .g-mask-c{stroke:#fff;stroke-dasharray:0 603.2;transition:stroke-dasharray .8s ease}
 .g-comet{opacity:0;transition:opacity .6s}
 .g-comet circle{fill:none;stroke:#fff;stroke-width:10;stroke-linecap:round;transform:rotate(135deg);transform-origin:120px 120px;stroke-dashoffset:var(--L)}
-.gauge.chg .g-comet,.gauge.dsg .g-comet{opacity:1}
-.gauge.chg .g-comet circle{animation:comet var(--flow-dur,3s) cubic-bezier(.45,0,.55,1) infinite}
-.gauge.dsg .g-comet circle{stroke:color-mix(in srgb,var(--bg) 78%,transparent);animation:comet-d var(--flow-dur,3s) cubic-bezier(.45,0,.55,1) infinite}
+:is(.gauge,.mon-g):is(.chg,.dsg) .g-comet{opacity:1}
+:is(.gauge,.mon-g).chg .g-comet circle{animation:comet var(--flow-dur,3s) cubic-bezier(.45,0,.55,1) infinite}
+:is(.gauge,.mon-g).dsg .g-comet circle{stroke:color-mix(in srgb,var(--bg) 78%,transparent);animation:comet-d var(--flow-dur,3s) cubic-bezier(.45,0,.55,1) infinite}
 @keyframes comet{from{stroke-dashoffset:var(--L)}to{stroke-dashoffset:calc(var(--L) - var(--travel,300px))}}
 @keyframes comet-d{from{stroke-dashoffset:calc(-1 * var(--a,240px))}to{stroke-dashoffset:64px}}
 
@@ -1432,15 +1432,17 @@ html.mon-open,html.mon-open body{overflow:hidden}
 .mon-clk{margin-left:auto;font:600 clamp(1rem,min(5vw,4vh),1.5rem) var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .mon-clk.old{color:var(--alert)}
 .mon-x{flex:none;width:40px;height:40px;display:grid;place-items:center;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer}
-.mon-g{min-height:0;display:grid;place-items:center}
-.mon-g svg{width:100%;height:100%;overflow:visible}
-.mon-g .tr{stroke:color-mix(in srgb,var(--ink) 10%,var(--surface))}
-.mon-g .fl{stroke:var(--lith);transition:stroke-dasharray 1s ease,stroke .4s;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--lith) 55%,transparent))}
-.mon-g.low .fl{stroke:var(--alert);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--alert) 55%,transparent))}
+.mon-g{position:relative;min-height:0}
+.mon-g svg{position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible}   /* sempre dentro la sua riga: le scritte sotto l'arco non finiscono sotto il riquadro della tensione */
+.mon-g .g-fill{filter:drop-shadow(0 0 6px color-mix(in srgb,currentColor 55%,transparent));color:var(--lith)}
+.mon-g.low .g-fill{color:var(--warn)}
+[data-mecha] .mon-g .g-arc{stroke-width:16}
+[data-mecha] .mon-g .g-comet circle{stroke-width:11}
 .mon-g .pc{fill:var(--ink);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 .mon-g .pc tspan{fill:var(--muted);font-weight:500}
-.mon-g .sb{fill:var(--muted);font-size:13px;font-weight:600;letter-spacing:.04em}
-.mon-g .sb.chg{fill:var(--lith)}
+.mon-g .pw{fill:var(--ink);font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.mon-g .sb{fill:var(--muted);font-size:13.5px;font-weight:600;letter-spacing:.16em}
+.mon-g :is(.pw,.sb).chg{fill:var(--lith)}
 .mon>*{width:100%;max-width:460px;justify-self:center;box-sizing:border-box}
 .mon>*{transform:translate(var(--mx,0),var(--my,0));transition:transform 2s ease}
 .mon .volt{margin:0;max-width:460px;padding:min(1.6vh,12px) 18px;justify-content:center}
@@ -1453,7 +1455,10 @@ html.mon-open,html.mon-open body{overflow:hidden}
 .mon-cut .l{font-size:clamp(.78rem,min(3.6vw,2.6vh),1rem);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .mon-cut .t{font:700 clamp(2.4rem,min(14vw,8.5vh),5.5rem)/1.05 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.03em}
 .mon-cut .t.w{font-family:inherit;font-size:clamp(1.8rem,min(9vw,6vh),3.6rem)}
-.mon-cut .s{font-size:clamp(.85rem,min(4vw,2.8vh),1.15rem);color:var(--muted)}
+.mon-cut .s{font-size:clamp(1rem,min(5vw,3.3vh),1.5rem);color:var(--muted)}
+/* il giorno su una riga sua, sopra l'ora: è la prima cosa che si legge da lontano; con lui l'ora è un po' più piccola */
+.mon-cut .d{margin-top:.1em;font-size:clamp(1.5rem,min(8.4vw,5.2vh),2.8rem);line-height:1.05;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.mon-cut .d+.t{font-size:clamp(2rem,min(11.5vw,7vh),4.6rem)}
 .mon-cut.warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent)}.mon-cut.warn .t{color:var(--warn)}
 .mon-cut.bad{border-color:color-mix(in srgb,var(--alert) 60%,transparent);background:color-mix(in srgb,var(--alert) 8%,var(--surface))}.mon-cut.bad .t{color:var(--alert)}
 @media (orientation:landscape){
@@ -1464,6 +1469,8 @@ html.mon-open,html.mon-open body{overflow:hidden}
   .mon .volt,.mon-cut{align-self:center}
   .mon .volt .volt-h b{font-size:clamp(2.6rem,min(9vw,16vh),7rem)}
   .mon-cut .t{font-size:clamp(2.2rem,min(7.5vw,13vh),5.5rem)}
+  .mon-cut .d{font-size:clamp(1.2rem,min(4.6vw,8vh),2.6rem)}
+  .mon-cut .d+.t{font-size:clamp(1.9rem,min(6.4vw,11vh),4.6rem)}
 }
 :is([data-style="mecha"]) :is(.mon-badge,.mon-cut,.mon-x,.mon-back){border-radius:0}
 [data-style="mecha"] .mon-cut{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
@@ -1752,11 +1759,17 @@ button.tdy-top{cursor:pointer}
 <div class="mon" id="mon" role="dialog" aria-label="Monitor delle batterie" hidden>
   <div class="mon-top"><button class="mon-badge" id="mon-badge" type="button"></button><span class="mon-clk" id="mon-clk"></span>
     <button class="mon-x" id="mon-x" type="button" aria-label="Esci dal monitor" title="Esci dal monitor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-  <div class="mon-g" id="mon-g"><svg viewBox="0 6 240 200" role="img" id="mon-gs">
-    <circle class="tr" cx="120" cy="120" r="96" fill="none" stroke-width="18" stroke-dasharray="452.4 603.2" transform="rotate(135 120 120)"/>
-    <circle class="fl" id="mon-gf" cx="120" cy="120" r="96" fill="none" stroke-width="18" stroke-dasharray="0 603.2" transform="rotate(135 120 120)"/>
-    <text class="pc" id="mon-pc" x="120" y="138" text-anchor="middle" font-size="66"></text>
-    <text class="sb" id="mon-sb" x="120" y="174" text-anchor="middle"></text>
+  <div class="mon-g" id="mon-g"><svg viewBox="0 2 240 216" role="img" id="mon-gs">
+    <g class="g-ticks"><line x1="42.2" y1="197.8" x2="37.3" y2="202.7"/><line x1="120" y1="10" x2="120" y2="3"/><line x1="197.8" y1="197.8" x2="202.7" y2="202.7"/></g>
+    <circle class="g-deco g-deco-in" cx="120" cy="120" r="78"/>
+    <circle class="g-deco g-deco-out" cx="120" cy="120" r="113"/>
+    <circle class="g-arc g-track" cx="120" cy="120" r="96"/>
+    <circle class="g-arc g-fill" id="mon-gf" cx="120" cy="120" r="96"/>
+    <mask id="mon-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><circle class="g-arc g-mask-c" id="mon-mask-c" cx="120" cy="120" r="96"/></mask>
+    <g class="g-comet" mask="url(#mon-mask)"><circle cx="120" cy="120" r="96" stroke-dasharray="64 603.2" style="--L:64px;opacity:0.07"/><circle cx="120" cy="120" r="96" stroke-dasharray="42 603.2" style="--L:42px;opacity:0.12"/><circle cx="120" cy="120" r="96" stroke-dasharray="26 603.2" style="--L:26px;opacity:0.22"/><circle cx="120" cy="120" r="96" stroke-dasharray="14 603.2" style="--L:14px;opacity:0.42"/><circle cx="120" cy="120" r="96" stroke-dasharray="6 603.2" style="--L:6px;opacity:0.9"/></g>
+    <text class="pc" id="mon-pc" x="120" y="136" text-anchor="middle" font-size="66"></text>
+    <text class="pw" id="mon-pw" x="120" y="172" text-anchor="middle"></text>
+    <text class="sb" id="mon-sb" x="120" y="211" text-anchor="middle"></text>
   </svg></div>
   <div class="eta volt" id="mon-v" role="img"></div>
   <div class="mon-cut" id="mon-cut"></div>
@@ -1944,7 +1957,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.66"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.67"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3910,10 +3923,23 @@ function monCut(k, f){
   if (fin(P.first)) {
     const t = Math.max(P.first, now + 300), h = (t - now) / HOUR;
     return { c: past ? "warn" : h < 3 ? "warn" : "", l: P.on ? (P.byAo ? "La scheda stacca il solare alle" : "L'inverter stacca alle") : (P.byAo ? "Su solare la scheda stacca alle" : "Su solare l'inverter stacca alle"),
-      t: hm(q15(t)), s: (past ? past + " · " : when(t)) + "tra " + dur(Math.max(.25, h)) };
+      t: hm(q15(t)), d: dayWord(t), s: (past ? past + " · " : "") + "tra " + dur(Math.max(.25, h)) };   // d: il giorno, in grande: si legge da lontano
   }
   return { c: past ? "warn" : "", l: P.on ? "Stacco del solare" : "Su solare stacco", t: "nessuno", w: 1,
     s: past || (fin(P.sunAt) ? `le batterie arrivano al sole (${when(P.sunAt)}${hm(q15(P.sunAt))})` : "nelle prossime 48 ore") };
+}
+// il quadrante che si muove, uguale in Dashboard e nel Monitor: la cometa corre solo dentro la parte piena; più potenza, più veloce (durata a
+// scatti di 0,2 s per non farla saltare a ogni lettura); colore d'avviso sotto la carica bassa
+function gaugeFlow(el, mask, k, gf){
+  mask.style.strokeDasharray = `${(452.4 * gf).toFixed(1)} 603.2`;
+  const arcLen = 452.4 * gf, speed = Math.min(320, Math.max(70, 110 * Math.sqrt(Math.abs(k.p || 0) / 1000))); // unità d'arco al secondo
+  const gs = el.style, lim = data.limits || {}, lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
+  gs.setProperty("--a", arcLen.toFixed(0) + "px");
+  gs.setProperty("--travel", (arcLen + 64).toFixed(0) + "px");
+  gs.setProperty("--flow-dur", (Math.round(Math.min(6, Math.max(1.2, (arcLen + 64) / speed)) * 5) / 5).toFixed(1) + "s");
+  el.classList.toggle("low", k.on > 0 && k.soc < lowG);
+  el.classList.toggle("chg", k.on > 0 && k.i > 0.5);
+  el.classList.toggle("dsg", k.on > 0 && k.i < -0.5);
 }
 function drawMon(k, f){
   if (!monOn || !data) return;
@@ -3921,16 +3947,18 @@ function drawMon(k, f){
   if (b.dataset.v !== want) { b.dataset.v = want; b.className = "mon-badge " + want; b.innerHTML = (on ? Q_SUN : Q_PLUG) + `<b>${on ? "SOLARE" : "ENEL"}</b>`; }
   b.title = (cut ? "L'inverter ha staccato: la casa è su Enel" : on ? "La casa è sulle batterie" : "La casa è su Enel") + ". Tocca per il comando dell'inverter";
   b.setAttribute("aria-label", b.title);
-  const ok = k.on && fin(k.soc), soc = ok ? clamp(k.soc, 0, 100) : 0, lim = data.limits || {}, lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
+  const ok = k.on && fin(k.soc), soc = ok ? clamp(k.soc, 0, 100) : 0;
   $("mon-gf").style.strokeDasharray = `${(452.4 * soc / 100).toFixed(1)} 603.2`;
-  $("mon-g").classList.toggle("low", ok && k.soc < lowG);
+  gaugeFlow($("mon-g"), $("mon-mask-c"), k, soc / 100);
   $("mon-pc").innerHTML = ok ? `${Math.round(k.soc)}<tspan font-size="30" dx="2">%</tspan>` : "–";
-  const sb = $("mon-sb"), chg = k.on && k.i > .5, dsg = k.on && k.i < -.5;
-  sb.textContent = !k.on ? "" : chg ? `▲ IN CARICA · ${power(k.p)}` : dsg ? `▼ IN SCARICA · ${power(k.p)}` : "A RIPOSO";
-  sb.setAttribute("class", "sb" + (chg ? " chg" : ""));
+  // la potenza dentro il cerchio, lo stato sotto, nel vuoto fra le due punte dell'arco: una riga sola era più larga del cerchio
+  const sb = $("mon-sb"), pw = $("mon-pw"), chg = k.on && k.i > .5, dsg = k.on && k.i < -.5;
+  pw.textContent = chg ? `▲ ${power(k.p)}` : dsg ? `▼ ${power(k.p)}` : "";
+  sb.textContent = !k.on ? "" : chg ? "IN CARICA" : dsg ? "IN SCARICA" : "A RIPOSO";
+  pw.setAttribute("class", "pw" + (chg ? " chg" : "")); sb.setAttribute("class", "sb" + (chg ? " chg" : ""));
   $("mon-gs").setAttribute("aria-label", ok ? `Carica ${Math.round(k.soc)} per cento` : "Carica non disponibile");
   drawVolt(k, $("mon-v"));
-  const c = monCut(k, f), box = $("mon-cut"), h = `<span class="l">${c.l}</span><span class="t${c.w ? " w" : ""}">${c.t}</span><span class="s">${c.s}</span>`;
+  const c = monCut(k, f), box = $("mon-cut"), h = `<span class="l">${c.l}</span>${c.d ? `<span class="d">${c.d}</span>` : ""}<span class="t${c.w ? " w" : ""}">${c.t}</span><span class="s">${c.s}</span>`;
   box.className = "mon-cut" + (c.c ? " " + c.c : "");
   if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
   monClock();
@@ -4074,17 +4102,7 @@ function render(m){
     els.forEach((e, i) => { e.classList.toggle("on", i < lit && i !== act); e.classList.toggle("act", i === act); });
   };
   level([...$("g-tick").children], gf); // Terminale: 54 tacche
-  // cometa: corre solo dentro la parte piena; più potenza, più veloce (durata a scatti di 0,2 s per non farla saltare a ogni lettura)
-  $("g-mask-c").style.strokeDasharray = dash;
-  const arcLen = 452.4 * gf, speed = Math.min(320, Math.max(70, 110 * Math.sqrt(Math.abs(k.p || 0) / 1000))); // unità d'arco al secondo
-  const gs = $("gauge").style;
-  gs.setProperty("--a", arcLen.toFixed(0) + "px");
-  gs.setProperty("--travel", (arcLen + 64).toFixed(0) + "px");
-  gs.setProperty("--flow-dur", (Math.round(Math.min(6, Math.max(1.2, (arcLen + 64) / speed)) * 5) / 5).toFixed(1) + "s");
-  const lowG = fin(lim.low_soc) ? Math.max(lim.low_soc, 15) : 20;
-  $("gauge").classList.toggle("low", k.on > 0 && k.soc < lowG);
-  $("gauge").classList.toggle("chg", k.on > 0 && k.i > 0.5);
-  $("gauge").classList.toggle("dsg", k.on > 0 && k.i < -0.5);
+  gaugeFlow($("gauge"), $("g-mask-c"), k, gf);
   // energia che la casa può ancora usare: quella nel banco meno la parte sotto lo stacco dell'inverter
   const useKwh = k.on && fin(k.soc) && k.full > 0 ? whAbove(k) / 1000 : NaN;
   // tolta la riga «calcolata dalla scheda · i BMS dicono …» (2.32, richiesta dell'utente): da dove viene la carica lo dice la pagina Batterie.
