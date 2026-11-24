@@ -1916,7 +1916,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.62"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.63"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2338,7 +2338,15 @@ document.addEventListener("pointerdown", e => vocPick(e, true));
 document.addEventListener("pointermove", e => { if (e.buttons && e.pointerType !== "touch") vocPick(e, false); });
 // accanto a un'ora: niente per oggi, se no il giorno della settimana corto («ven»). «domani» tagliato a tre lettere si leggeva «domenica» (2.48)
 const dayTag = t => dkey(t) === dkey(nowOf(data)) ? "" : `<small> ${new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "")}</small>`;
-const dayWord = t => { const d = dkey(t) - dkey(nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
+// giorni di calendario fra due istanti (non la differenza fra due dkey: a cavallo del mese il 1° meno il 30 fa 71)
+const dayGap = (t, from) => { const m = x => { const d = new Date(x * 1000); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); }; return Math.round((m(t) - m(from)) / 86400000); };
+const dayWord = t => { const d = dayGap(t, nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
+// il momento di un'ora prevista, per i titoli degli avvisi (2.63: «Stanotte la scheda stacca il solare verso le 14:15» era il pomeriggio del
+// giorno dopo). «Stanotte» è solo la notte che viene, dalle 19 alle 7; fuori da lì si dice il giorno. Senza un'ora resta «Stanotte»
+const whenWord = t => { if (!fin(t)) return "Stanotte";
+  const now = nowOf(data), h = new Date(t * 1000).getHours(), d = dayGap(t, now), hn = new Date(now * 1000).getHours();
+  if ((d === 0 && (h >= 19 || (h < 7 && hn < 7))) || (d === 1 && h < 7)) return "Stanotte";
+  const w = dayWord(t); return w[0].toUpperCase() + w.slice(1); };
 const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d === dkey(nowOf(data)) ? o : null; };
 const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
 // la stringa nella mattina più fredda (celle a T_MIN): k imparato dalle albe se c'è, altrimenti la targa di quello che stai scrivendo
@@ -5237,14 +5245,14 @@ function appAlerts(bs, k, f){
     // con la scheda che può staccare la soglia la tiene lei: l'avviso dice quando (caso normale) o che può succedere (1 caso su 5).
     // Senza automatico: lo stacco dell'inverter, o la soglia che è solo un avviso
     if (P && P.aoLive) {
-      if (byAo) { nightTold = true; push({ id: "fccut" + dkey(now), sev: "fc", t: `Stanotte la scheda stacca il solare verso le ${hm(q15(at))}`,
+      if (byAo) { nightTold = true; push({ id: "fccut" + dkey(now), sev: "fc", t: `${whenWord(at)} la scheda stacca il solare verso le ${hm(q15(at))}`,
         d: `Le batterie scendono alla soglia (${guardTxt()}) prima che i pannelli tornino a caricare${resT}: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` }); }
-      else if (aoE) { nightTold = true; push({ id: "fccut" + dkey(now), sev: "fc", t: "Stanotte la scheda potrebbe staccare il solare",
+      else if (aoE) { nightTold = true; push({ id: "fccut" + dkey(now), sev: "fc", t: `${whenWord(aoE)} la scheda potrebbe staccare il solare`,
         d: `Una volta su cinque le batterie scendono alla soglia (${guardTxt()}) già verso le ${hm(q15(aoE))}, prima che i pannelli tornino a caricare${resT}: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` }); }
     }
-    if (!nightTold && na.st === "bad" && !(P && P.aoLive && P.hab)) { nightTold = true; push({ id: "fccut" + dkey(now), sev: "fc", t: `Stanotte l'inverter stacca${fin(at) ? ` verso le ${hm(q15(at))}` : ""}`,
+    if (!nightTold && na.st === "bad" && !(P && P.aoLive && P.hab)) { nightTold = true; push({ id: "fccut" + dkey(now), sev: "fc", t: `${whenWord(at)} l'inverter stacca${fin(at) ? ` verso le ${hm(q15(at))}` : ""}`,
       d: `Probabilità ${nf(Math.max(n.pCut, na.rk ? na.rk.p : 0) * 100, 0)}%: le batterie scendono sotto ${ilP(n.cut)} (${S.inv} V) prima che i pannelli tornino a caricare${resT}, poi l'ATS porta la casa su Enel.${tip}` }); }
-    else if (!nightTold && na.st === "warn" && !(P && P.aoLive)) { nightTold = true; push({ id: "fcmar" + dkey(now), sev: "fc", t: `Stanotte sotto la soglia: verso ${ilP(Math.max(0, n.min))}`,
+    else if (!nightTold && na.st === "warn" && !(P && P.aoLive)) { nightTold = true; push({ id: "fcmar" + dkey(now), sev: "fc", t: `${whenWord(n.marAt)} sotto la soglia: verso ${ilP(Math.max(0, n.min))}`,
       d: `Prima che i pannelli tornino a caricare${resT} le batterie scendono sotto la soglia che hai scelto (${guardTxt()}); lo stacco dell'inverter è verso ${ilP(n.cut)}.${tip}` }); }
   }
   if (f && S.alFc) {
