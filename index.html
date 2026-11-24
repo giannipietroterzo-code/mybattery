@@ -1462,7 +1462,7 @@ button.tdy-top{cursor:pointer}
 .tdy-v small{margin-left:4px;font-size:.9rem;font-weight:600;color:var(--muted)}
 .tdy-s{font-size:.78rem;line-height:1.35;color:var(--muted)}.tdy-s b{color:var(--ink);font-weight:600}
 .tdy-bar{display:block;height:8px;background:var(--line);transform:skewX(-20deg);margin:1px 3px 2px}.tdy-bar i{display:block;height:100%;background:var(--lith)}
-.tdy-t.bat{--c:var(--lith)}.tdy-t.sun{--c:var(--sun)}.tdy-t.wind{--c:var(--wn-w)}.tdy-t.home.on{--c:var(--good)}.tdy-t.time.ok{--c:var(--good)}.tdy-t.time.warn{--c:var(--warn)}.tdy-t.tom{--c:var(--sun)}
+.tdy-t.bat{--c:var(--lith)}.tdy-t.sun{--c:var(--sun)}.tdy-t.wind{--c:var(--wn-w)}.tdy-t.home.on{--c:var(--good)}.tdy-t.time.ok{--c:var(--good)}.tdy-t.time.warn{--c:var(--warn)}.tdy-t.tom{--c:var(--sun)}.tdy-t.tom.ok{--c:var(--good)}.tdy-t.tom.warn{--c:var(--warn)}
 .tdy-t.bat .tdy-v,.tdy-t.time .tdy-v{font-size:2.5rem}
 /* una sezione a scomparsa, in fondo alla pagina: quello che si legge una volta */
 .fold{margin:0 0 14px;border:1px solid var(--line);background:var(--surface)}
@@ -1916,7 +1916,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.63"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.64"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2338,15 +2338,16 @@ document.addEventListener("pointerdown", e => vocPick(e, true));
 document.addEventListener("pointermove", e => { if (e.buttons && e.pointerType !== "touch") vocPick(e, false); });
 // accanto a un'ora: niente per oggi, se no il giorno della settimana corto («ven»). «domani» tagliato a tre lettere si leggeva «domenica» (2.48)
 const dayTag = t => dkey(t) === dkey(nowOf(data)) ? "" : `<small> ${new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "short" }).replace(".", "")}</small>`;
-// giorni di calendario fra due istanti (non la differenza fra due dkey: a cavallo del mese il 1° meno il 30 fa 71)
-const dayGap = (t, from) => { const m = x => { const d = new Date(x * 1000); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); }; return Math.round((m(t) - m(from)) / 86400000); };
-const dayWord = t => { const d = dayGap(t, nowOf(data)); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
+// i giorni di calendario li conta dayIdx (non la differenza fra due dkey: a cavallo del mese il 1° meno il 30 fa 71)
+const dayWord = t => { const d = dayIdx(t, midnight(nowOf(data))); return d === 0 ? "oggi" : d === 1 ? "domani" : new Date(t * 1000).toLocaleDateString("it-IT", { weekday: "long" }); };
 // il momento di un'ora prevista, per i titoli degli avvisi (2.63: «Stanotte la scheda stacca il solare verso le 14:15» era il pomeriggio del
 // giorno dopo). «Stanotte» è solo la notte che viene, dalle 19 alle 7; fuori da lì si dice il giorno. Senza un'ora resta «Stanotte»
 const whenWord = t => { if (!fin(t)) return "Stanotte";
-  const now = nowOf(data), h = new Date(t * 1000).getHours(), d = dayGap(t, now), hn = new Date(now * 1000).getHours();
+  const now = nowOf(data), h = new Date(t * 1000).getHours(), d = dayIdx(t, midnight(now)), hn = new Date(now * 1000).getHours();
   if ((d === 0 && (h >= 19 || (h < 7 && hn < 7))) || (d === 1 && h < 7)) return "Stanotte";
   const w = dayWord(t); return w[0].toUpperCase() + w.slice(1); };
+// «verso le 14:15» col momento davanti quando non è oggi: «domani verso le 14:15», «stanotte verso le 03:00»
+const whenAt = t => { const w = whenWord(t); return `${w === "Oggi" ? "" : w.toLowerCase() + " "}verso le ${hm(q15(t))}`; };
 const pvPeak = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && o.d === dkey(nowOf(data)) ? o : null; };
 const pvRec = a => { const o = (isReal() ? pvPk : pvPkDemo)[a]; return o && fin(o.rv) ? o : null; };
 // la stringa nella mattina più fredda (celle a T_MIN): k imparato dalle albe se c'è, altrimenti la targa di quello che stai scrivendo
@@ -5146,14 +5147,16 @@ function drawForecast(){
   svg.innerHTML = socSvg({ t: fc.t, mid: fc.mid, lo: fc.lo, hi: fc.hi, pv: fc.pv, load: fc.load, night: fc.night }, marks);
 
   // in due righe: il prossimo minimo e come va domani
-  const at = i => hm(q15(now + i * HOUR)), hrMin = new Date((now + iMin * HOUR) * 1000).getHours();
+  const at = i => hm(q15(now + i * HOUR));
   const tomorrow = d0.getTime() / 1000 + DAY, ti = fc.t.map((t, i) => t >= tomorrow && t < tomorrow + DAY ? i : -1).filter(i => i >= 0);
   let l1 = "", l2 = "";
-  if (iMin > 0 && fc.mid[iMin] < fc.mid[0] - 1) l1 = `${hrMin >= 18 || hrMin < 10 ? "Stanotte scendi" : "Scendi"} fino al <b>${nf(fc.mid[iMin], 0)}%</b> alle ${at(iMin)}.`;
+  if (iMin > 0 && fc.mid[iMin] < fc.mid[0] - 1) l1 = `${whenWord(now + iMin * HOUR)} scendi fino al <b>${nf(fc.mid[iMin], 0)}%</b> alle ${at(iMin)}.`;
   else l1 = `Nelle prossime ore la carica non scende sotto il <b>${nf(Math.min(...fc.mid.slice(0, 13)), 0)}%</b>.`;
   if (ti.length) {
     const fT = ti.find(i => fc.mid[i] >= 99.5), iMax = ti.reduce((b, i) => fc.mid[i] > fc.mid[b] ? i : b, ti[0]);
-    l2 = fT !== undefined ? `Domani pieno verso le <b>${at(fT)}</b>.` : `Domani al massimo <b>${nf(fc.mid[iMax], 0)}%</b> verso le ${at(iMax)}.`;
+    // se domani la carica scende soltanto, il massimo è quello di mezzanotte e non dice niente (2.64: «Domani al massimo 64% verso le 01:00»)
+    l2 = fT !== undefined ? `Domani pieno verso le <b>${at(fT)}</b>.` : fc.mid[iMax] <= fc.mid[ti[0]] + 1 ? "Domani la carica non risale: i pannelli non coprono i consumi."
+      : `Domani al massimo <b>${nf(fc.mid[iMax], 0)}%</b> verso le ${at(iMax)}.`;
   }
   // in probabilità, dalle 300 simulazioni
   const pr = fc.prob, pct = v => v > .99 ? "&gt;99%" : v < .01 ? "&lt;1%" : nf(v * 100, 0) + "%";
@@ -5232,12 +5235,12 @@ function appAlerts(bs, k, f){
   if (k.on && fin(k.v) && houseNow() && !(data.inv && data.inv.risk)) { const rk = riskFor(k, f, 1), P = solarPlan(k, f);
     // con l'automatico che stacca prima dell'inverter non serve: avvisa la scheda (AO_SOON) e lo dice «Batterie su solare»
     if (rk && rk.p6 >= .3 && !(P && P.byAo && P.aoLive)) push({ id: "invfc", sev: "alarm", who: "Batterie", t: `Stacco probabile al ${nf(rk.p6 * 100, 0)}% entro 6 ore`, d: `${RM && RM.Rb ? `Con questa carica le batterie reggono circa ${nf(rk.kw, 1)} kW${rk.seen ? `, e in condizioni simili ha già staccato ${rk.seen === 1 ? "una volta" : rk.seen + " volte"}` : ""}` : "Coi consumi soliti l'energia delle batterie arriva allo stacco"}. Se stacca, l'ATS porta la casa su Enel; per risparmiare le batterie puoi portarla prima su Enel.` }); }
-  let nightTold = false;
+  let nightTold = false; const less = hr >= 15 ? " Riduci i consumi stasera." : " Riduci i consumi.";   // «stasera» solo quando la sera è vicina
   const na = S.alFc ? nightAdvice(k, f) : null;
   if (na && !na.wait && !na.off && na.st !== "ok") {          // con la casa su Enel non c'è niente da avvisare: il riquadro dice come andrebbe sulle batterie
     // quando i pannelli tornano a caricare: se non è oggi si dice il giorno (2.48: «stacca verso le 09:00 … prima che tornino a caricare,
     // verso le 08:30» sembrava un controsenso: le 08:30 erano quelle del giorno dopo, in una giornata di temporali)
-    const n = na.cur, resT = n.resume === null ? "" : `, ${dayWord(n.resume) === "oggi" ? "" : dayWord(n.resume) + " "}verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : " Riduci i consumi stasera.";
+    const n = na.cur, resT = n.resume === null ? "" : `, ${dayWord(n.resume) === "oggi" ? "" : dayWord(n.resume) + " "}verso le ${hm(q15(n.resume))}`, tip = na.tip ? " " + na.tip.txt : less;
     // l'ora e chi stacca: gli stessi di «Batterie su solare» (con l'automatico acceso è la scheda, prima dell'inverter)
     const P = solarPlan(k, f), soon = P && fin(P.first) && (n.resume === null || P.first < n.resume), byAo = !!(soon && P.byAo && P.aoLive), at = soon ? P.first : n.at;
     // l'automatico fermerebbe le batterie alla sua soglia prima dell'inverter: se nel caso normale la notte passa, conta il caso prudente (1 su 5)
@@ -5257,8 +5260,8 @@ function appAlerts(bs, k, f){
   }
   if (f && S.alFc) {
     const p = f.prob;
-    if (!nightTold && !p.alreadyAl && p.al >= .5) { const at = p.alAt ? hm(q15(f.t[0] + p.alAt[1] * HOUR)) : "";
-      push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, verso le ${at}` : ""}. Riduci i consumi stasera.` }); }
+    if (!nightTold && !p.alreadyAl && p.al >= .5) { const at = p.alAt ? whenAt(f.t[0] + p.alAt[1] * HOUR) : "";
+      push({ id: "fclow" + dkey(now), sev: "fc", t: `Rischi di scendere sotto il ${p.alPct}% prima del sole`, d: `Probabilità ${nf(p.al * 100, 0)}%${at ? `, ${at}` : ""}.${less}` }); }
     if (model && model.load && model.load.hod >= 18 && hr >= 12) {      // domani: i pannelli della scheda del meteo contro i consumi delle abitudini
       const pd = pvDay(1), ld = loadDay(1);
       // solo se domani la casa starà davvero sulle batterie (2.16): il 16/11 l'avviso è arrivato alle 21 con la casa su Enel tutto il giorno e lo
@@ -6921,8 +6924,9 @@ function drawToday(k, f){
   const big = w => `${Math.abs(w) >= 1000 ? nf(Math.abs(w) / 1000, 1) : nf(Math.abs(w), 0)}<small>${Math.abs(w) >= 1000 ? "kW" : "W"}</small>`;
   const tile = (cls, go, ico, t, v, sub, bar) => `<button type="button" class="tdy-t ${cls}" data-go="${go}"><span class="tdy-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TDY_ICO[ico]}</svg>${t}</span><span class="tdy-v">${v}</span>${bar || ""}<span class="tdy-s">${sub}</span></button>`;
   // carica
-  const fullT = data.bank && fin(data.bank.full_t) && data.bank.full_t >= m0 ? data.bank.full_t : null;
-  const cSub = !k.on ? "nessuna batteria risponde" : (k.i > .5 ? `in carica, ${power(k.p)}` : k.i < -.5 ? `in scarica, ${power(k.p)}` : "a riposo") + ` · ${nf(k.v, 1)} V` + (fullT ? ` · piene dalle ${hm(fullT)}` : "");
+  // full_t è l'ultimo istante al pieno: «piene» finché lo sono (src 3), poi «piene fino alle» (2.64: diceva «piene dalle 14:58» col 93 % in scarica)
+  const fullT = data.bank && fin(data.bank.full_t) && data.bank.full_t >= m0 ? data.bank.full_t : null, fullNow = !!(data.bank && data.bank.src === 3);
+  const cSub = !k.on ? "nessuna batteria risponde" : (k.i > .5 ? `in carica, ${power(k.p)}` : k.i < -.5 ? `in scarica, ${power(k.p)}` : "a riposo") + ` · ${nf(k.v, 1)} V` + (fullNow ? " · piene" : fullT ? ` · piene fino alle ${hm(fullT)}` : "");
   const cBar = `<span class="tdy-bar"><i style="width:${k.on && fin(k.soc) ? clamp(k.soc, 0, 100).toFixed(0) : 0}%"></i></span>`;
   // sole
   const days = lostDays(M, now), D = days ? days[days.length - 1] : null, pvNow = L.prod;
@@ -6937,10 +6941,12 @@ function drawToday(k, f){
   const wV = !wOn ? "spenta" : wd.length ? kwh(wK) : "–";
   const wSub = !wOn ? "segnata spenta nelle impostazioni" : (ws.w !== null ? `adesso circa ${power(ws.w)}` : "adesso non stimabile") + (wd.length ? ` · ${wd.length} ${wd.length === 1 ? "ora stimata" : "ore stimate"}` : "");
   // autonomia
-  const a = k.on ? autonomy(k, f) : null, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
+  // la prima cosa che succede, la stessa di «Batterie su solare» (2.64: qui c'era sempre lo stacco dell'inverter, anche quando la scheda stacca
+  // prima alla sua soglia: «domani alle 15:00» accanto a «la scheda stacca il solare» alle 13:30 della Dashboard)
+  const P = k.on ? solarPlan(k, f) : null, a = P ? P.a : null, ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
   let aV = "–", aSub = "servono le batterie lette", aCls = "";
   if (a && a.hab) {
-    if (fin(a.at)) { aV = dur(Math.max(0, (a.at - now) / HOUR)); aSub = `stacco dell'inverter ${ora(a.at)}`; aCls = (a.at - now) / HOUR < 6 ? " warn" : ""; }
+    if (fin(P.first)) { const h = Math.max(0, (P.first - now) / HOUR); aV = dur(h); aSub = `${P.byAo ? "la scheda stacca il solare" : "stacco dell'inverter"} ${ora(Math.max(P.first, now))}`; aCls = h < 6 ? " warn" : ""; }
     else { aV = `${nf(a.min, 0)}<small>%</small>`; aSub = `non arriva allo stacco: il punto più basso ${ora(a.minAt)}`; aCls = " ok"; }
     if (!L.on) aSub += " · se la casa fosse sulle batterie";
   } else if (a && fin(a.dark)) { aV = dur(a.dark); aSub = `al buio, al consumo ${L.on ? "di adesso" : "solito"}: stima senza abitudini`; }
@@ -6948,13 +6954,18 @@ function drawToday(k, f){
   // domani (2.58): dalla previsione a 48 ore, la stessa di «Batterie, prossime 48 ore»: il sole atteso e dove arrivano le batterie
   let dV = "–", dSub = "serve la previsione: meteo impostato e almeno una settimana di registro", dCls = "";
   if (f && Array.isArray(f.t) && Array.isArray(f.mid) && Array.isArray(f.pv)) {
-    const d1 = dayAdd(m0, 1), d2 = dayAdd(m0, 2); let wh = 0, n = 0, mx = -1, fullAt = null;
+    const d1 = dayAdd(m0, 1), d2 = dayAdd(m0, 2); let wh = 0, n = 0, mx = -1, mn = 101, s0 = null, fullAt = null;
     for (let i = 0; i < f.t.length; i++) { const t = f.t[i], s1 = f.mid[i + 1]; if (t < d1 || t >= d2) continue;
       n++; wh += Math.max(0, f.pv[i] || 0);
-      if (fin(s1)) { if (s1 > mx) mx = s1; if (s1 >= 99 && fullAt === null) fullAt = t + HOUR; } }
+      if (fin(s1)) { if (s0 === null) s0 = fin(f.mid[i]) ? f.mid[i] : s1; if (s1 > mx) mx = s1; if (s1 < mn) mn = s1; if (s1 >= 99 && fullAt === null) fullAt = t + HOUR; } }
     const same = M ? kwhAhead(M, simCtx(M, now).ahead, d1, d2).pv : null;   // gli stessi kWh della scheda del meteo in Andamento
-    if (n >= 20 && mx >= 0) { dV = kwh(same !== null ? same : wh / 1000); dCls = fullAt ? " ok" : "";
-      dSub = "di sole previsto · " + (fullAt ? `batterie <b>piene</b> verso le ${hm(q15(fullAt))}` : `le batterie arrivano al <b>${nf(mx, 0)}%</b>`) + (L.on ? "" : " · con la casa com'è adesso"); }
+    // dove vanno le batterie domani (2.64): piene, o fin dove risalgono; se scendono soltanto, lo stacco di domani o il punto più basso
+    // («le batterie arrivano al 59%» era la carica di mezzanotte, in una giornata che finiva al 16% con la scheda che stacca alle 13:30)
+    if (n >= 20 && mx >= 0) { const cutT = P && fin(P.first) && P.first >= d1 && P.first < d2 ? P.first : null, down = !fullAt && mx <= s0 + 1;
+      dV = kwh(same !== null ? same : wh / 1000); dCls = fullAt ? " ok" : down && cutT !== null ? " warn" : "";
+      dSub = "di sole previsto · " + (fullAt ? `batterie <b>piene</b> verso le ${hm(q15(fullAt))}`
+        : down ? (cutT !== null ? `${P.byAo ? "la scheda stacca il solare" : "l'inverter stacca"} alle <b>${hm(q15(cutT))}</b>` : `le batterie scendono fino al <b>${nf(mn, 0)}%</b>`)
+        : `le batterie risalgono al <b>${nf(mx, 0)}%</b>`) + (L.on ? "" : " · con la casa com'è adesso"); }
   }
   // la riga in testa
   const nAl = document.querySelectorAll("#alerts > li").length, sp = f ? spareOf(f, now) : null;
