@@ -844,6 +844,8 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .ps-note{margin:10px 0 0;font-size:.76rem;color:var(--muted)}
 .ps-msg{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--muted);background:color-mix(in srgb,var(--line) 35%,transparent);font-size:.84rem}
 .ps-msg.good{border-color:var(--good)}.ps-msg.bad{border-color:var(--alert)}.ps-msg.arm{border-color:var(--warn)}.ps-msg.wait{border-color:var(--lith)}
+.ps-def{padding:10px 12px;border:1px solid var(--line);font-size:.86rem;font-family:var(--num);font-variant-numeric:tabular-nums}
+.ps-def small{display:block;margin-top:2px;font-family:inherit;font-size:.74rem;color:var(--good)}.ps-def.chg small{color:var(--warn)}
 .ps-bak{border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .ps-bak summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;font-size:.9rem;cursor:pointer;list-style:none}
 .ps-bak summary::-webkit-details-marker{display:none}
@@ -1496,9 +1498,9 @@ html.mon-open,html.mon-open body{overflow:hidden}
 .mon-g :is(.pw,.sb).chg{fill:var(--lith)}
 .mon>*{width:100%;max-width:460px;justify-self:center;box-sizing:border-box}
 .mon>*{transform:translate(var(--mx,0),var(--my,0));transition:transform 2s ease}
-.mon .volt{margin:0;max-width:460px;padding:min(1.6vh,12px) 18px;justify-content:center}
+.mon .volt{margin:0;max-width:460px;padding:min(1vh,8px) 18px;justify-content:center}
 .mon .volt .eta-txt{flex:1;min-width:0}
-.mon .volt .volt-h b{font-size:clamp(3rem,min(18vw,11vh),7rem);letter-spacing:-.02em}
+.mon .volt .volt-h b{font-size:clamp(2.2rem,min(12.5vw,7.5vh),5rem);letter-spacing:-.02em}
 .mon .volt-bar{height:9px}
 .mon .volt-bar em{width:16px;height:16px;margin:-8px 0 0 -8px}
 .mon .volt-sc{font-size:.72rem;height:14px}
@@ -1818,7 +1820,7 @@ button.tdy-top{cursor:pointer}
     <circle class="g-arc g-fill" id="mon-gf" cx="120" cy="120" r="96"/>
     <mask id="mon-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><circle class="g-arc g-mask-c" id="mon-mask-c" cx="120" cy="120" r="96"/></mask>
     <g class="g-comet" mask="url(#mon-mask)"><circle cx="120" cy="120" r="96" stroke-dasharray="64 603.2" style="--L:64px;opacity:0.07"/><circle cx="120" cy="120" r="96" stroke-dasharray="42 603.2" style="--L:42px;opacity:0.12"/><circle cx="120" cy="120" r="96" stroke-dasharray="26 603.2" style="--L:26px;opacity:0.22"/><circle cx="120" cy="120" r="96" stroke-dasharray="14 603.2" style="--L:14px;opacity:0.42"/><circle cx="120" cy="120" r="96" stroke-dasharray="6 603.2" style="--L:6px;opacity:0.9"/></g>
-    <text class="pc" id="mon-pc" x="120" y="136" text-anchor="middle" font-size="66"></text>
+    <text class="pc" id="mon-pc" x="120" y="139" text-anchor="middle" font-size="76"></text>
     <text class="pw" id="mon-pw" x="120" y="172" text-anchor="middle"></text>
     <text class="sb" id="mon-sb" x="120" y="218" text-anchor="middle"></text>
   </svg></div>
@@ -2019,7 +2021,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.73"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.74"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -5833,7 +5835,8 @@ function pvInAdv(g){
    evidenza. Dalla 2.73 (firmware 0.90, deciso dall'utente il 25/11/2026) da qui si cambiano quattro voci, sui tre regolatori insieme e solo
    da casa (POST /api/pvset: la scheda ricontrolla i limiti, scrive su tutti e tre o su nessuno e rilegge; l'esito in data.pv_set), e si
    guardano le copie che la scheda salva (GET /api/pvset quando cambia pvbak_at, da fuori casa nel pacchetto): una prima di ogni cambio,
-   le altre quando lo si chiede. Le copie si guardano soltanto. */
+   le altre quando lo si chiede. Dalla 2.74 (voluto dall'utente il 25/11/2026) il tasto è «Salva», con due conferme, e da una copia si
+   ripristinano i quattro valori: tornano nella modifica e si salvano come ogni altro cambio, con gli stessi limiti. */
 const PS_BAT = { 0: "User", 1: "Sealed", 2: "Gel", 3: "Flooded" }, PS_RATED = { 0: "Auto", 1: "12 V", 2: "24 V", 3: "36 V", 4: "48 V", 5: "60 V", 6: "110 V", 7: "120 V", 8: "220 V", 9: "240 V" };
 const psV = r => `${nf(r / 100, 2)} V`, psCell = r => `${nf(r / 1600, 3)} V per cella`, psMin = r => `${nf(r, 0)} min`;
 // [posto nei valori, nome, come si scrive, nota piccola]. Nomi e ordine sono quelli del display MT50 (2.70, voluto dall'utente): sono le
@@ -5843,8 +5846,10 @@ const PS_ROWS = [[0, "Batt Type", r => PS_BAT[r] || `Codice ${r}`], [1, "Batt AH
   [10, "Low Volt. Rect", psV], [11, "Under Volt. Rcvr", psV], [12, "Under Volt. Warn", psV], [13, "Low Volt. Disc", psV], [14, "Discharge Limit", psV], [16, "Equalize Time", psMin], [17, "Boost Time", psMin]];
 // le quattro voci che si cambiano: [chiave, posto nei valori, passo]. I limiti sono quelli della scheda (EPSET in epever.cpp), che li ricontrolla
 const PS_ED = [["boost", 7, 10], ["flt", 8, 10], ["rec", 9, 10], ["min", 17, 10]];
+// i valori di default: quelli dei tre regolatori letti il 25/11/2026, che l'utente ha voluto tenere come riferimento a cui tornare
+const PS_DEF = { boost: 5600, flt: 5540, rec: 5480, min: 180 };
 const PS_ARM_MS = 5000, PVBAK_KEY = "mybattery.pvbak";
-let psEdit = null, psArmAt = 0, psSent = null, psSaved = null, psTick = 0, psOpen = 0, PVBAK = null, pvbakSeen = null, pvbakBusy = false;
+let psEdit = null, psFrom = 0, psArmAt = 0, psArmN = 0, psSent = null, psSaved = null, psTick = 0, psOpen = 0, PVBAK = null, pvbakSeen = null, pvbakBusy = false;
 const psLim = (e, c) => ({ boost: [5520, Math.min(5680, c[4], c[3] - 10)], flt: [5360, e.boost], rec: [Math.max(5200, c[10] + 10), e.flt - 10], min: [10, 180] });
 // i valori scelti dentro i limiti: abbassando il boost scendono con lui il float e il ritorno al boost
 function psFit(e, c){ for (const [k] of PS_ED) { const [lo, hi] = psLim(e, c)[k]; e[k] = Math.max(lo, Math.min(hi, e[k])); } return e; }
@@ -5873,7 +5878,8 @@ function psTable(cfgs, names, ref){
 }
 function psPhase(){       // a che punto è il cambio partito da questo telefono: [classe, testo] o null
   const k = data && data.pv_set, me = psSent && Date.now() - psSent.t < 180e3 ? psSent : null, cap = m => m.charAt(0).toUpperCase() + m.slice(1);
-  if (psArmAt) return ["arm", `Tocca di nuovo entro ${Math.max(1, Math.ceil((PS_ARM_MS - (Date.now() - psArmAt)) / 1000))} s: i valori vanno sui tre regolatori.`];
+  if (psArmAt) { const n = Math.max(1, Math.ceil((PS_ARM_MS - (Date.now() - psArmAt)) / 1000));
+    return ["arm", psArmN < 2 ? `Salvo questi valori sui tre regolatori? Tocca «Conferma» entro ${n} s.` : `Sicuro? Tocca ancora entro ${n} s: la scheda li scrive sui tre regolatori.`]; }
   if (!me) return null;
   if (me.st === "send") return ["wait", "Mando i valori alla scheda…"];
   if (me.st === "err") return ["bad", `${cap(me.msg)}.`];
@@ -5891,18 +5897,26 @@ function psEditor(has, ph){
       `<span class="ps-step"><button type="button" data-ps="${k}" data-d="-${st}"${busy || v <= lo ? " disabled" : ""} aria-label="${NAME[k]}: meno">−</button>` +
       `<b>${f(v)}${k !== "min" ? `<small>${nf(v / 1600, 3)} V/cella</small>` : ""}</b>` +
       `<button type="button" data-ps="${k}" data-d="${st}"${busy || v >= hi ? " disabled" : ""} aria-label="${NAME[k]}: più">+</button></span></div>`; }).join("");
-  return `<div class="ps-ed"><p class="ps-ed-t">Modifica · sui tre regolatori insieme</p>${rows}` +
+  const cp = psFrom > 0 && (PVBAK || []).find(r => r[0] === psFrom), cut = cp ? PS_ED.some(([k, i]) => cp[2][i] !== psEdit[k]) : psFrom < 0 && PS_ED.some(([k]) => PS_DEF[k] !== psEdit[k]);
+  return `<div class="ps-ed"><p class="ps-ed-t">${cp ? `Ripristino · copia del ${alWhen(psFrom)}` : psFrom < 0 ? "Ripristino · valori di default" : "Modifica · sui tre regolatori insieme"}</p>${rows}` +
+    (cut ? `<p class="ps-note">Non tutti i valori della copia stanno nei limiti di adesso: quelli fuori sono al più vicino permesso.</p>` : "") +
     `<p class="ps-note">Equalize Charge segue il boost (${psV(psEdit.boost)}). Più alto è il boost, più le celle alte si avvicinano all'allarme dei BMS (3,650 V per cella).</p>` +
     (ph ? `<p class="ps-msg ${ph[0]}" aria-live="polite">${ph[1]}</p>` : "") +
     `<div class="ps-act"><button type="button" class="ps-btn" data-ps="cancel"${busy ? " disabled" : ""}>Annulla</button>` +
-    `<button type="button" class="ps-btn go${psArmAt ? " armed" : ""}" data-ps="go"${busy || !chg ? " disabled" : ""}>${psArmAt ? "Conferma" : "Cambia sui tre"}</button></div></div>`;
+    `<button type="button" class="ps-btn go${psArmAt ? " armed" : ""}" data-ps="go"${busy || !chg ? " disabled" : ""}>${psArmAt ? `Conferma ${psArmN} di 2` : "Salva"}</button></div></div>`;
 }
-function psCopies(pv, cur){
+function psCopies(pv, has, can){
+  const cur = has[0].cfg;
   const rows = (PVBAK || []).slice().reverse(), nameOf = k => { const g = pv.find(x => x.addr === k + 1); return g ? pvName(g) : `Regolatore ${k + 1}`; };
-  if (!rows.length) return `<h3>Copie salvate</h3><p class="ps-foot">Nessuna copia ancora. La scheda ne salva una da sola prima di ogni cambio.</p>`;
-  return `<h3>Copie salvate</h3>` + rows.map(r => { const [t, why] = r, [h, , chg] = psTable(r.slice(2, 5), [0, 1, 2].map(nameOf), cur);
+  const defDif = PS_ED.some(([k, i]) => has.some(g => g.cfg[i] !== PS_DEF[k]));
+  const def = `<h3>Valori di default</h3><div class="ps-def${defDif ? " chg" : ""}"><span>Boost ${psV(PS_DEF.boost)} per ${psMin(PS_DEF.min)} · Float ${psV(PS_DEF.flt)} · Boost Volt Rect ${psV(PS_DEF.rec)}` +
+    `<small>${defDif ? "i regolatori adesso sono diversi" : "i regolatori adesso sono così"}</small></span></div>` +
+    (can && defDif ? `<div class="ps-act"><button type="button" class="ps-btn" data-ps="restore" data-d="-1">Ripristina i valori di default</button></div>` : "");
+  if (!rows.length) return def + `<h3>Copie salvate</h3><p class="ps-foot">Nessuna copia ancora. La scheda ne salva una da sola prima di ogni cambio.</p>`;
+  return def + `<h3>Copie salvate</h3>` + rows.map(r => { const [t, why] = r, [h, , chg] = psTable(r.slice(2, 5), [0, 1, 2].map(nameOf), cur);
     return `<details class="ps-bak" data-t="${t}"${psOpen === t ? " open" : ""}><summary><span>${alWhen(t)}<small>${why ? "com'erano prima di un cambio" : "copia chiesta dalla app"}</small></span>` +
-      `<b class="${chg ? "chg" : ""}">${chg ? `${chg} ${chg === 1 ? "voce diversa" : "voci diverse"} da adesso` : "uguale ad adesso"}</b></summary>${h}</details>`; }).join("");
+      `<b class="${chg ? "chg" : ""}">${chg ? `${chg} ${chg === 1 ? "voce diversa" : "voci diverse"} da adesso` : "uguale ad adesso"}</b></summary>${h}` +
+      (can && PS_ED.some(([, i]) => has.some(g => g.cfg[i] !== r[2][i])) ? `<div class="ps-act"><button type="button" class="ps-btn" data-ps="restore" data-d="${t}">Ripristina questi valori</button></div>` : "") + `</details>`; }).join("");
 }
 function drawPvSet(){
   const dlg = $("pvset"); if (!dlg.open) return;
@@ -5920,8 +5934,8 @@ function drawPvSet(){
       `<small>${miss.length ? `${miss.map(g => esc(pvName(g))).join(", ")}: non ${miss.length > 1 ? "letti" : "letto"} · ` : ""}${at > 1e9 ? `letti ${dayWord(at) === "oggi" ? "" : dayWord(at) + " "}alle ${hm(at)}` : "appena letti"}</small></span></div>` +
       (psEdit ? psEditor(has, ph) : (msg ? `<p class="ps-msg ${msg[0]}" aria-live="polite">${msg[1]}</p>` : "") +
         (not ? "" : `<div class="ps-act"><button type="button" class="ps-btn" data-ps="edit">Modifica</button><button type="button" class="ps-btn" data-ps="save">Salva una copia</button></div>`)) +
-      `<h3>Control Para</h3>` + body + psCopies(pv, has[0].cfg) +
-      `<p class="ps-foot">${not || "Si cambiano Boost Charge, Float Charge, Boost Volt Rect e Boost Time, sui tre regolatori insieme e solo da casa. Le altre voci e le copie si guardano soltanto."}</p>`;
+      `<h3>Control Para</h3>` + body + psCopies(pv, has, !not && !psEdit) +
+      `<p class="ps-foot">${not || "Si cambiano Boost Charge, Float Charge, Boost Volt Rect e Boost Time, sui tre regolatori insieme e solo da casa, con «Salva» e due conferme. Prima di ogni cambio la scheda salva com'erano e tiene le ultime 16 copie: da una copia si ripristinano quei quattro valori."}</p>`;
   }
   const box = $("ps-body"); if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
 }
@@ -5933,7 +5947,12 @@ async function psPost(body){
 async function psClick(act, d){
   const [pv, has] = psGroups(); if (!has.length || psWhyNot(pv, has)) return;
   const c = has[0].cfg;
-  if (act === "edit") { psEdit = psFit({ boost: c[7], flt: c[8], rec: c[9], min: c[17] }, c); psSent = psSaved = null; }
+  if (act === "edit") { psEdit = psFit({ boost: c[7], flt: c[8], rec: c[9], min: c[17] }, c); psFrom = 0; psSent = psSaved = null; }
+  else if (act === "restore") {       // i quattro valori di una copia tornano nella modifica: poi si salvano come ogni altro cambio, con gli stessi limiti
+    const r = d < 0 ? null : (PVBAK || []).find(x => x[0] === d); if (!r && d >= 0) return;
+    psEdit = psFit(r ? { boost: r[2][7], flt: r[2][8], rec: r[2][9], min: r[2][17] } : { ...PS_DEF }, c); psFrom = d; psArmAt = 0; psSent = psSaved = null;
+    $("pvset").querySelector(".sheet").scrollTop = 0;
+  }
   else if (act === "cancel") { psEdit = null; psArmAt = 0; }
   else if (act === "save") {
     try { await psPost({ save: true }); psSaved = { t: Date.now(), ok: true, msg: "Copia salvata sulla scheda." }; pvbakSeen = null; pvbakPull(); }
@@ -5942,7 +5961,9 @@ async function psClick(act, d){
   }
   else if (act === "go") {
     if (!psEdit) return;
-    if (!psArmAt || Date.now() - psArmAt > PS_ARM_MS) { psArmAt = Date.now(); psLoop(); drawPvSet(); return; }   // primo tocco: arma
+    // Salva non scrive niente: chiede conferma due volte, e ogni conferma scade da sola (voluto dall'utente il 25/11/2026)
+    if (!psArmAt || Date.now() - psArmAt > PS_ARM_MS) { psArmAt = Date.now(); psArmN = 1; psLoop(); drawPvSet(); return; }
+    if (psArmN < 2) { psArmAt = Date.now(); psArmN = 2; psLoop(); drawPvSet(); return; }
     psArmAt = 0; const k = data.pv_set;
     psSent = { t: Date.now(), base: k && fin(k.at) ? k.at : 0, st: "send", msg: "" }; drawPvSet();
     try { await psPost({ set: { boost: psEdit.boost, float: psEdit.flt, rec: psEdit.rec, min: psEdit.min } }); psSent.st = "ok"; }
@@ -5964,7 +5985,7 @@ async function pvbakPull(){
   $("pv-cols").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".pv-col")) { e.preventDefault(); open(); } });
   $("ps-close").addEventListener("click", () => $("pvset").close());
   $("pvset").addEventListener("click", e => { if (e.target === $("pvset")) $("pvset").close(); });
-  $("pvset").addEventListener("close", () => { psEdit = null; psArmAt = 0; });
+  $("pvset").addEventListener("close", () => { psEdit = null; psArmAt = 0; psFrom = 0; });
   $("ps-body").addEventListener("click", e => { const b = e.target.closest("[data-ps]"); if (b && !b.disabled) psClick(b.dataset.ps, +b.dataset.d || 0); });
   $("ps-body").addEventListener("toggle", e => { const d = e.target; if (!d.matches || !d.matches(".ps-bak")) return; const t = +d.dataset.t; if (d.open) psOpen = t; else if (psOpen === t) psOpen = 0; drawPvSet(); }, true); }
 function drawPvIn(pv){
