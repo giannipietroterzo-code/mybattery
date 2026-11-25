@@ -2021,7 +2021,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.74"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.75"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2054,9 +2054,10 @@ const MSG = {
   INV_CUT:     ["L'inverter ha staccato", "L'ATS ha portato la casa su Enel: torna su solare quando l'inverter riparte."],
   CB_ERR:      () => ["L'interruttore segnala un errore", `Lo Shelly dopo l'inverter dice: ${cbErrText() || "errore"}.`],
   CB_AUTO:     () => ["Uscita dell'inverter spenta dalla scheda", `Le batterie erano vicine allo stacco: l'ATS ha portato la casa su Enel.${S.aoBack >= 100 ? " La riaccende col sole quando sono tutte al 100% da un'ora." : S.aoBack ? ` La riaccende col sole quando anche la più debole arriva al ${aoBase() + S.aoBack}%.` : " Riaccendila tu dal pulsante quando vuoi."}`],
-  AO_SOON:     () => { const a = data && data.ao, m = a && fin(a.eta) ? a.eta : null, B = (data && data.batteries) || [], nm = i => fin(i) && B[i] ? nameOf(B[i], i) : null;
+  AO_SOON:     () => { const a = data && data.ao, old = !!(a && a.ew === 1 && aoByV()),   // fino al firmware 0.90, con la soglia in volt, il conto sulla più debole non vale: niente minuti
+      m = a && fin(a.eta) && !old ? a.eta : null, B = (data && data.batteries) || [], nm = i => fin(i) && B[i] ? nameOf(B[i], i) : null;
     if (a && a.ew === 2 && fin(a.mvn)) return ["La scheda sta per staccare il solare", `Una cella${nm(a.mw) ? " della " + nm(a.mw) : ""} è a ${nf(a.mvn / 1000, 2)} V sotto carico: a 3,00 V la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni i carichi più forti.`];
-    if (a && a.ew === 1 && m !== null && nm(a.wk)) return ["La scheda sta per staccare il solare", `La più debole è la ${nm(a.wk)}, ${alP(a.ws)}: al consumo degli ultimi 15 minuti arriva ${alP(a.soc)} tra circa ${dur(m / 60)}, e lì le sue celle cedono: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni qualche carico.`];
+    if (a && a.ew === 1 && !old && m !== null && nm(a.wk)) return ["La scheda sta per staccare il solare", `La più debole è la ${nm(a.wk)}, ${alP(a.ws)}: al consumo degli ultimi 15 minuti arriva ${alP(a.soc)} tra circa ${dur(m / 60)}, e lì le sue celle cedono: la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel. Se vuoi restare sulle batterie, spegni qualche carico.`];
     return ["La scheda sta per staccare il solare", (m !== null ? `Al consumo degli ultimi 15 minuti le batterie arrivano ${fin(a.vs) ? `a ${nf(a.vs, 1)} V (circa ${ilP(a.soc)})` : alP(a.soc)} tra circa ${dur(m / 60)}: lì la scheda spegne l'uscita dell'inverter e l'ATS porta la casa su Enel.` : "Le batterie si avvicinano alla soglia dello spegnimento automatico.") + " Se vuoi restare sulle batterie, spegni qualche carico."]; },
   CB_BACK:     ["Uscita dell'inverter riaccesa dalla scheda", "Le batterie si sono ricaricate col sole: la casa torna sulle batterie, se l'ATS la sceglie."],
   FULL_GRID:   () => { const c = data && data.cb; return ["Batterie piene e casa su Enel", "I pannelli non hanno dove mettere l'energia e la casa la paga a Enel. " +
@@ -2989,7 +2990,11 @@ function autonomy(k, f){
    nelle 96 ore e perché (carica o tensione), e quanto prima dell'inverter. */
 // la soglia della scheda: c'è se l'automatico è acceso, anche con lo Shelly muto (2.10: con l'inverter in STOP lo Shelly non risponde e, dopo un
 // riavvio, la 0.58 non lo dichiarava più; la app credeva l'automatico assente e mostrava solo l'inverter)
-const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(a || (data && data.cb))) return null; const v = a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
+// Con la soglia in volt (ao.vs) la scheda spegne quando la tensione a riposo scende lì: la carica della soglia è quella che la curva dà a quella
+// tensione, e la batteria più debole secondo il suo BMS non conta (2.75, firmware 0.91; il 25/11/2026 l'avviso diceva «tra 0 minuti» con la Master
+// al 15% per il suo BMS e la tensione a riposo ancora un volt sopra la soglia)
+const aoByV = () => !!(data && data.ao && fin(data.ao.vs));
+const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(a || (data && data.cb))) return null; const v = aoByV() ? clamp(socAtV(a.vs), 5, 60) : a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
 /* La batteria più debole (dalla 2.03 e dal firmware 0.55; il 15/11/2026 la scheda ha spento con la media al 43% perché la Batteria 3 era al 15%):
    quella con la carica più bassa adesso, qualunque sia. Le sue celle cedono quando LEI arriva alla soglia, quindi per la media la soglia vera
    è più su: soglia + distacco tra la media e la più debole (tenuto fermo nelle simulazioni; contano solo distacchi da 2 punti, al massimo 30).
@@ -2998,7 +3003,7 @@ function aoWeak(){
   const l = ((data && data.batteries) || []).map((b, i) => ({ b, i })).filter(x => x.b.online !== false && fin(x.b.soc)); if (l.length < 2) return null;
   const k = bank(data.batteries), w = l.reduce((a, x) => x.b.soc < a.b.soc ? x : a);
   const mean = k.src === "bms" ? l.reduce((a, x) => a + x.b.soc, 0) / l.length : w.b.soc, gap = clamp(mean - w.b.soc, 0, 30);   // dalla 2.08 la carica mostrata è già la più bassa: nessun distacco
-  return { i: w.i, name: nameOf(w.b, w.i), soc: w.b.soc, gap: gap >= 2 ? gap : 0 };
+  return { i: w.i, name: nameOf(w.b, w.i), soc: w.b.soc, gap: gap >= 2 && !aoByV() ? gap : 0 };
 }
 const aoMean = () => { const l = aoLimit(), w = l ? aoWeak() : null; return l ? l + (w ? w.gap : 0) : null; };
 function aoCross(det, paths, lim){
@@ -3110,7 +3115,7 @@ function solarPlan(k, f){
   const aoD = fin(a.aoDark) ? now + a.aoDark * HOUR : null;
   let aoAt = !aoCan ? null : hab ? (a.aoff ? a.aoff.at : null) : aoD !== null && (!ev || ev.resume === null || aoD < ev.resume) ? aoD : null;
   // la scheda misura il ritmo degli ultimi 15 minuti (firmware 0.50): se dice prima delle abitudini, vale lei (è anche quella che manda l'avviso)
-  const aoHab = aoAt, aoRate = !!(aoLive && fin(ao.eta) && ao.eta < 24 * 60 && (!fin(aoAt) || now + ao.eta * 60 < aoAt));
+  const aoHab = aoAt, aoRate = !!(aoLive && fin(ao.eta) && !(ao.ew === 1 && aoByV()) && ao.eta < 24 * 60 && (!fin(aoAt) || now + ao.eta * 60 < aoAt));
   if (aoRate) aoAt = now + ao.eta * 60;
   let sunAt = null, mn = null, mnAt = null;
   if (hab) { const d = dipOf(a.mid, a.night); sunAt = d.sun !== null ? a.t[d.sun] : null; mn = a.mid[d.i]; mnAt = a.t[d.i]; }
