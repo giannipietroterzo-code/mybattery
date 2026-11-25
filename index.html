@@ -827,6 +827,31 @@ section h2{font-size:.78rem;font-weight:700;letter-spacing:.07em;text-transform:
 .ps-3 span small{display:block;font-weight:500;font-size:.66rem;color:var(--muted);max-width:5.2em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ps-3 span.odd{color:var(--warn)}.ps-3 span.odd small{color:var(--warn)}
 .ps-foot{margin:14px 0 0;font-size:.78rem;color:var(--muted)}
+.ps-row>span:first-child small,.ps-v small.now{display:block;font-size:.72rem;font-weight:500;color:var(--muted)}
+.ps-row.was .ps-v small.now,.ps-row.dif>span:first-child small.now{color:var(--warn)}
+.ps-act{display:flex;gap:10px;margin:12px 0 2px}
+.ps-btn{flex:1;min-height:46px;padding:0 10px;border:1px solid var(--lith);background:transparent;color:var(--lith);font:inherit;font-size:.82rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}
+.ps-btn.go{background:var(--lith);color:#111}
+.ps-btn:disabled{opacity:.35;cursor:default}.ps-btn:not(:disabled):active{transform:scale(.98)}
+.ps-btn.armed{background:repeating-linear-gradient(-45deg,var(--warn) 0 10px,#0d0d0d 10px 20px);background-size:28.28px 28.28px;border-color:var(--warn);color:#fff;text-shadow:0 0 4px #000,0 0 4px #000;animation:cbStripe .8s linear infinite}
+.ps-ed{margin:12px 0 4px;padding:4px 12px 12px;border:1px solid var(--lith);background:linear-gradient(180deg,color-mix(in srgb,var(--lith) 9%,transparent),transparent 70%);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+.ps-ed-t{margin:8px 0 2px;font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--lith)}
+.ps-row.ed.chg{padding-left:9px;box-shadow:inset 3px 0 0 var(--lith)}.ps-row.ed.chg .ps-step b{color:var(--lith)}
+.ps-step{flex:none;display:grid;grid-template-columns:40px minmax(5.4em,auto) 40px;align-items:center;gap:6px;text-align:center}
+.ps-step b{font-family:var(--num);font-variant-numeric:tabular-nums;color:var(--ink)}.ps-step b small{display:block;font-weight:500;font-size:.68rem;color:var(--muted)}
+.ps-step button{height:40px;padding:0;border:1px solid var(--line);background:#121212;color:var(--lith);font:700 1.3rem/1 var(--num);cursor:pointer;clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px)}
+.ps-step button:disabled{opacity:.28;cursor:default}.ps-step button:not(:disabled):active{background:var(--lith);color:#111}
+.ps-note{margin:10px 0 0;font-size:.76rem;color:var(--muted)}
+.ps-msg{margin:10px 0 0;padding:8px 10px;border-left:3px solid var(--muted);background:color-mix(in srgb,var(--line) 35%,transparent);font-size:.84rem}
+.ps-msg.good{border-color:var(--good)}.ps-msg.bad{border-color:var(--alert)}.ps-msg.arm{border-color:var(--warn)}.ps-msg.wait{border-color:var(--lith)}
+.ps-bak{border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.ps-bak summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;font-size:.9rem;cursor:pointer;list-style:none}
+.ps-bak summary::-webkit-details-marker{display:none}
+.ps-bak summary::before{content:"";flex:none;width:7px;height:7px;border-right:2px solid var(--lith);border-bottom:2px solid var(--lith);transform:rotate(-45deg);transition:transform .15s}
+.ps-bak[open] summary::before{transform:rotate(45deg)}
+.ps-bak summary span{flex:1;min-width:0}.ps-bak summary small{display:block;font-size:.72rem;color:var(--muted)}
+.ps-bak summary b{flex:none;font-size:.74rem;font-weight:600;color:var(--muted);text-align:right}.ps-bak summary b.chg{color:var(--warn)}
+.ps-bak[open]{padding-bottom:8px}.ps-bak .ps-row{padding-left:19px;font-size:.84rem}
 
 .notice{border-radius:14px}
 
@@ -1994,7 +2019,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.72"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.73"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -3626,6 +3651,7 @@ async function remApply(b, fresh){
   remCfgTake(b);
   if (b.voc && !(fin(b.t) && b.t < remCmdAt)) vocTake(b.voc);
   if (Array.isArray(b.full)) fullTake(b.full);   // l'archivio dei pieni (firmware 0.78)
+  if (Array.isArray(b.pvbak)) pvbakTake(b.pvbak);   // le copie delle impostazioni dei regolatori (firmware 0.90)
   if (Array.isArray(b.wpk)) wpkTake(b.wpk);   // il picco della pala per quarto d'ora (firmware 0.63)
   fcCap = fin(b.s.fc_last);
   if (fresh && Array.isArray(b.log)) { const rows = b.log.filter(validRow); if (rows.length) await db.put(rows); logSrc = ""; await realLog(); relearn(); }
@@ -5804,41 +5830,143 @@ function pvInAdv(g){
 /* ---------- lo specchietto delle impostazioni dei regolatori (2.69, firmware 0.89; voluto dall'utente il 24/11/2026). La scheda legge da ogni
    Epever le impostazioni di carica (pv[].cfg: 18 valori come stanno nei registri, tensioni in centesimi di volt; 65535 = non letto) e qui
    si vedono una volta sola: una riga per voce col valore comune, e dove un regolatore è diverso i tre valori con quello fuori posto in
-   evidenza. Per ora si guarda soltanto: la scheda agli Epever manda solo letture. */
+   evidenza. Dalla 2.73 (firmware 0.90, deciso dall'utente il 25/11/2026) da qui si cambiano quattro voci, sui tre regolatori insieme e solo
+   da casa (POST /api/pvset: la scheda ricontrolla i limiti, scrive su tutti e tre o su nessuno e rilegge; l'esito in data.pv_set), e si
+   guardano le copie che la scheda salva (GET /api/pvset quando cambia pvbak_at, da fuori casa nel pacchetto): una prima di ogni cambio,
+   le altre quando lo si chiede. Le copie si guardano soltanto. */
 const PS_BAT = { 0: "User", 1: "Sealed", 2: "Gel", 3: "Flooded" }, PS_RATED = { 0: "Auto", 1: "12 V", 2: "24 V", 3: "36 V", 4: "48 V", 5: "60 V", 6: "110 V", 7: "120 V", 8: "220 V", 9: "240 V" };
 const psV = r => `${nf(r / 100, 2)} V`, psCell = r => `${nf(r / 1600, 3)} V per cella`, psMin = r => `${nf(r, 0)} min`;
 // [posto nei valori, nome, come si scrive, nota piccola]. Nomi e ordine sono quelli del display MT50 (2.70, voluto dall'utente): sono le
 // scritte che conosce, e quelle che ritroverà sul display se lo ricollega
-const PS_ROWS = [["Control Para", [[0, "Batt Type", r => PS_BAT[r] || `Codice ${r}`], [1, "Batt AH", r => `${nf(r, 0)} Ah`], [2, "Temp Comp Coeff", r => `${r ? "−" : ""}${nf(r / 100, 2)} mV/°C/2V`], [15, "Rated Voltage", r => PS_RATED[r] || `Codice ${r}`],
+const PS_ROWS = [[0, "Batt Type", r => PS_BAT[r] || `Codice ${r}`], [1, "Batt AH", r => `${nf(r, 0)} Ah`], [2, "Temp Comp Coeff", r => `${r ? "−" : ""}${nf(r / 100, 2)} mV/°C/2V`], [15, "Rated Voltage", r => PS_RATED[r] || `Codice ${r}`],
   [3, "Over Volt. Disc", psV, psCell], [4, "Charge Limit", psV, psCell], [5, "Over Volt. Rect", psV, psCell], [6, "Equalize Charge", psV, psCell], [7, "Boost Charge", psV, psCell], [8, "Float Charge", psV, psCell], [9, "Boost Volt Rect", psV, psCell],
-  [10, "Low Volt. Rect", psV], [11, "Under Volt. Rcvr", psV], [12, "Under Volt. Warn", psV], [13, "Low Volt. Disc", psV], [14, "Discharge Limit", psV], [16, "Equalize Time", psMin], [17, "Boost Time", psMin]]]];
+  [10, "Low Volt. Rect", psV], [11, "Under Volt. Rcvr", psV], [12, "Under Volt. Warn", psV], [13, "Low Volt. Disc", psV], [14, "Discharge Limit", psV], [16, "Equalize Time", psMin], [17, "Boost Time", psMin]];
+// le quattro voci che si cambiano: [chiave, posto nei valori, passo]. I limiti sono quelli della scheda (EPSET in epever.cpp), che li ricontrolla
+const PS_ED = [["boost", 7, 10], ["flt", 8, 10], ["rec", 9, 10], ["min", 17, 10]];
+const PS_ARM_MS = 5000, PVBAK_KEY = "mybattery.pvbak";
+let psEdit = null, psArmAt = 0, psSent = null, psSaved = null, psTick = 0, psOpen = 0, PVBAK = null, pvbakSeen = null, pvbakBusy = false;
+const psLim = (e, c) => ({ boost: [5520, Math.min(5680, c[4], c[3] - 10)], flt: [5360, e.boost], rec: [Math.max(5200, c[10] + 10), e.flt - 10], min: [10, 180] });
+// i valori scelti dentro i limiti: abbassando il boost scendono con lui il float e il ritorno al boost
+function psFit(e, c){ for (const [k] of PS_ED) { const [lo, hi] = psLim(e, c)[k]; e[k] = Math.max(lo, Math.min(hi, e[k])); } return e; }
+const psGroups = () => { const pv = data && Array.isArray(data.pv) ? data.pv.slice().sort((a, b) => pvPos(a) - pvPos(b)) : []; return [pv, pv.filter(g => Array.isArray(g.cfg) && g.cfg.length >= 18)]; };
+// perché da qui non si può cambiare, o "" se si può
+function psWhyNot(pv, has){
+  if (mode !== "live") return mode === "remote" || mode === "stale" ? "Da fuori casa si guarda soltanto: i valori si cambiano da casa, sulla rete della scheda." : "";
+  if (!(parseFloat(data.fw) >= .9)) return "Per cambiare i valori serve il firmware 0.90 della scheda.";
+  if (pv.length !== 3 || has.length !== 3 || pv.some(g => !g.online)) return "Per cambiare i valori servono tutti e tre i regolatori in linea e letti.";
+  if (has.some(g => g.cfg[0] !== 0 || g.cfg[15] !== 4 || g.cfg[17] === 65535)) return "I valori si cambiano solo su regolatori a 48 V col Batt Type «User».";
+  return "";
+}
+// la tabella delle voci di tre (o meno) regolatori; ref: i valori di adesso, per dire nelle copie dove sono cambiati. Torna [righe, quante diverse fra loro, quante diverse da ref]
+function psTable(cfgs, names, ref){
+  let dif = 0, chg = 0;
+  const h = PS_ROWS.map(([i, name, fmt, note]) => {
+    const vals = cfgs.map(c => c[i]), read = vals.filter(v => v !== 65535);
+    if (!read.length) return `<div class="ps-row"><span>${name}</span><span class="ps-v">–</span></div>`;
+    const cnt = v => vals.filter(x => x === v).length, top = Math.max(...vals.map(cnt)), same = vals.every(v => v === vals[0]);
+    const was = ref && ref[i] !== 65535 && vals.some(v => v !== 65535 && v !== ref[i]) ? (chg++, `<small class="now">ora ${fmt(ref[i])}</small>`) : "";
+    if (same) return `<div class="ps-row${was ? " was" : ""}"><span>${name}</span><span class="ps-v">${fmt(vals[0])}${was || (note ? `<small>${note(vals[0])}</small>` : "")}</span></div>`;
+    dif++;
+    return `<div class="ps-row dif"><span>${name}${was}</span><span class="ps-3">${cfgs.map((c, k) => `<span${cnt(vals[k]) < top || top === 1 ? ' class="odd"' : ""}>${vals[k] === 65535 ? "–" : fmt(vals[k])}<small>${esc(names[k])}</small></span>`).join("")}</span></div>`;
+  }).join("");
+  return [h, dif, chg];
+}
+function psPhase(){       // a che punto è il cambio partito da questo telefono: [classe, testo] o null
+  const k = data && data.pv_set, me = psSent && Date.now() - psSent.t < 180e3 ? psSent : null, cap = m => m.charAt(0).toUpperCase() + m.slice(1);
+  if (psArmAt) return ["arm", `Tocca di nuovo entro ${Math.max(1, Math.ceil((PS_ARM_MS - (Date.now() - psArmAt)) / 1000))} s: i valori vanno sui tre regolatori.`];
+  if (!me) return null;
+  if (me.st === "send") return ["wait", "Mando i valori alla scheda…"];
+  if (me.st === "err") return ["bad", `${cap(me.msg)}.`];
+  const r = k && k.at > me.base ? k : null;
+  if (!r || r.st === 1) return ["wait", "La scheda scrive sui tre regolatori e li rilegge…"];
+  if (r.st === 2) return ["good", `Fatto alle ${hm(r.at)}: i tre regolatori riletti coi valori nuovi. La scheda ha salvato una copia di com'erano.`];
+  return ["bad", `Non riuscito alle ${hm(r.at)}. ${cap(r.msg || "la scheda non l'ha eseguito")}.`];
+}
+function psEditor(has, ph){
+  const c = has[0].cfg, lim = psLim(psEdit, c), busy = ph && ph[0] === "wait", fmt = { boost: psV, flt: psV, rec: psV, min: psMin };
+  const NAME = { boost: "Boost Charge", flt: "Float Charge", rec: "Boost Volt Rect", min: "Boost Time" };
+  const chg = PS_ED.some(([k, i]) => has.some(g => g.cfg[i] !== psEdit[k]));
+  const rows = PS_ED.map(([k, i, st]) => { const v = psEdit[k], [lo, hi] = lim[k], old = c[i], f = fmt[k];
+    return `<div class="ps-row ed${v !== old ? " chg" : ""}"><span>${NAME[k]}<small>${v !== old ? `era ${f(old)} · ` : ""}da ${f(lo).replace(/ \S+$/, "")} a ${f(hi)}</small></span>` +
+      `<span class="ps-step"><button type="button" data-ps="${k}" data-d="-${st}"${busy || v <= lo ? " disabled" : ""} aria-label="${NAME[k]}: meno">−</button>` +
+      `<b>${f(v)}${k !== "min" ? `<small>${nf(v / 1600, 3)} V/cella</small>` : ""}</b>` +
+      `<button type="button" data-ps="${k}" data-d="${st}"${busy || v >= hi ? " disabled" : ""} aria-label="${NAME[k]}: più">+</button></span></div>`; }).join("");
+  return `<div class="ps-ed"><p class="ps-ed-t">Modifica · sui tre regolatori insieme</p>${rows}` +
+    `<p class="ps-note">Equalize Charge segue il boost (${psV(psEdit.boost)}). Più alto è il boost, più le celle alte si avvicinano all'allarme dei BMS (3,650 V per cella).</p>` +
+    (ph ? `<p class="ps-msg ${ph[0]}" aria-live="polite">${ph[1]}</p>` : "") +
+    `<div class="ps-act"><button type="button" class="ps-btn" data-ps="cancel"${busy ? " disabled" : ""}>Annulla</button>` +
+    `<button type="button" class="ps-btn go${psArmAt ? " armed" : ""}" data-ps="go"${busy || !chg ? " disabled" : ""}>${psArmAt ? "Conferma" : "Cambia sui tre"}</button></div></div>`;
+}
+function psCopies(pv, cur){
+  const rows = (PVBAK || []).slice().reverse(), nameOf = k => { const g = pv.find(x => x.addr === k + 1); return g ? pvName(g) : `Regolatore ${k + 1}`; };
+  if (!rows.length) return `<h3>Copie salvate</h3><p class="ps-foot">Nessuna copia ancora. La scheda ne salva una da sola prima di ogni cambio.</p>`;
+  return `<h3>Copie salvate</h3>` + rows.map(r => { const [t, why] = r, [h, , chg] = psTable(r.slice(2, 5), [0, 1, 2].map(nameOf), cur);
+    return `<details class="ps-bak" data-t="${t}"${psOpen === t ? " open" : ""}><summary><span>${alWhen(t)}<small>${why ? "com'erano prima di un cambio" : "copia chiesta dalla app"}</small></span>` +
+      `<b class="${chg ? "chg" : ""}">${chg ? `${chg} ${chg === 1 ? "voce diversa" : "voci diverse"} da adesso` : "uguale ad adesso"}</b></summary>${h}</details>`; }).join("");
+}
 function drawPvSet(){
   const dlg = $("pvset"); if (!dlg.open) return;
-  const pv = data && Array.isArray(data.pv) ? data.pv.slice().sort((a, b) => pvPos(a) - pvPos(b)) : [], has = pv.filter(g => Array.isArray(g.cfg) && g.cfg.length >= 18);
+  const [pv, has] = psGroups();
   let h;
   if (!has.length) h = `<p class="ps-foot">${!isReal() ? "Con la scheda collegata qui compaiono le impostazioni lette dai regolatori." : parseFloat(data.fw) >= .89 ? "La scheda non le ha ancora lette: arrivano entro dieci minuti dall'avvio, coi regolatori che rispondono." : "Serve il firmware 0.89 della scheda."}</p>`;
   else {
-    let dif = 0;
-    const body = PS_ROWS.map(([sec, rows]) => `<h3>${sec}</h3>` + rows.map(([i, name, fmt, note]) => {
-      const vals = has.map(g => g.cfg[i]), read = vals.filter(v => v !== 65535);
-      if (!read.length) return `<div class="ps-row"><span>${name}</span><span class="ps-v">–</span></div>`;
-      const cnt = v => vals.filter(x => x === v).length, top = Math.max(...vals.map(cnt)), same = vals.every(v => v === vals[0]);
-      if (same) return `<div class="ps-row"><span>${name}</span><span class="ps-v">${fmt(vals[0])}${note ? `<small>${note(vals[0])}</small>` : ""}</span></div>`;
-      dif++;
-      return `<div class="ps-row dif"><span>${name}</span><span class="ps-3">${has.map((g, k) => `<span${cnt(vals[k]) < top || top === 1 ? ' class="odd"' : ""}>${vals[k] === 65535 ? "–" : fmt(vals[k])}<small>${esc(pvName(g))}</small></span>`).join("")}</span></div>`;
-    }).join("")).join("");
+    const not = psWhyNot(pv, has), ph = psPhase();
+    if (psArmAt && Date.now() - psArmAt > PS_ARM_MS) psArmAt = 0;
+    if (psEdit && (not || (ph && ph[0] === "good" && !psSent.done))) { psEdit = null; psArmAt = 0; if (psSent) psSent.done = true; }   // fatto, o non si può più: si esce dalla modifica
+    const [body, dif] = psTable(has.map(g => g.cfg), has.map(pvName));
     const miss = pv.filter(g => !has.includes(g)), at = Math.min(...has.map(g => g.cfg_at || 0));
+    const sv = psSaved && Date.now() - psSaved.t < 20e3 ? psSaved : null, msg = sv && !(psArmAt || (psSent && psSent.t > sv.t)) ? [sv.ok ? "good" : "bad", sv.msg] : ph;   // la più recente fra la copia e il cambio
     h = `<div class="ps-sum${dif || miss.length ? " dif" : ""}"><i></i><span>${dif ? `<b>${dif} ${dif === 1 ? "valore diverso" : "valori diversi"}</b> fra i regolatori` : `<b>${has.length === 1 ? esc(pvName(has[0])) : has.length === pv.length ? "Tutti uguali" : "Uguali"}</b>${has.length > 1 ? ` · ${has.map(g => esc(pvName(g))).join(", ")}` : ""}`}` +
       `<small>${miss.length ? `${miss.map(g => esc(pvName(g))).join(", ")}: non ${miss.length > 1 ? "letti" : "letto"} · ` : ""}${at > 1e9 ? `letti ${dayWord(at) === "oggi" ? "" : dayWord(at) + " "}alle ${hm(at)}` : "appena letti"}</small></span></div>` +
-      body + `<p class="ps-foot">Sola lettura: da qui per ora non si cambia niente.</p>`;
+      (psEdit ? psEditor(has, ph) : (msg ? `<p class="ps-msg ${msg[0]}" aria-live="polite">${msg[1]}</p>` : "") +
+        (not ? "" : `<div class="ps-act"><button type="button" class="ps-btn" data-ps="edit">Modifica</button><button type="button" class="ps-btn" data-ps="save">Salva una copia</button></div>`)) +
+      `<h3>Control Para</h3>` + body + psCopies(pv, has[0].cfg) +
+      `<p class="ps-foot">${not || "Si cambiano Boost Charge, Float Charge, Boost Volt Rect e Boost Time, sui tre regolatori insieme e solo da casa. Le altre voci e le copie si guardano soltanto."}</p>`;
   }
   const box = $("ps-body"); if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; }
 }
-{ const open = () => { const d = $("pvset"); if (d.showModal) d.showModal(); else d.setAttribute("open", ""); drawPvSet(); d.querySelector(".sheet").scrollTop = 0; };
+function psLoop(){ clearInterval(psTick); psTick = setInterval(() => { drawPvSet(); if (!psArmAt || !$("pvset").open) clearInterval(psTick); }, 500); }
+async function psPost(body){
+  const r = await bFetch("/api/pvset", { method: "POST", headers: { "Content-Type": "application/json", "X-MyBattery": "1" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({})); if (!j.ok) throw new Error(j.msg || "la scheda non risponde");
+}
+async function psClick(act, d){
+  const [pv, has] = psGroups(); if (!has.length || psWhyNot(pv, has)) return;
+  const c = has[0].cfg;
+  if (act === "edit") { psEdit = psFit({ boost: c[7], flt: c[8], rec: c[9], min: c[17] }, c); psSent = psSaved = null; }
+  else if (act === "cancel") { psEdit = null; psArmAt = 0; }
+  else if (act === "save") {
+    try { await psPost({ save: true }); psSaved = { t: Date.now(), ok: true, msg: "Copia salvata sulla scheda." }; pvbakSeen = null; pvbakPull(); }
+    catch (e) { psSaved = { t: Date.now(), ok: false, msg: `Copia non salvata: ${e.message}.` }; }
+    setTimeout(drawPvSet, 20500);
+  }
+  else if (act === "go") {
+    if (!psEdit) return;
+    if (!psArmAt || Date.now() - psArmAt > PS_ARM_MS) { psArmAt = Date.now(); psLoop(); drawPvSet(); return; }   // primo tocco: arma
+    psArmAt = 0; const k = data.pv_set;
+    psSent = { t: Date.now(), base: k && fin(k.at) ? k.at : 0, st: "send", msg: "" }; drawPvSet();
+    try { await psPost({ set: { boost: psEdit.boost, float: psEdit.flt, rec: psEdit.rec, min: psEdit.min } }); psSent.st = "ok"; }
+    catch (e) { psSent.st = "err"; psSent.msg = e.message; }
+  }
+  else if (psEdit && act in psEdit) { psEdit[act] += d; psFit(psEdit, c); psArmAt = 0; if (psSent && psSent.st === "err") psSent = null; }
+  drawPvSet();
+}
+const pvbakOk = r => Array.isArray(r) && r.length >= 5 && fin(r[0]) && [2, 3, 4].every(i => Array.isArray(r[i]) && r[i].length >= 18);
+function pvbakTake(rows){ if (!Array.isArray(rows)) return; PVBAK = rows.filter(pvbakOk).sort((a, b) => a[0] - b[0]); lsSet(PVBAK_KEY, PVBAK); }
+async function pvbakPull(){
+  if (pvbakBusy || mode !== "live" || !data || !("pvbak_at" in data) || data.pvbak_at === pvbakSeen) return;
+  pvbakBusy = true;
+  try { const j = await (await bFetch("/api/pvset", { cache: "no-store" })).json(); pvbakSeen = data.pvbak_at; pvbakTake(j.rows); drawPvSet(); } catch (e) {}
+  pvbakBusy = false;
+}
+{ const open = () => { const d = $("pvset"); if (PVBAK === null) PVBAK = lsGet(PVBAK_KEY) || []; if (d.showModal) d.showModal(); else d.setAttribute("open", ""); drawPvSet(); d.querySelector(".sheet").scrollTop = 0; };
   $("pv-cols").addEventListener("click", e => { if (e.target.closest(".pv-col")) open(); });
   $("pv-cols").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".pv-col")) { e.preventDefault(); open(); } });
   $("ps-close").addEventListener("click", () => $("pvset").close());
-  $("pvset").addEventListener("click", e => { if (e.target === $("pvset")) $("pvset").close(); }); }
+  $("pvset").addEventListener("click", e => { if (e.target === $("pvset")) $("pvset").close(); });
+  $("pvset").addEventListener("close", () => { psEdit = null; psArmAt = 0; });
+  $("ps-body").addEventListener("click", e => { const b = e.target.closest("[data-ps]"); if (b && !b.disabled) psClick(b.dataset.ps, +b.dataset.d || 0); });
+  $("ps-body").addEventListener("toggle", e => { const d = e.target; if (!d.matches || !d.matches(".ps-bak")) return; const t = +d.dataset.t; if (d.open) psOpen = t; else if (psOpen === t) psOpen = 0; drawPvSet(); }, true); }
 function drawPvIn(pv){
   const box = $("pv-in"); if (!box) return;
   const sec = $("pvin-sec"); sec.hidden = !data || !fin(data.pv_off);
@@ -6085,7 +6213,7 @@ function balBox(bs){
 }
 function drawCellH(){
   const box = $("cellh"); if (!box || !data) return;
-  fullPull();
+  fullPull(); pvbakPull();
   const bs = data.batteries || [], all = fullRows(), rows = all.slice(-12);
   if (!rows.length) { box.innerHTML = limBox(bs, null) + balBox(bs) + `<p class="vocw-empty">${isReal() && !("full_at" in data) ? "Arriva col firmware 0.78: a ogni pieno la scheda segna quanto sono lontane le celle di ogni batteria." : "Si riempie al prossimo pieno: la scheda segna quanto sono lontane le celle di ogni batteria in cima alla carica, e qui si vede se col tempo si avvicinano."}</p>`; return; }
   const last = rows[rows.length - 1], lim = S.alDiff || 80, sprd = (r, a) => r[3][a] && r[3][a][0] > 0 ? r[3][a][0] - r[3][a][1] : null;
