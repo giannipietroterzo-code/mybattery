@@ -1487,6 +1487,7 @@ html.mon-open,html.mon-open body{overflow:hidden}
 .mon-clk{margin-left:auto;font:600 clamp(1rem,min(5vw,4vh),1.5rem) var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .mon-clk.old{color:var(--alert)}
 .mon-x{flex:none;width:40px;height:40px;display:grid;place-items:center;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);cursor:pointer}
+.mon-x:focus,.mon-x:focus-visible{outline:none}   /* all'apertura del Monitor il fuoco va qui (per uscire con Invio): niente cornice intorno, su uno schermo sempre acceso resterebbe lì (2.78, voluto dall'utente) */
 .mon-g{position:relative;min-height:0}
 .mon-g svg{position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible}   /* sempre dentro la sua riga: le scritte sotto l'arco non finiscono sotto il riquadro della tensione */
 .mon-g .g-fill{filter:drop-shadow(0 0 6px color-mix(in srgb,currentColor 55%,transparent));color:var(--lith)}
@@ -2029,7 +2030,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.77"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.78"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
