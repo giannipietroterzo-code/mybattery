@@ -1346,7 +1346,7 @@ footer{border-top:0;padding-top:0}
 .brd-boots{list-style:none;margin:4px 0 0;padding:0}
 .brd-boots li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:.8rem}
 .brd-boots time{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.brd-boots span{text-align:right;color:var(--ink)}.brd-boots li.g span{color:var(--warn);font-weight:600}.brd-boots li.e span{color:var(--alert);font-weight:600}
+.brd-boots span{text-align:right;color:var(--ink)}.brd-boots span small{display:block;margin-top:2px;font-weight:400;font-size:.72rem;color:var(--muted)}.brd-boots li.g span{color:var(--warn);font-weight:600}.brd-boots li.e span{color:var(--alert);font-weight:600}
 .brd h4{margin:16px 0 0;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .inv-empty{margin:6px 0 2px;font-size:.84rem;color:var(--muted);line-height:1.45}.inv-empty b{color:var(--ink)}
 [data-mecha] .inv-big b,[data-mecha] .inv-ring text{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed",Arial,sans-serif}
@@ -2021,7 +2021,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.75"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.76"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -7483,6 +7483,25 @@ function fillInvNote(){
    (data.crash) e gli ultimi avvii (data.boots = [quando, motivo di esp_reset_reason]). Si ridisegna a ogni lettura, solo con le Impostazioni aperte */
 const GUARD_HEAP = 16384, GUARD_WHY = { 2: "da mezz'ora non riusciva a mandare dati", 3: "la memoria era quasi finita", 4: "in 6 ore non si era mai collegata" };
 const BOOT_WHY = { 1: "accensione", 3: "riavvio voluto", 4: "errore del firmware", 5: "bloccata: watchdog", 6: "bloccata: watchdog", 7: "bloccata: watchdog", 9: "calo di tensione" };
+/* Il rientro nella rete del router (2.76, firmware 0.92): data.net = {up, n, r, b: [[ora dell'avvio, motivo dell'avvio, durata dell'avvio in decimi
+   di secondo, secondi fino al primo indirizzo o null, tentativi, rifiuti, [ultimi motivi, il più recente davanti], associazioni senza indirizzo,
+   segnale del router nell'ultima ricerca (0 mai cercato, 1 non visto), canale, telefoni sulla rete «MyBattery» al primo tentativo, volte che ha
+   rifatto la parte «router», volte che l'ha persa, secondi senza router], …]}, l'avvio di adesso per primo. Il 25/11/2026 la scheda è rimasta
+   fuori dal router per ore dopo un riavvio e il motivo non era scritto da nessuna parte: qui si legge, anche dal Monitor sulla rete «MyBattery». */
+const NET_WHY = { 2: "autenticazione scaduta", 4: "tolta per inattività", 5: "troppi dispositivi sul router", 6: "non autenticata", 7: "non associata", 15: "scambio delle chiavi scaduto",
+  23: "autenticazione 802.1X fallita", 200: "segnale del router perso", 201: "router non trovato", 202: "password rifiutata", 203: "associazione rifiutata", 204: "scambio delle chiavi scaduto",
+  205: "collegamento non riuscito", 254: "associata ma senza indirizzo dal router", 255: "nessuna risposta in 30 secondi" };
+const netWhy = r => NET_WHY[r] || `motivo ${r}`;
+function netOf(d){ const n = d && d.net; return n && Array.isArray(n.b) && n.b.length && Array.isArray(n.b[0]) ? n : null; }
+// una riga per avvio: quanto ci ha messo a entrare e, se ha faticato, perché
+function netLine(b){
+  const [, , , join, tries, nRef, ref, assoc, seen, ch, apN, resets, drops, out] = b, why = Array.isArray(ref) && ref.length ? [...new Set(ref)].map(netWhy).join(", ") : "";
+  const sig = seen < 0 ? `router visto a ${nf(seen, 0).replace("-", "−")} dBm${ch ? " sul canale " + ch : ""}` : seen === 1 ? "router non visto nella ricerca" : "";
+  const extra = [nRef ? `${nRef} ${nRef === 1 ? "rifiuto" : "rifiuti"}: ${why}` : "", nRef && sig ? sig : "", resets ? `parte «router» rifatta ${resets} ${resets === 1 ? "volta" : "volte"}` : "",
+    nRef && apN ? `${apN} ${apN === 1 ? "telefono" : "telefoni"} sulla rete «MyBattery»` : "", drops ? `persa ${drops} ${drops === 1 ? "volta" : "volte"}` : ""].filter(Boolean).join(" · ");
+  const slow = join === null || join > 120 || nRef > 0;
+  return { slow, t: join === null ? `non ancora entrata, ${tries} ${tries === 1 ? "tentativo" : "tentativi"}${fin(out) && out > 0 ? ", fuori da " + dur(out / 3600) : ""}` : `entrata in ${join < 90 ? join + " s" : dur(join / 3600)}${tries > 1 ? `, al ${tries}º tentativo` : ""}`, extra };
+}
 function drawBoard(){
   const box = $("brd"), dlg = $("settings"); if (!box || !dlg || !dlg.open) return;
   const d = data || {}, now = nowOf(d), kB = v => nf(v / 1024, v < 10240 ? 1 : 0), dmh = t => `${new Date(t * 1000).toLocaleDateString("it-IT", { day: "numeric", month: "numeric" })} alle ${hm(t)}`;
@@ -7493,8 +7512,10 @@ function drawBoard(){
   const wd = Array.isArray(d.wd) && d.wd[2] > 0 ? d.wd : null, hasWd = parseFloat(d.fw) >= .86, min = fin(d.heap_min) ? d.heap_min : null;
   const wdNew = wd && fin(wd[0]) && wd[0] > 0 && now - wd[0] < 7 * DAY, low = min !== null && min < GUARD_HEAP / 2, lowNow = d.heap < GUARD_HEAP * 2;   // il minimo è di un istante (uno scarico, un avvio): stretta solo sotto metà soglia
   const crash = d.crash && fin(d.crash.t) ? d.crash : null, crashNew = crash && now - crash.t < 7 * DAY && crash.fw === d.fw;
+  const net = netOf(d), nl = net ? netLine(net.b[0]) : null;
   // lo stato in una riga: la cosa più seria
   const head = lowNow ? top("warn", "Memoria quasi finita", `${kB(d.heap)} kB liberi adesso: sotto ${kB(GUARD_HEAP)} kB per 5 minuti la scheda si riavvia da sola`)
+    : net && net.up === false ? top("warn", "Fuori dalla rete del router", `${netLine(net.b[0]).t}${fin(net.r) && net.r ? ": " + netWhy(net.r) : ""} · senza router niente internet e niente Shelly`)
     : wdNew ? top("warn", `Si è riavviata da sola il ${dmh(wd[0])}`, `${GUARD_WHY[wd[1]] || "motivo " + wd[1]}${wd[2] > 1 ? ` · ${wd[2]} volte in tutto` : ""}`)
     : crashNew ? top("warn", `Errore del firmware il ${dmh(crash.t)}`, "la scheda è ripartita da sola: il dettaglio è qui sotto")
     : low ? top("warn", "Memoria stretta dall'ultimo avvio", `è scesa fino a ${kB(min)} kB: adesso ne ha ${kB(d.heap)} e lavora regolare`)
@@ -7515,12 +7536,17 @@ function drawBoard(){
     row("Riavvii del guardiano", !hasWd ? "dal firmware 0.86" : wd ? `${nf(wd[2], 0)} <small>· ultimo ${wd[0] > 0 ? "il " + dmh(wd[0]) : "senza l'ora"}: ${GUARD_WHY[wd[1]] || "motivo " + wd[1]}</small>` : "mai", !hasWd ? "" : wd ? "bad" : "ok") +
     row("Ultimo errore del firmware", crash ? `${dmh(crash.t)} <small>· firmware ${esc(crash.fw || "?")}${crash.task ? ", compito " + esc(crash.task) : ""}</small>` : "nessuno", crashNew ? "bad" : crash ? "" : "ok") +
     (fin(d.rssi) ? row("WiFi verso il router", `${nf(d.rssi, 0).replace("-", "−")} dBm`, d.rssi < -80 ? "bad" : "") : "") +
+    (nl ? row("Rientro nel router a questo avvio", `${nl.t}${nl.extra ? ` <small>· ${nl.extra}</small>` : ""}`, nl.slow ? "bad" : "ok") : parseFloat(d.fw) >= .92 ? "" : row("Rientro nel router", "dal firmware 0.92", "")) +
     (Array.isArray(d.tls_bad) && d.tls_bad[0] > 0 ? row("Chiusure di rete anomale", nf(d.tls_bad[0], 0), "bad") : "") + `</dl>`;
   // gli avvii: quello subito dopo un riavvio del guardiano porta il suo motivo
   const bs = Array.isArray(d.boots) ? d.boots.filter(b => Array.isArray(b) && fin(b[0]) && b[0] > 0) : [];
   const boots = bs.length ? `<h4>Ultimi avvii</h4><ul class="brd-boots">` + bs.map(b => { const g = wd && wd[0] > 0 && b[1] === 3 && b[0] >= wd[0] && b[0] - wd[0] < 180, e = b[1] === 4 || (b[1] >= 5 && b[1] <= 7);
     return `<li class="${g ? "g" : e ? "e" : ""}"><time>${dmh(b[0])}</time><span>${g ? "guardiano: " + (GUARD_WHY[wd[1]] || "motivo " + wd[1]) : BOOT_WHY[b[1]] || "motivo " + b[1]}</span></li>`; }).join("") + `</ul>` : "";
-  set(head + mem + list + boots +
+  // il rientro nel router avvio per avvio: in evidenza quelli in cui ha faticato
+  const nb = net ? net.b.filter(b => Array.isArray(b) && fin(b[0]) && b[0] > 0) : [];
+  const nets = nb.length ? `<h4>Rientri nella rete del router</h4><ul class="brd-boots">` + nb.map(b => { const l = netLine(b);
+    return `<li class="${l.slow ? "e" : ""}"><time>${dmh(b[0])}</time><span>${l.t}${l.extra ? `<small>${l.extra}</small>` : ""}</span></li>`; }).join("") + `</ul>` : "";
+  set(head + mem + list + boots + nets +
     `<p class="set-note">La memoria interna serve alla rete: se resta sotto ${kB(GUARD_HEAP)} kB per 5 minuti, o se la scheda non riesce a mandare dati per mezz'ora, si riavvia da sola e manda una notifica. «Riavvio voluto» è un aggiornamento, un comando o il guardiano; «accensione» è la corrente che torna (anche a ogni passaggio dell'ATS sulle batterie).</p>`);
 }
 function fillSettings(){
