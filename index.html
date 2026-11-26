@@ -313,6 +313,8 @@ a.set-btn{text-decoration:none}
 
 /* storico */
 .hist{width:100%;height:auto;display:block;touch-action:pan-y;cursor:crosshair;-webkit-user-select:none;user-select:none}
+.prod{width:100%;height:auto;display:block}
+.legend i.pr-w{height:3px;border-radius:0;background:var(--ink);vertical-align:3px}
 .hist-read{margin:0 0 8px;min-height:2.9em;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .hist-read b{color:var(--ink);font-weight:600}
 .hist-read .in{color:var(--sun)} .hist-read .out{color:var(--out)}
@@ -1764,6 +1766,12 @@ button.tdy-top{cursor:pointer}
       <svg class="hist" id="hist" viewBox="0 0 340 152" role="img" aria-label="Andamento della carica e della potenza nelle ultime 24 ore"></svg>
       <p class="legend"><span><i style="background:var(--lith)"></i>Carica delle batterie</span><span><i style="background:var(--cg-in)"></i>Potenza in entrata</span><span><i style="background:var(--cg-out)"></i>Potenza in uscita</span></p>
     </section>
+    <section class="panel" aria-labelledby="h-prod">
+      <h2 id="h-prod">Pannelli e pala, ultime 24 ore</h2>
+      <p class="hist-read" id="prod-read"></p>
+      <svg class="prod" id="prod" viewBox="0 0 340 150" role="img" aria-label="Produzione dei pannelli e della pala eolica nelle ultime 24 ore"></svg>
+      <p class="legend"><span><i style="background:var(--sun)"></i>Pannelli</span><span><i class="pr-w"></i>Pala (stimata, media dell'ora)</span><span><i class="wn-na"></i>Pala non stimabile</span></p>
+    </section>
     <section class="panel plain" aria-labelledby="h-fc">
       <h2 id="h-fc">Batterie, prossime 48 ore</h2>
       <div class="wx" id="wx"></div>
@@ -2021,7 +2029,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.76"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.77"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -4229,6 +4237,7 @@ function render(m){
   drawAlHist();
 
   drawHistory(data.history, nowOf(data));
+  drawProd();
 
   // piè di pagina
   $("f-upd").textContent = "Aggiornato alle " + new Date(nowOf(data) * 1000).toLocaleTimeString("it-IT");
@@ -4244,6 +4253,68 @@ function render(m){
 const HW = 340, TOP = 10, SOCH = 80, BASE = 124, AMP = 20;
 const ySoc = s => TOP + (1 - Math.max(0, Math.min(100, s)) / 100) * SOCH;
 
+/* Pannelli e pala nelle ultime 24 ore, due linee sovrapposte (2.77, voluto dall'utente il 26/11/2026). I pannelli sono misurati: una linea per
+   quarto d'ora dal registro. La pala non ha un misuratore, è stimata dal conto sul bus delle batterie, quarto d'ora per quarto d'ora e poi in
+   media dell'ora (servono almeno due quarti d'ora stimabili): con la casa su Enel batterie − pannelli − perdite a pala ferma (come wndHours);
+   con la casa sulle batterie batterie − pannelli + a × uscita + b (wndAB), solo dove il registro ha l'uscita misurata dell'inverter. Dove non
+   si può stimare la linea si interrompe e la fascia è tratteggiata. La pala fa un decimo dei pannelli: ognuna ha la sua scala (pannelli a
+   sinistra, pala a destra), e i kWh a confronto li dice la frase sopra. */
+function prodSeries(now){
+  const t0 = now - DAY, rows = LOG.filter(r => r[0] + r[1] * 60 > t0 && r[0] <= now), H = rows.length ? wndHours() : [], hOf = new Map(H.map(h => [h.t, h]));
+  const pv = [], byH = new Map();
+  rows.forEach(([t, m, , chg, dsg, p, ac]) => {
+    const mid = t + m * 30, k = 60 / m, pw = fin(p) ? p * k : null;
+    if (pw !== null) pv.push({ t: mid, at: t, w: pw });
+    let w = null;                                   // la pala in questo quarto d'ora: null = non stimabile
+    if (!wndOn(mid)) w = 0;
+    else if (pw !== null && fin(chg) && fin(dsg)) {
+      const bat = (chg - dsg) * k;
+      if (!bankAt(mid)) { const h = hOf.get(Math.floor(mid / HOUR) * HOUR); w = Math.max(0, bat - pw - H.loss(h ? h.on : 1, pw)); if (w < WND_NOISE) w = 0; }
+      else if (fin(ac) && t >= AC_FROM) { const { a, b } = wndAB(pw, H); w = bat - pw + a * ac * k + b; if (w < WND_LOW_B) w = 0; }
+    }
+    const hk = Math.floor(mid / HOUR) * HOUR; let o = byH.get(hk); if (!o) byH.set(hk, o = { t: hk, s: 0, n: 0, q: 0 });
+    o.q++; if (w !== null) { o.s += w; o.n++; }
+  });
+  const wind = [...byH.values()].sort((a, b) => a.t - b.t).map(o => ({ t: o.t, w: o.n >= 2 ? o.s / o.n : null }));
+  return { t0, pv, wind };
+}
+function drawProd(){
+  const svg = $("prod"); if (!svg) return;
+  const now = nowOf(data), { t0, pv, wind } = prodSeries(now), read = $("prod-read");
+  if (pv.length < 2 && !wind.some(h => h.w !== null)) {
+    svg.innerHTML = `<text x="170" y="76" text-anchor="middle" fill="var(--muted)" font-size="11">Compare con qualche ora di registro della scheda</text>`; read.textContent = ""; return; }
+  const W = 340, top = 14, base = 122, X = t => clamp((t - t0) / DAY, 0, 1) * W, ny = n => { const s = Math.pow(10, Math.floor(Math.log10(n))), f = n / s; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * s; };
+  const est = wind.filter(h => h.w !== null), pMax = ny(Math.max(500, ...pv.map(q => q.w))), wMax = ny(Math.max(200, ...est.map(h => h.w)));
+  const Yp = w => base - clamp(w / pMax, 0, 1) * (base - top), Yw = w => base - clamp(w / wMax, 0, 1) * (base - top);
+  let g = `<defs><pattern id="pr-na" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="1.6" height="5" fill="var(--line)"/></pattern></defs>`;
+  // le fasce dove la pala non si può stimare, dietro a tutto
+  wind.forEach(h => { if (h.w === null) { const x1 = X(h.t), x2 = X(h.t + HOUR); if (x2 > x1) g += `<rect x="${x1.toFixed(1)}" y="${top}" width="${(x2 - x1).toFixed(1)}" height="${base - top}" fill="url(#pr-na)" opacity=".6"/>`; } });
+  // la griglia: le ore tonde ogni 6, e la mezzanotte col nome del giorno
+  for (let t = Math.ceil(t0 / HOUR) * HOUR; t <= now; t += HOUR) { const d = new Date(t * 1000), x = X(t), hh = d.getHours();
+    if (hh % 6 || d.getMinutes()) continue;
+    g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${top}" y2="${base}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${clamp(x, 10, W - 10).toFixed(1)}" y="${base + 13}" text-anchor="middle" font-size="9" fill="var(--muted)">${hh ? String(hh).padStart(2, "0") : WD[d.getDay()].slice(0, 3)}</text>`; }
+  g += `<line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="var(--line)"/>`;
+  // i pannelli: area tenue e linea; un buco nel registro oltre mezz'ora spezza la linea
+  let segs = [], cur = [];
+  pv.forEach((q, i) => { if (i && q.t - pv[i - 1].t > 1800) { segs.push(cur); cur = []; } cur.push(q); }); if (cur.length) segs.push(cur);
+  segs.forEach(sg => { if (sg.length < 2) return; const pts = sg.map(q => `${X(q.t).toFixed(1)},${Yp(q.w).toFixed(1)}`).join(" ");
+    g += `<polygon points="${X(sg[0].t).toFixed(1)},${base} ${pts} ${X(sg[sg.length - 1].t).toFixed(1)},${base}" fill="var(--sun-tint)"/><polyline points="${pts}" fill="none" stroke="var(--sun)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`; });
+  // la pala: una linea fra i centri delle ore stimate, spezzata dove manca; un'ora isolata è un punto
+  let ws = [], wc = [];
+  wind.forEach(h => { if (h.w === null) { if (wc.length) ws.push(wc); wc = []; } else wc.push(h); }); if (wc.length) ws.push(wc);
+  ws.forEach(sg => { const P = sg.map(h => [X(Math.min(now, h.t + HOUR / 2)), Yw(h.w)]);
+    g += sg.length > 1 ? `<polyline points="${P.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
+      : `<circle cx="${P[0][0].toFixed(1)}" cy="${P[0][1].toFixed(1)}" r="2.2" fill="var(--ink)"/>`; });
+  g += `<text x="2" y="${top - 4}" font-size="9" font-weight="700" fill="var(--sun)">${power(pMax)}</text><text x="${W - 2}" y="${top - 4}" text-anchor="end" font-size="9" font-weight="700" fill="var(--ink)">${power(wMax)}</text>`;
+  if (svg.dataset.h !== g) { svg.dataset.h = g; svg.innerHTML = g; }
+  // la frase: i kWh a confronto, i massimi, e quante ore la pala non si è potuta stimare
+  const kPv = pv.length ? LOG.filter(r => r[0] + r[1] * 60 > t0 && r[0] <= now && fin(r[5])).reduce((a, r) => a + r[5], 0) / 1000 : null, kW = est.reduce((a, h) => a + h.w, 0) / 1000;
+  const pTop = pv.reduce((a, q) => !a || q.w > a.w ? q : a, null), wTop = est.reduce((a, h) => !a || h.w > a.w ? h : a, null), na = wind.filter(h => h.w === null).length;
+  const at = t => `${dayWord(t) === "oggi" ? "" : vDay(t) + " "}alle ${hm(t)}`;
+  read.innerHTML = (kPv !== null ? `Pannelli <b>${nf(kPv, 1)} kWh</b>${pTop && pTop.w >= 50 ? `, massimo ${power(pTop.w)} ${at(pTop.at)}` : ""}. ` : "") +
+    (est.length ? `Pala <b>circa ${nf(kW, kW < 1 ? 2 : 1)} kWh</b>${est.length < wind.length ? ` in ${est.length} ${est.length === 1 ? "ora stimata" : "ore stimate"}` : ""}${wTop && wTop.w >= WND_NOISE ? `, massimo ${power(wTop.w)} ${at(wTop.t).replace("alle", "nell'ora delle")}` : ""}.` : "Pala: nessuna ora stimabile.") +
+    (na ? ` Per ${na} ${na === 1 ? "ora" : "ore"} la pala non si può stimare.` : "");
+}
 function drawHistory(h, tNow){
   const svg = $("hist");
   const soc = (h && h.soc) || [];
