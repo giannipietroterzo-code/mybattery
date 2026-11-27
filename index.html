@@ -2039,7 +2039,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.79"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.80"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -7570,7 +7570,7 @@ function fillInvNote(){
    la memoria interna (heap, heap_min dall'avvio, heap_max il blocco più grande; sotto GUARD_HEAP per 5 minuti il guardiano riavvia), i riavvii
    del guardiano (data.wd = [quando, motivo, quanti]: 2 muta da mezz'ora, 3 memoria quasi finita, 4 mai collegata in 6 ore), l'ultimo errore
    (data.crash) e gli ultimi avvii (data.boots = [quando, motivo di esp_reset_reason]). Si ridisegna a ogni lettura, solo con le Impostazioni aperte */
-const GUARD_HEAP = 16384, GUARD_WHY = { 2: "da mezz'ora non riusciva a mandare dati", 3: "la memoria era quasi finita", 4: "in 6 ore non si era mai collegata" };
+const GUARD_HEAP = 16384, GUARD_WHY = { 2: "da mezz'ora non riusciva a mandare dati", 3: "la memoria era quasi finita", 4: "in 6 ore non si era mai collegata", 5: "aveva perso il router e non riusciva a rientrare" };
 const BOOT_WHY = { 1: "accensione", 3: "riavvio voluto", 4: "errore del firmware", 5: "bloccata: watchdog", 6: "bloccata: watchdog", 7: "bloccata: watchdog", 9: "calo di tensione" };
 /* Il rientro nella rete del router (2.76, firmware 0.92): data.net = {up, n, r, b: [[ora dell'avvio, motivo dell'avvio, durata dell'avvio in decimi
    di secondo, secondi fino al primo indirizzo o null, tentativi, rifiuti, [ultimi motivi, il più recente davanti], associazioni senza indirizzo,
@@ -7636,7 +7636,7 @@ function drawBoard(){
   const nets = nb.length ? `<h4>Rientri nella rete del router</h4><ul class="brd-boots">` + nb.map(b => { const l = netLine(b);
     return `<li class="${l.slow ? "e" : ""}"><time>${dmh(b[0])}</time><span>${l.t}${l.extra ? `<small>${l.extra}</small>` : ""}</span></li>`; }).join("") + `</ul>` : "";
   set(head + mem + list + boots + nets +
-    `<p class="set-note">La memoria interna serve alla rete: se resta sotto ${kB(GUARD_HEAP)} kB per 5 minuti, o se la scheda non riesce a mandare dati per mezz'ora, si riavvia da sola e manda una notifica. «Riavvio voluto» è un aggiornamento, un comando o il guardiano; «accensione» è la corrente che torna (anche a ogni passaggio dell'ATS sulle batterie).</p>`);
+    `<p class="set-note">La memoria interna serve alla rete: se resta sotto ${kB(GUARD_HEAP)} kB per 5 minuti, se perde il router per 5 minuti (dal firmware 0.94), o se non riesce a mandare dati per mezz'ora, la scheda si riavvia da sola e manda una notifica. «Riavvio voluto» è un aggiornamento, un comando o il guardiano; «accensione» è la corrente che torna (anche a ogni passaggio dell'ATS sulle batterie).</p>`);
 }
 function fillSettings(){
   drawBoard();
