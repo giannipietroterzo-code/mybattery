@@ -1,8 +1,8 @@
 {
- "v": "1.1",
- "code": 2,
- "url": "https://github.com/giannipietroterzo-code/mybattery/releases/download/guscio-1.1/MyBattery.apk",
- "size": 67971,
- "sha256": "ee38ddbdd2d9356c0ed8ae13c0e6c4bc33b105188229de3ae8a43f2ebc1e6d53",
- "note": "Il guscio controlla da solo ogni 6 ore se su GitHub c'è una versione nuova e la propone (anche dal menu)."
+ "v": "1.2",
+ "code": 3,
+ "url": "https://github.com/giannipietroterzo-code/mybattery/releases/download/guscio-1.2/MyBattery.apk",
+ "size": 71605,
+ "sha256": "dfb679778ffc2093b9ff3c39e2d6234e2533486fc28d6ce85e50d79d5308da67",
+ "note": "Funziona anche su Android 5 e 6 (il telefono Monitor)."
 }
