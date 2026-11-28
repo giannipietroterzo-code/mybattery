@@ -2039,7 +2039,7 @@ async function bFetch(url, opt, ms){
   try { return await Promise.race([read, late]); } finally { clearTimeout(t); }
 }
 const DAY = 86400;
-const APP_VERSION = "2.80"; // da cambiare insieme a VERSION in sw.js
+const APP_VERSION = "2.81"; // da cambiare insieme a VERSION in sw.js
 
 /* ---------- testi degli avvisi (codici prodotti dal firmware) ---------- */
 const MSG = {
@@ -2557,7 +2557,7 @@ function loadSettings(){
   return o;
 }
 // auto = salvataggio fatto dalla app da sola (Voc imparata, resistenza del banco…): niente pop-up, e se non riesce si riprova più tardi
-function saveSettings(auto = false){ try { if (!fin(S.aoV)) S.aoV = aoVolt(); S.aoSoc = Math.round(clamp(socAtV(S.aoV), 5, 60)); } catch (e) {}   // la soglia in volt e la carica che le corrisponde (per l'avviso e la riaccensione)
+function saveSettings(auto = false){ try { if (!fin(S.aoV)) S.aoV = aoVolt(); S.aoSoc = Math.round(clamp(ocvSoc(S.aoV), 5, 60)); } catch (e) {}   // la soglia in volt e la carica che le corrisponde (per l'avviso e la riaccensione), con la curva del firmware
   try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} try { if (canWrite() && !cfgPulling) pushShared(auto); } catch (e) {} } // try: può servire prima che "mode" esista
 
 /* ---------- impostazioni condivise: con la scheda le tiene lei, così ogni telefono (e il display) vede le stesse ---------- */
@@ -2986,11 +2986,11 @@ function autonomy(k, f){
     const det = withMask(1, t0 + AUTO_H * HOUR, () => runDet(M, t0, soc0, cap, { N: AUTO_H, asFc: true, pvB: c.pvB, lB: c.lB, nc: c.nc, batW }));
     const paths = simPaths({ ...det, M, t0, soc0, cap, batW, draw: c.draw }, NIGHT_R), N = det.P.length;
     const ts = paths.map(a => { for (let i = 0; i < N; i++) if (a[i + 1] <= cut) return det.T[i] + HOUR * clamp((a[i] - cut) / ((a[i] - a[i + 1]) || 1), 0, 1); return Infinity; }).sort((x, y) => x - y);
-    const qt = p => { const v = ts[Math.min(ts.length - 1, Math.floor(ts.length * p))]; return fin(v) ? v : null; };
+    const qt = p => { const v = ts[Math.min(ts.length - 1, Math.floor(ts.length * p))]; return fin(v) ? v : null; }, split = splitOf(ts, ts.length);
     const col = p => det.S.map((_, i) => Math.max(cut, quant(paths.map(a => a[i]), p)));       // dopo lo stacco la casa va su Enel: la curva si ferma lì
     const mid = col(.5), iMin = mid.reduce((b, v, i, a) => v < a[b] ? i : b, 0), day = a => a.slice(0, 24).reduce((x, y) => x + y, 0), e24 = kwhAhead(M, c.ahead, t0, t0 + DAY);   // gli stessi kWh della scheda del meteo
-    const aoff = aoL ? aoCross(det, paths, aoL) : null;
-    o = { hab: true, aoff, nt: { ...nightOf({ ...det, t0 }, paths), simple: false }, t: det.T, pv: det.P, load: det.L, night: det.night, mid, lo: col(.1), hi: col(.9), p: ts.filter(fin).length / ts.length, at: qt(.5), early: qt(.2),
+    const aoff = aoL ? aoCross(det, paths, aoL, cut) : null;
+    o = { hab: true, aoff, nt: { ...nightOf({ ...det, t0 }, paths), simple: false }, t: det.T, pv: det.P, load: det.L, night: det.night, mid, lo: col(.1), hi: col(.9), p: ts.filter(fin).length / ts.length, at: qt(.5), early: qt(.2), split,
       min: mid[iMin], minAt: det.T[iMin], slope: (mid[N] - mid[0]) / (AUTO_H / 24), W: day(det.L) / 24, lKwh: e24.load, pKwh: e24.pv !== null ? e24.pv : day(det.P) / 1000 };
   } else { const W = nightW(k, 1); o = W ? { W } : { unknown: true }; }
   o.cap = cap; o.left = whAbove(k, cut); if (o.W) o.dark = o.left / o.W;
@@ -3012,7 +3012,7 @@ function autonomy(k, f){
 // tensione, e la batteria più debole secondo il suo BMS non conta (2.75, firmware 0.91; il 25/11/2026 l'avviso diceva «tra 0 minuti» con la Master
 // al 15% per il suo BMS e la tensione a riposo ancora un volt sopra la soglia)
 const aoByV = () => !!(data && data.ao && fin(data.ao.vs));
-const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(a || (data && data.cb))) return null; const v = aoByV() ? clamp(socAtV(a.vs), 5, 60) : a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
+const aoLimit = () => { const a = data && data.ao; if (!(a ? a.on : S.aoOn) || !(a || (data && data.cb))) return null; const v = aoByV() ? clamp(ocvSoc(a.vs), 5, 60) : a && fin(a.soc) && a.soc >= 5 ? a.soc : S.aoSoc; return fin(v) ? v : null; };
 /* La batteria più debole (dalla 2.03 e dal firmware 0.55; il 15/11/2026 la scheda ha spento con la media al 43% perché la Batteria 3 era al 15%):
    quella con la carica più bassa adesso, qualunque sia. Le sue celle cedono quando LEI arriva alla soglia, quindi per la media la soglia vera
    è più su: soglia + distacco tra la media e la più debole (tenuto fermo nelle simulazioni; contano solo distacchi da 2 punti, al massimo 30).
@@ -3024,17 +3024,28 @@ function aoWeak(){
   return { i: w.i, name: nameOf(w.b, w.i), soc: w.b.soc, gap: gap >= 2 && !aoByV() ? gap : 0 };
 }
 const aoMean = () => { const l = aoLimit(), w = l ? aoWeak() : null; return l ? l + (w ? w.gap : 0) : null; };
-function aoCross(det, paths, lim){
+function aoCross(det, paths, lim, cut){
   const N = det.P.length, vT = RM && fin(RM.vc) && fin(RM.R) && RM.R > 0 ? RM.vc + 1 : null;
   const pk = vT ? det.T.map(t => { const h = new Date(t * 1000).getHours(), d = rkKnown(h) ? rkDist(h, true, t) : []; return d.length ? quant(d.map(x => x[0]), .9) : 0; }) : null;   // solo dove i picchi sono misure
   const vHit = (s, i) => vT && pk[i] > rkMaxW(s, vT);
   const hits = paths.map(a => { for (let i = 0; i < N; i++) {
-      if (a[i + 1] <= lim) return { t: det.T[i] + HOUR * clamp((a[i] - lim) / ((a[i] - a[i + 1]) || 1), 0, 1), w: "carica", s: lim };
-      if (a[i + 1] < a[i] && vHit(a[i + 1], i)) return { t: det.T[i] + HOUR / 2, w: "volt", s: a[i + 1] };
+      if (a[i + 1] <= lim && lim > cut) return { t: det.T[i] + HOUR * clamp((a[i] - lim) / ((a[i] - a[i + 1]) || 1), 0, 1), w: "carica", s: lim };
+      if (a[i + 1] < a[i] && a[i + 1] > cut && vHit(a[i + 1], i)) return { t: det.T[i] + HOUR / 2, w: "volt", s: a[i + 1] };
+      if (a[i + 1] <= cut) return null;   // 2.81: stacca prima l'inverter e la casa va su Enel; la scheda dopo non c'è
     } return null; });
   const ok = hits.filter(Boolean).sort((x, y) => x.t - y.t), R = paths.length, pick = p => ok.length > R * p ? ok[Math.floor(R * p)] : null;
   const m = pick(.5), e = pick(.2);
-  return { lim, p: ok.length / R, at: m ? m.t : null, early: e ? e.t : null, why: m ? m.w : e ? e.w : null, s: m ? m.s : null };
+  return { lim, p: ok.length / R, at: m ? m.t : null, early: e ? e.t : null, why: m ? m.w : e ? e.w : null, s: m ? m.s : null, split: splitOf(ok.map(x => x.t), R) };
+}
+/* le simulazioni che si dividono in due gruppi lontani (le batterie cedono stanotte, o arrivano al sole e cedono domani): l'orario a metà salta da
+   un gruppo all'altro per pochi punti di carica (28/11/2026: alle 11:33 col 46% «domenica 16:30», alle 14:17 col 53% «domenica 01:30»).
+   ts in ordine (Infinity = non stacca), R simulazioni: il buco più largo fra due orari, se è di almeno 4 ore e lascia almeno il 15 % per parte */
+function splitOf(ts, R){
+  const f = ts.filter(fin); let g = 0, gi = -1;
+  for (let i = 1; i < f.length; i++) if (f[i] - f[i - 1] > g) { g = f[i] - f[i - 1]; gi = i; }
+  if (gi < 0 || g < 4 * HOUR || gi < R * .15 || f.length - gi < R * .15) return null;
+  const med = a => a[Math.floor(a.length / 2)];
+  return { p1: gi / R, at1: med(f.slice(0, gi)), p2: (f.length - gi) / R, at2: med(f.slice(gi)) };
 }
 // da che cosa vengono i consumi dell'autonomia: quanto ha visto, e quanto di oggi
 function autoSrc(){
@@ -3152,6 +3163,9 @@ function drawSolar(k, f){
   const { a, ev, hab, now, on, cut, ao, cb, lim, limE, weak, cbOff, cbOk, aoCan, aoLive, cutAt, aoAt, aoHab, aoRate, sunAt, mn, mnAt, first } = P;
   const ora = t => `${dayWord(t) === "oggi" ? "" : dayWord(t) + " "}alle ${hm(q15(t))}`;
   const show = (cls, ico, t, body, more = "") => { const h = `<div class="n-h"><span class="n-ico">${ico}</span><span class="n-t">${t}</span></div>${body}${more}`; box.hidden = false; box.className = "night sol " + cls; if (box.dataset.h !== h) { box.dataset.h = h; box.innerHTML = h; } };
+  // 2.81: con le simulazioni divise in due gruppi si dicono tutti e due (al posto di «una volta su cinque»)
+  const spTxt = sp => { const n1 = Math.round(sp.p1 * 10), n2 = Math.round(sp.p2 * 10), n0 = 10 - n1 - n2;
+    return ` Le simulazioni si dividono: in <b>${n1} casi su 10</b> ${ora(sp.at1)}, in ${n2} su 10 ${ora(sp.at2)}${n0 >= 2 ? `, negli altri ${n0} non arriva` : ""}.`; };
   const p = s => `<p class="n-d">${s}</p>`, tiles = l => `<dl class="tmr-g sol-g">${l.map(([t, v, c]) => `<div${c ? ` class="${c}"` : ""}><dt>${t}</dt><dd>${v}</dd></div>`).join("")}</dl>`;
   const enelNote = on ? "" : cbOff ? " <small>Adesso l'uscita dell'inverter è spenta e la casa è su Enel: è come andrebbe riaccendendola.</small>" : " <small>Adesso la casa è su Enel: è come andrebbe con la casa sulle batterie.</small>";
   // l'automatico ha già spento, è in pausa, o non può agire: la sezione dice quello, con la barra
@@ -3197,10 +3211,10 @@ function drawSolar(k, f){
         (fin(aoHab) ? ` Coi consumi soliti sarebbe ${ora(aoHab)}.` : "")
       : `Coi consumi soliti ${hab ? "e il sole previsto " : "al buio "}la scheda spegnerebbe l'uscita <b>${ora(aoAt)}</b>, ` + (o.why === "volt" ? `per un picco di consumo con le batterie già basse.` : limT)) +
       (fin(cutAt) && cutAt - aoAt > 900 ? ` L'inverter da solo staccherebbe ${ora(cutAt)}: la casa va su Enel <b>${dur((cutAt - aoAt) / HOUR)} prima</b>, con le batterie meno tirate.` : "") +
-      (!aoRate && o.early && aoAt - o.early > 1.5 * HOUR ? ` Una volta su cinque (giornata pesante o meno sole) già ${ora(o.early)}.` : "");
+      (aoRate ? "" : o.split ? spTxt(o.split) : o.early && aoAt - o.early > 1.5 * HOUR ? ` Una volta su cinque (giornata pesante o meno sole) già ${ora(o.early)}.` : "");
   } else if (fin(cutAt)) {
     d = `Coi consumi soliti ${hab ? "e il sole previsto " : ""}l'inverter staccherebbe <b>${ora(cutAt)}</b>, poi l'ATS porta la casa su Enel` + (fin(sunAt) ? ` fino a quando i pannelli ricaricano.` : ".") +
-      (hab && a.early && cutAt - a.early > 1.5 * HOUR ? ` Una volta su cinque (giornata pesante o meno sole) già ${ora(a.early)}.` : "") + (lim && !aoCan ? "" : !lim ? " <small>Con lo spegnimento automatico (Impostazioni) la scheda la porterebbe su Enel prima.</small>" : "");
+      (!hab ? "" : a.split ? spTxt(a.split) : a.early && cutAt - a.early > 1.5 * HOUR ? ` Una volta su cinque (giornata pesante o meno sole) già ${ora(a.early)}.` : "") + (lim && !aoCan ? "" : !lim ? " <small>Con lo spegnimento automatico (Impostazioni) la scheda la porterebbe su Enel prima.</small>" : "");
   } else {
     d = `Coi consumi soliti e il sole previsto non arrivano allo stacco: il punto più basso è il <b>${nf(mn, 0)}%</b>${mnAt ? " " + ora(mnAt) : ""}.` +
       (hab && a.slope < -1 ? ` Però ogni giorno perdono circa ${nf(-a.slope, 0)} punti: i pannelli danno meno di quanto la casa chiede.` : "") +
@@ -3275,15 +3289,14 @@ async function stSync(at){
     await stMerge(got); await boardAlarms(); stSeen = at;
   } catch (e) {} finally { stBusy = false; }
 }
-/* tensione a riposo ↔ carica: quella imparata dal registro per fasce del 5 % (rkV0, la stessa del rischio), se no la curva tipica. socAtV prende
-   l'inviluppo crescente, perché le fasce imparate possono non essere in ordine. Servono al cursore in volt dello spegnimento automatico (1.99) */
 const round1 = x => Math.round(x * 10) / 10;
-const vAtSoc = s => RM && RM.v0b && RM.v0b.size ? rkV0(s) : ocv(s);
-function socAtV(v){ let m = -Infinity; for (let s = 0; s <= 100; s += .5) { m = Math.max(m, vAtSoc(s)); if (m >= v) return s; } return 100; }
-const aoVolt = () => fin(S.aoV) ? S.aoV : round1(vAtSoc(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)));   // senza soglia ancora scelta: il margine di prima tradotto
+/* la soglia della scheda è in volt a riposo: in carica si traduce con la curva di fabbrica LFP_OCV, la stessa del firmware (ocvSoc, 0.91) e dello
+   stacco dell'inverter (cutSoc). 2.81: prima si usava la curva imparata dal registro (rkV0), che sotto il 15% non ha misure e resta a 51 V:
+   il 28/11/2026 la soglia di 50,4 V diventava il 5% (sotto lo stacco, al 13%) e la app metteva la scheda dopo l'inverter. Il firmware la vede al 17% */
+const aoVolt = () => fin(S.aoV) ? S.aoV : round1(ocv(clamp(cutSoc() + (S.aoMarg || 5), 5, 60)));   // senza soglia ancora scelta: il margine di prima tradotto
 // la soglia detta a parole: i volt scelti e la carica che le corrisponde (quella della più debole, se una batteria resta indietro)
 const guardTxt = () => { const v = aoVs(), l = aoLimit(), w = l ? aoWeak() : null; return (fin(v) ? nf(v, 1) + " V, " : "") + "circa " + Math.round(l ?? aoBase()) + "%" + (w && w.gap ? " sulla più debole" : ""); };
-const aoBase = () => fin(S.aoSoc) ? S.aoSoc : Math.round(socAtV(aoVolt()));
+const aoBase = () => fin(S.aoSoc) ? S.aoSoc : Math.round(ocvSoc(aoVolt()));
 const aoVs = () => data && data.ao && fin(data.ao.vs) ? data.ao.vs : fin(S.aoV) ? S.aoV : NaN;
 const RK_S = [15, 25, 35, 50, 101], RK_L = [1, 2.5, 4, 99], bandOf = (a, x) => a.findIndex(b => x < b);
 function riskLearn(){
@@ -7514,7 +7527,7 @@ function aoVPaint(v){
   const inp = $("aov-in"), lo = +inp.min, hi = +inp.max, vc = aoVRange()[2], f = x => clamp((x - lo) / (hi - lo), 0, 1), at = x => `calc(13px + (100% - 26px) * ${f(x).toFixed(4)})`;
   const tr = $("aov-tr").style; tr.setProperty("--c", at(vc)); tr.setProperty("--p", at(v));
   const b = data && Array.isArray(data.batteries) ? bank(data.batteries) : null, full = b && b.full > 0 ? bankWh(b) / 1000 : 51.2;
-  const s = socAtV(v), keep = Math.max(0, s - cutSoc()) / 100 * full;
+  const s = ocvSoc(v), keep = Math.max(0, s - cutSoc()) / 100 * full;
   $("aov-val").innerHTML = `${nf(v, 1)}<small>V</small>`;
   $("aov-eq").innerHTML = `${nf(v / 16, 2)} V per cella · circa <b>${Math.round(s)}%</b> · <b>${nf(keep, 1)} kWh</b> sopra lo stacco`;
   // le batterie adesso, a riposo (dalla scheda 0.52, se no dalla lettura più la caduta)
@@ -7522,7 +7535,7 @@ function aoVPaint(v){
   const now = $("aov-now"); now.hidden = !fin(vr); if (fin(vr)) tr.setProperty("--n", at(vr));
   const lab = (x, cls, t, val) => { const q = f(x); return `<span class="${cls}${q < .1 ? " l" : q > .9 ? " r" : ""}" style="left:${at(x)}">${t}<b>${val}</b></span>`; };
   // l'allarme «Carica sotto il» (Allarmi) come terzo segno: allarme, soglia e inverter in fila sulla stessa scala. Fuori scala non si mostra
-  const va = fin(S.alLow) ? vAtSoc(S.alLow) : NaN, alIn = fin(va) && va > lo + .05 && va < hi - .05, alEl = $("aov-al");
+  const va = fin(S.alLow) ? ocv(S.alLow) : NaN, alIn = fin(va) && va > lo + .05 && va < hi - .05, alEl = $("aov-al");
   alEl.hidden = !alIn; if (alIn) tr.setProperty("--a", at(va));
   // le scritte sotto: «adesso» c'è sempre, le altre solo se non le finiscono addosso
   const far = (x, y, d) => !fin(y) || Math.abs(f(x) - f(y)) >= d, alLab = alIn && far(va, vr, .22);
